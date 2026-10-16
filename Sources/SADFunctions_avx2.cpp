@@ -1,3 +1,5 @@
+#if !defined(_M_ARM64) && !defined(__aarch64__)
+
 #if defined (__GNUC__) && ! defined (__INTEL_COMPILER)
 #include <x86intrin.h>
 // x86intrin.h includes header files for whatever instruction
@@ -365,5 +367,7 @@ MAKE_SAD_FN(8, 2)
 //MAKE_SAD_FN(2, 2)
 //MAKE_SAD_FN(2, 1)
 #undef MAKE_SAD_FN
+
+#endif // !defined(_M_ARM64) && !defined(__aarch64__)
 
 

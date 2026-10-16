@@ -999,6 +999,7 @@ func_sad[make_tuple(x, y, 8, USE_SSE2)] = Sad_sse2<x,y>;
     //func_sad[make_tuple(2, 2, 8, USE_SSE2)] = Sad2x2_iSSE;
 #endif // USE_SAD_ASM
 
+#if !defined(_M_ARM64) && !defined(__aarch64__)
     //---------------- AVX2
     // PF SAD 16 SIMD intrinsic functions
     // only for >=16 bytes widths (2x16 byte still OK *but not optimal), width 24 is not available)
@@ -1046,6 +1047,7 @@ func_sad[make_tuple(x, y, 8, USE_SSE2)] = Sad_sse2<x,y>;
       //MAKE_SAD_FN(2, 2)
       //MAKE_SAD_FN(2, 1)
 #undef MAKE_SAD_FN
+#endif
 
 
     SADFunction *result = nullptr;

@@ -13,6 +13,8 @@
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
 // http://www.gnu.org/copyleft/gpl.html .
 
+#if !defined(_M_ARM64) && !defined(__aarch64__)
+
 #if defined (__GNUC__) && ! defined (__INTEL_COMPILER) && ! defined(__INTEL_LLVM_COMPILER)
 #include <x86intrin.h>
 // x86intrin.h includes header files for whatever instruction
@@ -53,4 +55,6 @@
 #include "def.h"
 
 // RFU, see DTL's fork
+
+#endif // !defined(_M_ARM64) && !defined(__aarch64__)
 

@@ -151,6 +151,7 @@ MAKE_FN(2, 1)
 // for no_template_by_y: special height==0 -> internally nHeight comes from variable (for C: both width and height is variable)
 // Degrain1to6_avx2: not worth, probably the excessive ymm register saving prolog and epilog overhead?
 //                   above fixed (no manual vzeroupper!) not worth, 
+#if !defined(_M_ARM64) && !defined(__aarch64__)
 #define MAKE_FN_LEVEL(x, y, level, yy) \
 func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT, level, USE_SSE2)] = Degrain1to6_sse2<x, yy, 0, level>; \
 func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT, level, USE_AVX2)] = Degrain1to6_avx2<x, yy, 0, level>; \
@@ -162,6 +163,17 @@ func_degrain[make_tuple(x, y, DEGRAIN_TYPE_10to14BIT + OUT32_MARKER, level, USE_
 func_degrain[make_tuple(x, y, DEGRAIN_TYPE_16BIT + OUT32_MARKER, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, false, true>; \
 func_degrain[make_tuple(x, y, DEGRAIN_TYPE_10to14BIT, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, true, false>; \
 func_degrain[make_tuple(x, y, DEGRAIN_TYPE_16BIT, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, false, false>;
+#else
+#define MAKE_FN_LEVEL(x, y, level, yy) \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT, level, USE_SSE2)] = Degrain1to6_sse2<x, yy, 0, level>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT_STACKED, level, USE_SSE2)] = Degrain1to6_sse2<x, yy, 1, level>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT_OUT16, level, USE_SSE2)] = Degrain1to6_sse2<x, yy, 2, level>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_8BIT + OUT32_MARKER, level, USE_SSE2)] = Degrain1to6_sse2<x, yy, 3, level>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_10to14BIT + OUT32_MARKER, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, true, true>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_16BIT + OUT32_MARKER, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, false, true>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_10to14BIT, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, true, false>; \
+func_degrain[make_tuple(x, y, DEGRAIN_TYPE_16BIT, level, USE_SSE41)] = Degrain1to6_16_sse41<x, yy, level, false, false>;
+#endif
 
 #define MAKE_FN(x, y, yy) \
 MAKE_FN_LEVEL(x,y,1, yy) \

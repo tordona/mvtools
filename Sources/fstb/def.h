@@ -41,7 +41,7 @@ namespace fstb
 
 #if defined (__i386__) || defined (_M_IX86) || defined (_X86_) || defined (_M_X64) || defined (__x86_64__) || defined (__INTEL__)
 	#define fstb_ARCHI	fstb_ARCHI_X86
-#elif defined (__arm__) || defined (__arm) || defined (__arm64__) || defined (__arm64) || defined (_M_ARM) || defined (__aarch64__)
+#elif defined (__arm__) || defined (__arm) || defined (__arm64__) || defined (__arm64) || defined (_M_ARM) || defined (_M_ARM64) || defined (__aarch64__)
 	#define fstb_ARCHI	fstb_ARCHI_ARM
 #else
 	#error
@@ -50,7 +50,7 @@ namespace fstb
 
 
 // Native word size, in power of 2 bits
-#if defined (_WIN64) || defined (__64BIT__) || defined (__amd64__) || defined (__x86_64__) || defined (__aarch64__) || defined (__arm64__) || defined (__arm64)
+#if defined (_WIN64) || defined (__64BIT__) || defined (__amd64__) || defined (__x86_64__) || defined (__aarch64__) || defined (__arm64__) || defined (__arm64) || defined (_M_ARM64)
 	#define fstb_WORD_SIZE_L2      (6)
 	#define fstb_WORD_SIZE        (64)
 	#define fstb_WORD_SIZE_BYTE    (8)
@@ -69,7 +69,7 @@ namespace fstb
 #if (fstb_ARCHI == fstb_ARCHI_X86)
 	#define fstb_ENDIAN fstb_ENDIAN_LITTLE
 #elif (fstb_ARCHI == fstb_ARCHI_ARM)
-	#if defined (__ARMEL__) || defined (__LITTLE_ENDIAN__)
+	#if defined (__ARMEL__) || defined (__LITTLE_ENDIAN__) || defined (_WIN32) || defined (_M_ARM64) || defined (_M_ARM)
 		#define fstb_ENDIAN fstb_ENDIAN_LITTLE
 	#else
 		#define fstb_ENDIAN fstb_ENDIAN_BIG
@@ -169,7 +169,7 @@ namespace fstb
 #else
 	#define fstb_CDECL
 #endif
-#if fstb_IS (SYS, WIN)
+#if defined(fstb_SYS) && (fstb_SYS == fstb_SYS_WIN)
 	#if defined (__GNUC__)
 		#define fstb_EXPORT(f) extern "C" __attribute__((dllexport)) f
 	#else

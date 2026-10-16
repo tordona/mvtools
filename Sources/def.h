@@ -117,23 +117,18 @@ const long double	LN2 = 0.69314718055994530941723212145818L;
 
 #define MAX_BLOCK_SIZE 64
 
-// external asm related defines, disable them for non-windows
-#if defined(_WIN32) && !defined(__GNUC__)
+// external asm related defines, disable them for non-windows or ARM
+#if defined(_WIN32) && !defined(__GNUC__) && !defined(_M_ARM64) && !defined(_M_ARM) && !defined(__aarch64__) && !defined(__arm__)
 #define USE_COPYCODE_ASM
 #define USE_OVERLAPS_ASM
 #define USE_SAD_ASM
 #define USE_SATD_ASM
 #define USE_LUMA_ASM
 #define USE_FDCT88INT_ASM
+#endif
+
+#if defined(_WIN32) && !defined(__GNUC__)
 #define USE_AVSTP
-#else
-//#define USE_COPYCODE_ASM
-//#define USE_OVERLAPS_ASM
-//#define USE_SAD_ASM
-//#define USE_SATD_ASM
-//#define USE_LUMA_ASM
-//#define USE_FDCT88INT_ASM
-//#define USE_AVSTP
 #endif
 
 static MV_FORCEINLINE sad_t ScaleSadChroma(sad_t sad, int effective_scale) {
