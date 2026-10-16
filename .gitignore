@@ -39,6 +39,9 @@ out/*
 Win32/
 x64/
 x86/
+ARM64/
+!Sources/include/arm64/
+!Sources/include/arm64/**
 bld/
 [Bb]in/
 [Oo]bj/

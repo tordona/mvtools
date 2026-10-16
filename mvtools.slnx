@@ -8,6 +8,7 @@
     <BuildType Name="Rel_Clang" />
     <Platform Name="Win32" />
     <Platform Name="x64" />
+    <Platform Name="ARM64" />
   </Configurations>
   <Project Path="DePan/DePan.vcxproj" Id="342e3d8b-846c-4950-8b58-20f28b66c78a">
     <BuildType Solution="ReleaseWithDebugInfo|*" Project="Release" />
