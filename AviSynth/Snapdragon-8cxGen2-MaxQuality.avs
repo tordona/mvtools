@@ -14,7 +14,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Native ARM64 MVTools2 plugin
-LoadPlugin(ScriptDir() + "mvtools2.dll")
+LoadPlugin("mvtools2.dll")
 
 # 1. Subpixel Motion Super Clip (Half-Pixel Precision)
 # pel=2: Half-pixel subpixel interpolation provides fluid motion on slow/medium pans

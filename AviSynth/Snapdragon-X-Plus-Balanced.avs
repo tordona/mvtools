@@ -14,7 +14,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Native ARM64 MVTools2 plugin
-LoadPlugin(ScriptDir() + "mvtools2.dll")
+LoadPlugin("mvtools2.dll")
 
 # 1. Motion Super Clip with Edge Guard
 # pel=1: Whole-pixel estimation paired with MRecalculate keeps CPU low while tracking details

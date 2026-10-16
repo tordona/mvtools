@@ -14,7 +14,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Native ARM64 MVTools2 plugin
-LoadPlugin(ScriptDir() + "mvtools2.dll")
+LoadPlugin("mvtools2.dll")
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids heavy subpixel math on Cortex-A76 cores)
