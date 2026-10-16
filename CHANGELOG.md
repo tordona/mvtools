@@ -1,4 +1,30 @@
 Change log
+- 2.7.47-arm64 (20261016)
+  - Native Windows on ARM64 support:
+    - Added native ARM64 Release and Debug targets across mvtools, DePan, and DePanEstimate.
+    - Supported MSVC toolsets v143 (Visual Studio 2022) and v145 (Visual Studio 2026).
+    - Configured /vmg general member pointer representation and /Zc:preprocessor conformance flags.
+    - Strict backward compatibility preserved for legacy x86 and x64 builds.
+  - SIMD & NEON vectorization:
+    - Integrated sse2neon translation layer converting SSE, SSE2, SSSE3, and SSE4.1 intrinsics to 128-bit ARM NEON.
+    - Added drop-in x86 intrinsic compatibility headers in Sources/include/arm64/.
+    - Gated x86 inline assembly routines in def.h (USE_SAD_ASM, USE_COPYCODE_ASM, etc.) on ARM architectures, routing to optimized SIMD and portable C++ routines.
+  - Cross-compiler C++ ABI bridge (MSVC ARM64 <-> MinGW GCC AArch64):
+    - Aligned IScriptEnvironment vtable slots with dummy destructor padding (__dummy_gcc_dtor_pad).
+    - Enforced 16-byte member function pointers via __multiple_inheritance and /vmg, matching GCC's 3,328-byte AVS_Linkage structure.
+    - Implemented dynamic AArch64 JIT adapter thunk (AVS_WrapApply) for X8 indirect return-buffer register translation.
+    - Added bidirectional GetFrame ABI adapters (AVS_WrapClipVTable for MSVC callee clips; AVS_ClipProxy / AVS_WrapClip for GCC callee clips).
+    - Fixed crash on playback stop/exit by adding __dummy_gcc_dtor_pad to IClip, correctly catching GCC deleting destructor calls at vtable[7].
+  - Qualcomm Snapdragon 60fps AviSynth profiles:
+    - Added 9 tuned real-time motion interpolation profiles under AviSynth/:
+      - Snapdragon X Plus (8x Oryon): Eco, Balanced, MaxQuality.
+      - Snapdragon 8cx Gen 2 (4x Gold + 4x Silver): Eco, Balanced, MaxQuality with strict Prefetch <= 4 core pinning.
+      - Snapdragon 850 (4x Gold + 4x Silver): Eco, Balanced, MaxQuality with 64x32 wide-block thermal optimization.
+    - Replaced hardcoded plugin paths with dynamic LoadPlugin(ScriptDir() + "mvtools2.dll").
+  - Documentation & Hardware Guides:
+    - Added AI_PORT_NOTICE.md detailing port architecture, cross-compiler ABI mechanics, and Antigravity skills.
+    - Added PotPlayer hardware decode (DXVA2/D3D11 Copy-Back) and Direct3D 11 rendering guides in Documentation/guides/ (SnapdragonXPlus.md, Adreno680.md, Adreno630.md).
+
 - 2.7.47 (20260424)
   - Update Avisynth headers to V12 interface (AcquireGlobalLock/ReleaseGlobalLock support)
   - Thread-safe FFTW plan creation/destruction in DCTFFTW using GlobalLockGuard:
