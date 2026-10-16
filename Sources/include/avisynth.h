@@ -104,6 +104,15 @@
 
 #ifdef AVS_POSIX
 # include "avs/posix.h"
+#elif defined(AVS_WINDOWS)
+# ifndef WIN32_LEAN_AND_MEAN
+#  define WIN32_LEAN_AND_MEAN
+# endif
+# ifndef NOMINMAX
+#  define NOMINMAX
+# endif
+# include <windows.h>
+# include <stdio.h>
 #endif
 
 #if defined(AVS_POSIX)
@@ -234,7 +243,11 @@ enum AvsValueType {
 
 /* Forward references */
 #if defined(MSVC)
+  #if defined(ARM64)
+    #define SINGLE_INHERITANCE __multiple_inheritance
+  #else
     #define SINGLE_INHERITANCE __single_inheritance
+  #endif
 #else
     #define SINGLE_INHERITANCE
 #endif
@@ -1255,6 +1268,107 @@ enum CachePolicyHint {
   CACHE_USER_CONSTANTS = 1000       // Smaller values are reserved for the core
 };
 
+#if defined(_MSC_VER) && defined(ARM64)
+#pragma pack(push, 1)
+struct AVS_GetFrameThunk {
+  uint32_t mov_x3_x2; // mov x3, x2 (0xAA0203E3)
+  uint32_t mov_x2_x1; // mov x2, x1 (0xAA0103E2)
+  uint32_t mov_x1_x8; // mov x1, x8 (0xAA0803E1)
+  uint32_t ldr_x16;   // ldr x16, [pc, #8] (0x58000050)
+  uint32_t br_x16;    // br x16 (0xD61F0200)
+  uint64_t target;
+};
+
+struct AVS_CallGetFrameThunk {
+  uint32_t mov_x8_x0;     // mov x8, x0 (0xAA0003E8)
+  uint32_t mov_x0_x1;     // mov x0, x1 (0xAA0103E0)
+  uint32_t mov_x1_x2;     // mov x1, x2 (0xAA0203E1)
+  uint32_t mov_x2_x3;     // mov x2, x3 (0xAA0303E2)
+  uint32_t ldr_vtable;    // ldr x16, [x0] (0xF9400010)
+  uint32_t ldr_getframe;  // ldr x16, [x16, #8] (0xF9400610)
+  uint32_t br_x16;        // br x16 (0xD61F0200)
+};
+
+struct AVS_CallNewVideoFrameThunk {
+  uint32_t mov_x8_x0;     // mov x8, x0 (0xAA0003E8)
+  uint32_t mov_x0_x1;     // mov x0, x1 (0xAA0103E0)
+  uint32_t mov_x1_x2;     // mov x1, x2 (0xAA0203E1)
+  uint32_t mov_x2_x3;     // mov x2, x3 (0xAA0303E2)
+  uint32_t ldr_vtable;    // ldr x16, [x0] (0xF9400010)
+  uint32_t ldr_nvf;       // ldr x16, [x16, #0x78] (0xF9403E10)
+  uint32_t br_x16;        // br x16 (0xD61F0200)
+};
+
+struct AVS_CallNewVideoFramePThunk {
+  uint32_t mov_x8_x0;     // mov x8, x0 (0xAA0003E8)
+  uint32_t mov_x0_x1;     // mov x0, x1 (0xAA0103E0)
+  uint32_t mov_x1_x2;     // mov x1, x2 (0xAA0203E1)
+  uint32_t mov_x2_x3;     // mov x2, x3 (0xAA0303E2)
+  uint32_t mov_x3_x4;     // mov x3, x4 (0xAA0403E3)
+  uint32_t ldr_vtable;    // ldr x16, [x0] (0xF9400010)
+  uint32_t ldr_nvfp;      // ldr x16, [x16, #0x1c8] (0xF940E610)
+  uint32_t br_x16;        // br x16 (0xD61F0200)
+};
+
+struct AVS_CallInvokeThunk {
+  uint32_t mov_x8_x0;     // mov x8, x0 (0xAA0003E8)
+  uint32_t mov_x0_x1;     // mov x0, x1 (0xAA0103E0)
+  uint32_t mov_x1_x2;     // mov x1, x2 (0xAA0203E1)
+  uint32_t ldp_args;      // ldp x2, x3, [x3] (0xA9400C62)
+  uint32_t ldr_vtable;    // ldr x16, [x0] (0xF9400010)
+  uint32_t ldr_invoke;    // ldr x16, [x16, #0x48] (0xF9402610)
+  uint32_t br_x16;        // br x16 (0xD61F0200)
+};
+#pragma pack(pop)
+
+static inline void* AVS_MakeGetFrameThunk(void* target) {
+  if (!target) return target;
+  AVS_GetFrameThunk* t = (AVS_GetFrameThunk*)VirtualAlloc(NULL, sizeof(AVS_GetFrameThunk), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+  if (!t) return target;
+  t->mov_x3_x2 = 0xAA0203E3;
+  t->mov_x2_x1 = 0xAA0103E2;
+  t->mov_x1_x8 = 0xAA0803E1;
+  t->ldr_x16   = 0x58000050;
+  t->br_x16    = 0xD61F0200;
+  t->target    = (uint64_t)target;
+  FlushInstructionCache(GetCurrentProcess(), t, sizeof(AVS_GetFrameThunk));
+  return (void*)t;
+}
+
+class IClip;
+static inline void AVS_WrapClipVTable(IClip* c) {
+  if (!c) return;
+  void** vtable = *(void***)c;
+  if (!vtable) return;
+
+  HMODULE hMod = NULL;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)vtable[1], &hMod))
+    return;
+  char modName[MAX_PATH] = {0};
+  GetModuleFileNameA(hMod, modName, MAX_PATH);
+  if (strstr(modName, "AviSynth") || strstr(modName, "avisynth"))
+    return;
+
+  static void* patched[128] = {0};
+  for (int i = 0; i < 128 && patched[i]; ++i) {
+    if (patched[i] == vtable) return;
+  }
+
+  void* orig_GetFrame = vtable[1];
+  void* thunk = AVS_MakeGetFrameThunk(orig_GetFrame);
+
+  DWORD oldProt;
+  if (VirtualProtect(&vtable[1], sizeof(void*), PAGE_READWRITE, &oldProt)) {
+    vtable[1] = thunk;
+    VirtualProtect(&vtable[1], sizeof(void*), oldProt, &oldProt);
+    FlushInstructionCache(GetCurrentProcess(), &vtable[1], sizeof(void*));
+    for (int i = 0; i < 128; ++i) {
+      if (!patched[i]) { patched[i] = vtable; break; }
+    }
+  }
+}
+#endif
+
 // Base class for all filters.
 class IClip {
   friend class PClip;
@@ -1275,6 +1389,11 @@ public:
   virtual int __stdcall SetCacheHints(int cachehints,int frame_range) = 0 ;  // We do not pass cache requests upwards, only to the next filter.
   virtual const VideoInfo& __stdcall GetVideoInfo() = 0;
   virtual ~IClip() {}
+#if defined(_MSC_VER) && defined(ARM64)
+  virtual void __dummy_gcc_dtor_pad() {
+    delete this;
+  }
+#endif
 }; // end class IClip
 
 
@@ -1315,6 +1434,71 @@ public:
 #endif
 }; // end class PClip
 
+#if defined(_MSC_VER) && defined(ARM64)
+class AVS_ClipProxy : public IClip {
+public:
+  PClip real_clip;
+  AVS_ClipProxy(IClip* c) : real_clip(c) {}
+  virtual ~AVS_ClipProxy() {}
+
+  virtual int __stdcall GetVersion() override {
+    return real_clip->GetVersion();
+  }
+
+  virtual PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override {
+    typedef PVideoFrame (*CallGetFrameFn)(IClip*, int, IScriptEnvironment*);
+    static CallGetFrameFn s_call = nullptr;
+    if (!s_call) {
+      static AVS_CallGetFrameThunk code = {
+        0xAA0003E8, // mov x8, x0
+        0xAA0103E0, // mov x0, x1
+        0xAA0203E1, // mov x1, x2
+        0xAA0303E2, // mov x2, x3
+        0xF9400010, // ldr x16, [x0]
+        0xF9400610, // ldr x16, [x16, #8]
+        0xD61F0200  // br x16
+      };
+      DWORD oldProt;
+      VirtualProtect(&code, sizeof(code), PAGE_EXECUTE_READWRITE, &oldProt);
+      FlushInstructionCache(GetCurrentProcess(), &code, sizeof(code));
+      s_call = (CallGetFrameFn)(void*)&code;
+    }
+    return s_call((IClip*)(void*)real_clip, n, env);
+  }
+
+  virtual bool __stdcall GetParity(int n) override {
+    return real_clip->GetParity(n);
+  }
+
+  virtual void __stdcall GetAudio(void* buf, int64_t start, int64_t count, IScriptEnvironment* env) override {
+    real_clip->GetAudio(buf, start, count, env);
+  }
+
+  virtual int __stdcall SetCacheHints(int c, int r) override {
+    return real_clip->SetCacheHints(c, r);
+  }
+
+  virtual const VideoInfo& __stdcall GetVideoInfo() override {
+    return real_clip->GetVideoInfo();
+  }
+};
+
+static inline IClip* AVS_WrapClip(IClip* c) {
+  if (!c) return c;
+  void** vtable = *(void***)c;
+  if (!vtable) return c;
+  HMODULE hMod = NULL;
+  if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)vtable[1], &hMod)) {
+    char modName[MAX_PATH] = {0};
+    GetModuleFileNameA(hMod, modName, MAX_PATH);
+    if (!strstr(modName, "AviSynth") && !strstr(modName, "avisynth")) {
+      return c; // Already in mvtools2.dll or proxy
+    }
+  }
+  return new AVS_ClipProxy(c);
+}
+#endif
+
 enum AVSPropTypes {
   PROPTYPE_UNSET = 'u', // ptUnset
   PROPTYPE_INT = 'i', // ptInt
@@ -1349,8 +1533,19 @@ class AVSValue {
 public:
 
   AVSValue() AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR0)() )
+#if defined(_MSC_VER) && defined(ARM64)
+  AVSValue(IClip* c) {
+    if (c) AVS_WrapClipVTable(c);
+    AVS_LinkCall_Void(AVSValue_CONSTRUCTOR1)(c);
+  }
+  AVSValue(const PClip& c) {
+    if (c.p) AVS_WrapClipVTable(c.p);
+    AVS_LinkCall_Void(AVSValue_CONSTRUCTOR2)(c);
+  }
+#else
   AVSValue(IClip* c) AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR1)(c) )
   AVSValue(const PClip& c) AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR2)(c) )
+#endif
   AVSValue(bool b) AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR3)(b) )
   AVSValue(int i) AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR4)(i) )
   AVSValue(float f) AVS_BakedCode( AVS_LinkCall_Void(AVSValue_CONSTRUCTOR5)(f) )
@@ -1380,7 +1575,15 @@ public:
   bool IsArray() const AVS_BakedCode( return AVS_LinkCall(IsArray)() )
   bool IsFunction() const AVS_BakedCode( return AVS_LinkCall(IsFunction)() )
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+#if defined(_MSC_VER) && defined(ARM64)
+  PClip AsClip() const { return (type == 'c') ? PClip(AVS_WrapClip(clip)) : PClip(); }
+#else
+  PClip AsClip() const { return (type == 'c') ? PClip(clip) : PClip(); }
+#endif
+#else
   PClip AsClip() const AVS_BakedCode( return AVS_LinkCall(AsClip)() )
+#endif
   bool AsBool() const AVS_BakedCode( return AVS_LinkCall(AsBool1)() )
   int AsInt() const AVS_BakedCode( return AVS_LinkCall(AsInt1)() )
   int64_t AsLong() const AVS_BakedCode(return AVS_LinkCall(AsLong1)()) // v11
@@ -1568,6 +1771,9 @@ enum AvsAllocType {
 class IScriptEnvironment {
 public:
   virtual ~IScriptEnvironment() {}
+#if defined(_MSC_VER) && defined(ARM64)
+  virtual void __dummy_gcc_dtor_pad() {}
+#endif
 
   virtual /*static*/ int __stdcall GetCPUFlags() = 0;
 
@@ -1587,9 +1793,67 @@ public:
 
   typedef AVSValue (__cdecl *ApplyFunc)(AVSValue args, void* user_data, IScriptEnvironment* env);
 
+#if defined(_MSC_VER) && defined(ARM64)
+#pragma pack(push, 1)
+  struct AVS_ApplyThunk {
+    uint32_t mov_x3_x2; // mov x3, x2 (0xAA0203E3)
+    uint32_t mov_x2_x1; // mov x2, x1 (0xAA0103E2)
+    uint32_t mov_x1_x0; // mov x1, x0 (0xAA0003E1)
+    uint32_t mov_x0_x8; // mov x0, x8 (0xAA0803E0)
+    uint32_t ldr_x16;   // ldr x16, [pc, #8] (0x58000050)
+    uint32_t br_x16;    // br x16 (0xD61F0200)
+    uint64_t target;
+  };
+#pragma pack(pop)
+
+  static ApplyFunc AVS_WrapApply(ApplyFunc target) {
+    if (!target) return target;
+    AVS_ApplyThunk* t = (AVS_ApplyThunk*)VirtualAlloc(NULL, sizeof(AVS_ApplyThunk), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!t) return target;
+    t->mov_x3_x2 = 0xAA0203E3;
+    t->mov_x2_x1 = 0xAA0103E2;
+    t->mov_x1_x0 = 0xAA0003E1;
+    t->mov_x0_x8 = 0xAA0803E0;
+    t->ldr_x16   = 0x58000050;
+    t->br_x16    = 0xD61F0200;
+    t->target    = (uint64_t)target;
+    FlushInstructionCache(GetCurrentProcess(), t, sizeof(AVS_ApplyThunk));
+    return (ApplyFunc)(void*)t;
+  }
+
+  virtual void __stdcall __raw_AddFunction(const char* name, const char* params, ApplyFunc apply, void* user_data) = 0;
+  void AddFunction(const char* name, const char* params, ApplyFunc apply, void* user_data) {
+    __raw_AddFunction(name, params, AVS_WrapApply(apply), user_data);
+  }
+#else
   virtual void __stdcall AddFunction(const char* name, const char* params, ApplyFunc apply, void* user_data) = 0;
+#endif
   virtual bool __stdcall FunctionExists(const char* name) = 0;
+#if defined(_MSC_VER) && defined(ARM64)
+  virtual AVSValue __stdcall __raw_Invoke(const char* name, const AVSValue args, const char* const* arg_names = 0) = 0;
+  AVSValue Invoke(const char* name, const AVSValue args, const char* const* arg_names = 0) {
+    typedef AVSValue (*CallInvokeFn)(IScriptEnvironment*, const char*, const AVSValue&, const char* const*);
+    static CallInvokeFn s_invoke = nullptr;
+    if (!s_invoke) {
+      static AVS_CallInvokeThunk code = {
+        0xAA0003E8, // mov x8, x0
+        0xAA0103E0, // mov x0, x1
+        0xAA0203E1, // mov x1, x2
+        0xA9400C62, // ldp x2, x3, [x3]
+        0xF9400010, // ldr x16, [x0]
+        0xF9402610, // ldr x16, [x16, #0x48]
+        0xD61F0200  // br x16
+      };
+      DWORD oldProt;
+      VirtualProtect(&code, sizeof(code), PAGE_EXECUTE_READWRITE, &oldProt);
+      FlushInstructionCache(GetCurrentProcess(), &code, sizeof(code));
+      s_invoke = (CallInvokeFn)(void*)&code;
+    }
+    return s_invoke(this, name, args, arg_names);
+  }
+#else
   virtual AVSValue __stdcall Invoke(const char* name, const AVSValue args, const char* const* arg_names = 0) = 0;
+#endif
 
   virtual AVSValue __stdcall GetVar(const char* name) = 0;
   virtual bool __stdcall SetVar(const char* name, const AVSValue& val) = 0;
@@ -1599,7 +1863,31 @@ public:
   virtual void __stdcall PopContext() = 0;
 
   // note v8: use NewVideoFrameP is possible
+#if defined(_MSC_VER) && defined(ARM64)
+  virtual PVideoFrame __stdcall __raw_NewVideoFrame(const VideoInfo& vi, int align = FRAME_ALIGN) = 0;
+  PVideoFrame NewVideoFrame(const VideoInfo& vi, int align = FRAME_ALIGN) {
+    typedef PVideoFrame (*CallNVFFn)(IScriptEnvironment*, const VideoInfo&, int);
+    static CallNVFFn s_nvf = nullptr;
+    if (!s_nvf) {
+      static AVS_CallNewVideoFrameThunk code = {
+        0xAA0003E8, // mov x8, x0
+        0xAA0103E0, // mov x0, x1
+        0xAA0203E1, // mov x1, x2
+        0xAA0303E2, // mov x2, x3
+        0xF9400010, // ldr x16, [x0]
+        0xF9403E10, // ldr x16, [x16, #0x78]
+        0xD61F0200  // br x16
+      };
+      DWORD oldProt;
+      VirtualProtect(&code, sizeof(code), PAGE_EXECUTE_READWRITE, &oldProt);
+      FlushInstructionCache(GetCurrentProcess(), &code, sizeof(code));
+      s_nvf = (CallNVFFn)(void*)&code;
+    }
+    return s_nvf(this, vi, align);
+  }
+#else
   virtual PVideoFrame __stdcall NewVideoFrame(const VideoInfo& vi, int align = FRAME_ALIGN) = 0;
+#endif
 
   virtual bool __stdcall MakeWritable(PVideoFrame* pvf) = 0;
 
@@ -1679,8 +1967,32 @@ public:
   virtual void __stdcall freeMap(AVSMap* map) = 0;
   virtual void __stdcall clearMap(AVSMap* map) = 0;
 
-  // NewVideoFrame with frame property source.
+#if defined(_MSC_VER) && defined(ARM64)
+  virtual PVideoFrame __stdcall __raw_NewVideoFrameP(const VideoInfo& vi, const PVideoFrame* prop_src, int align = FRAME_ALIGN) = 0;
+  PVideoFrame NewVideoFrameP(const VideoInfo& vi, const PVideoFrame* prop_src, int align = FRAME_ALIGN) {
+    typedef PVideoFrame (*CallNVFPFn)(IScriptEnvironment*, const VideoInfo&, const PVideoFrame*, int);
+    static CallNVFPFn s_nvfp = nullptr;
+    if (!s_nvfp) {
+      static AVS_CallNewVideoFramePThunk code = {
+        0xAA0003E8, // mov x8, x0
+        0xAA0103E0, // mov x0, x1
+        0xAA0203E1, // mov x1, x2
+        0xAA0303E2, // mov x2, x3
+        0xAA0403E3, // mov x3, x4
+        0xF9400010, // ldr x16, [x0]
+        0xF940E610, // ldr x16, [x16, #0x1c8]
+        0xD61F0200  // br x16
+      };
+      DWORD oldProt;
+      VirtualProtect(&code, sizeof(code), PAGE_EXECUTE_READWRITE, &oldProt);
+      FlushInstructionCache(GetCurrentProcess(), &code, sizeof(code));
+      s_nvfp = (CallNVFPFn)(void*)&code;
+    }
+    return s_nvfp(this, vi, prop_src, align);
+  }
+#else
   virtual PVideoFrame __stdcall NewVideoFrameP(const VideoInfo& vi, const PVideoFrame* prop_src, int align = FRAME_ALIGN) = 0;
+#endif
 
   // Generic query to ask for various system properties
   virtual size_t  __stdcall GetEnvProperty(AvsEnvProperty prop) = 0;
