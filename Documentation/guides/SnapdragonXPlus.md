@@ -82,7 +82,13 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
    - **Profile 1 (Eco / Battery Saver):** [`Snapdragon-X-Plus-Eco.avs`](../../AviSynth/Snapdragon-X-Plus-Eco.avs)
    - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](../../AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
    - **Profile 3 (Max Quality / TrueMotion Pro):** [`Snapdragon-X-Plus-MaxQuality.avs`](../../AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
+   *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power, whisper-cool battery saver option).*
 5. Click **Apply** $\to$ **OK**.
+
+> [!TIP]
+> **Direct3D 12 GPU Acceleration (`mvtools2_d3d12.dll` - Experimental Preview)**  
+> On Snapdragon X Plus / Elite platforms, the 8–12 Oryon CPU cores easily sustain the Balanced and Eco tiers with native NEON SIMD (`mvtools2.dll`), serving as the production reference engine.  
+> Direct3D 12 GPU offload via `mvtools2_d3d12.dll` is provided as an **experimental preview** for offloading motion estimation into the Adreno X1-85 GPU compute queue. Rendering quality, motion vector precision, and real-time performance are provided on a best-effort basis.
 
 ---
 

@@ -1,19 +1,24 @@
-# Recommended PotPlayer iGPU (Adreno 680) Configuration Guide
+# PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 8cx Gen 2 / Microsoft SQ2
 
-> **Hardware Target:** Qualcomm Snapdragon 8cx Gen 2 5G (SC8180XP / Microsoft SQ2)  
+> **Hardware Target:** Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (SC8180XP)  
 > **Integrated GPU:** Qualcomm Adreno 680 (~1.3 TFLOPS FP32)  
-> **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 3.15 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.8 GHz)  
-> **Thermal Profile:** 7W–10W Fanless Design *(e.g., Microsoft Surface Pro X, Lenovo Flex 5G, Samsung Galaxy Book S)*
+> **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 3.00–3.15 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.80 GHz)  
+> **Memory Subsystem:** 8-Channel LPDDR4x-2133 (~68 GB/s Unified Bandwidth)  
+> **Thermal Profile:** 7W–10W Fanless Design *(e.g., Microsoft Surface Pro X SQ2, Acer Spin 7, HP Elite Folio)*
 
 ---
 
-## Overview
+## Overview & Architecture
 
-On the Qualcomm Snapdragon 8cx Gen 2, the CPU and Adreno 680 iGPU share a unified **7W to 10W fanless thermal envelope** and an 8-channel LPDDR4x-2133 memory bus (~68 GB/s). 
+The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7W to 10W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (~68 GB/s).
 
 When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
 
 Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60fps video playback with zero dropped frames.
+
+> [!NOTE]
+> **Microsoft SQ2 Compatibility:**  
+> The Microsoft SQ2 processor in the Surface Pro X is physically identical silicon to the Snapdragon 8cx Gen 2 (`SC8180XP`). Use these profiles and settings directly for SQ2 devices.
 
 ---
 
@@ -74,7 +79,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 3. **Buffer Management:**
    - **Buffer Ahead:** Set to **`24`** frames.
    - **Buffer Back:** Set to **`12`** to **`15`** frames.
-4. Select your preferred Snapdragon 8cx Gen 2 script:
+4. Select your preferred Snapdragon 8cx Gen 2 / Microsoft SQ2 script:
    - **Eco (Battery Saver):** [`Snapdragon-8cxGen2-Eco.avs`](../../AviSynth/Snapdragon-8cxGen2-Eco.avs)
    - **Balanced (Recommended):** [`Snapdragon-8cxGen2-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen2-Balanced.avs)
    - **Max Quality:** [`Snapdragon-8cxGen2-MaxQuality.avs`](../../AviSynth/Snapdragon-8cxGen2-MaxQuality.avs)
@@ -83,6 +88,29 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > [!TIP]
 > **The Thread Capping Rule (`Prefetch <= 4`)**  
 > The Snapdragon 8cx Gen 2 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided 8cx Gen 2 scripts strictly cap `Prefetch` to **3 or 4 threads** so that MVTools runs exclusively on the Gold performance cores. Never increase `Prefetch` beyond 4, as dispatching work to the slow Silver cores will cause pipeline stalls and video stutter.
+
+> [!TIP]
+> **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
+> All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, rock-solid 60fps.  
+> Setting `USE_GPU = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`mvtools2_d3d12.dll`) to offload motion search to the Adreno 680 GPU:
+> - **Balanced (`USE_GPU = true`):** Sustains 60fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), keeping temperatures whisper-cool.
+> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to $32 \times 32 \to 16 \times 16$ (`pel=1`) to prevent L1/L2 texture cache thrashing, sustaining continuous 60fps.
+>
+> *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
+
+---
+
+## Profile Comparison: Snapdragon 8cx Gen 2 / SQ2
+
+| Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
+| :--- | :--- | :--- | :--- |
+| **Motion Search** | Single-pass $32 \times 32$ | Dual-pass $32 \times 32 \to 16 \times 16$ | Dual-pass $16 \times 16 \to 8 \times 8$ (CPU) / $32 \times 32 \to 16 \times 16$ (GPU) |
+| **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
+| **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
+| **Outlier Filter** | Off | Off | `badrange=(-24)` |
+| **Frame Synthesis** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
+| **Worker Threads** | `Prefetch(3, 4)` | `Prefetch(4, 4)` | `Prefetch(4, 4)` |
+| **Target Power** | ~4.5W – 5.5W | ~6.5W – 7.5W | ~7.5W – 8.8W |
 
 ---
 
@@ -110,4 +138,4 @@ To verify that the Adreno 680 hardware decoder and 60fps interpolation are activ
    - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(not Software / ffmpeg)*.
    - **Video Output:** Shows **`Direct3D 11 Video Renderer`**.
    - **Frame Rate:** Displays **`XX.XX fps -> 60.00 fps`**.
-   - **CPU Usage:** Remains low and stable (typically 20%–35% across the Kryo 495 Gold cores).
+   - **CPU Usage:** Remains low and stable (typically 12%–18% with `USE_GPU = true` or 20%–35% with `USE_GPU = false`).

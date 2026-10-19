@@ -1,20 +1,32 @@
 # ==============================================================================
 # PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 1: Eco)
-# Hardware: Qualcomm Snapdragon 8cx Gen 2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
+# Hardware: Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: 7W Fanless Thermal Envelope, Maximum Battery Life, 0 Dropped Frames
+# Revision: 2.0.0 (2026-10-18)
+# Changelog: Native 1080p, levels=1, single MSuper, threads=3, Prefetch(3, 4), mem_limit=768/512, D3D12 toggle
 # ==============================================================================
 
-# Memory allocation (768 MB leaves maximum LPDDR4x memory bandwidth for Adreno 680 iGPU)
-SetMemoryMax(768)
+# ------------------------------------------------------------------------------
+# User Configuration: Toggle Adreno GPU Offload
+# Set to true for Direct3D 12 Adreno GPU offload (mvtools2_d3d12.dll)
+# Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
+# ------------------------------------------------------------------------------
+USE_GPU = false
 
-# Multi-threading filter mode
+# Dynamic parameters adapted to USE_GPU
+plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+threads     = USE_GPU ? 2 : 3     # GPU: 2 worker threads; CPU: 3 Gold cores
+mem_limit   = USE_GPU ? 512 : 768
+
+# Memory allocation and multi-threading filter mode
+SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
 potplayer_source()
 
-# Native ARM64 MVTools2 plugin
-LoadPlugin("mvtools2.dll")
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin(plugin_file)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids heavy subpixel math on Cortex-A76 cores)
@@ -37,8 +49,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, sea
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes
 MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
-# 4. Multi-Threading Capped to 3 Cores
-# Caps worker threads to 3, keeping work strictly on the fast Kryo 495 Gold cores.
-# Leaves 1 Gold core + all 4 Silver cores completely idle for OS, audio, and Adreno 680 iGPU driver.
-# Prevents thermal throttling in fanless 7W devices (e.g. Surface Pro X).
-Prefetch(3)
+# 4. Multi-Threading (adapted dynamically to USE_GPU)
+Prefetch(threads)
+

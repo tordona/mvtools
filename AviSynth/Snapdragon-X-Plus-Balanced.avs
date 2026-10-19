@@ -2,19 +2,31 @@
 # PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Sweet spot between fluid motion, sharp edges, and efficient power draw
+# Revision: 2.0.0 (2026-10-18)
+# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, threads=6, Prefetch(6, 4), mem_limit=1536, D3D12 toggle
 # ==============================================================================
 
-# Memory allocation (2 GB recommended for dual-pass recalculation)
-SetMemoryMax(2048)
+# ------------------------------------------------------------------------------
+# User Configuration: Toggle Adreno GPU Offload
+# Set to true for Direct3D 12 Adreno GPU offload (mvtools2_d3d12.dll)
+# Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
+# ------------------------------------------------------------------------------
+USE_GPU = false
 
-# Multi-threading filter mode
+# Dynamic parameters adapted to USE_GPU
+plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+threads     = USE_GPU ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
+mem_limit   = USE_GPU ? 1536 : 2048
+
+# Memory allocation and multi-threading filter mode
+SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream
 potplayer_source()
 
-# Native ARM64 MVTools2 plugin
-LoadPlugin("mvtools2.dll")
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin(plugin_file)
 
 # 1. Motion Super Clip with Edge Guard
 # pel=1: Whole-pixel estimation paired with MRecalculate keeps CPU low while tracking details
@@ -41,6 +53,6 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, se
 # thSCD1=350, thSCD2=120: Balanced scene change detection
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
-# 5. Thread Pool: 6 Threads
-# Utilizes 6 of the 8 Oryon performance cores, leaving 2 cores for Windows OS, audio, and GPU driver
-Prefetch(6)
+# 5. Thread Pool (adapted dynamically to USE_GPU)
+Prefetch(threads)
+
