@@ -32,6 +32,7 @@
 #include "PlaneOfBlocks.h"
 #include "Padding.h"
 #include "profile.h"
+#include "D3D12MotionSearch.h"
 
 #include <emmintrin.h> // SSE2
 #include <pmmintrin.h> // SSE3
@@ -362,6 +363,29 @@ void PlaneOfBlocks::SearchMVs(
   penaltyNew = _pnew; // penalty for new vector
   LSAD = _lsad;    // SAD limit for lambda using
 
+  // Offload block SAD and motion vector search to Adreno GPU via Direct3D 12 DirectCompute
+  if (nPel <= 2 && bits_per_pixel == 8 && !chroma && D3D12MotionSearch::GetInstance().IsAvailable())
+  {
+    if (D3D12MotionSearch::GetInstance().SearchMVs(
+        pSrcFrame, pRefFrame,
+        nBlkX, nBlkY, nBlkSizeX, nBlkSizeY,
+        nOverlapX, nOverlapY, nPel, nLogScale,
+        searchType, nSearchParam, _lambda_level, _lsad,
+        _pnew, penaltyZero, pglobal, fieldShift,
+        _glob_mv_pred_def.x, _glob_mv_pred_def.y,
+        (uint32_t)verybigSAD,
+        temporal, _vecPrev,
+        (nLogScale > 0), &vectors[0],
+        _out, _outfilebuf, &vectors[0]))
+    {
+      if (smallestPlane)
+      {
+        *pmeanLumaChange = 0;
+      }
+      return;
+    }
+  }
+
   Slicer			slicer(_mt_flag); // fixme: mt bug
   if(bits_per_pixel == 8)
     slicer.start(nBlkY, *this, &PlaneOfBlocks::search_mv_slice<uint8_t>, 4);
@@ -468,6 +492,82 @@ void PlaneOfBlocks::RecalculateMVs(
   _mv_clip_ptr = &mvClip;
   _smooth = smooth;
   _thSAD = thSAD;
+
+  // Offload to Adreno GPU via Direct3D 12 DirectCompute
+  if (nPel <= 2 && bits_per_pixel == 8 && !chroma && D3D12MotionSearch::GetInstance().IsAvailable())
+  {
+    const FakePlaneOfBlocks &plane = mvClip.GetPlane(0);
+    int nBlkXold = plane.GetReducedWidth();
+    int nBlkYold = plane.GetReducedHeight();
+    int nBlkSizeXold = plane.GetBlockSizeX();
+    int nBlkSizeYold = plane.GetBlockSizeY();
+    int nOverlapXold = plane.GetOverlapX();
+    int nOverlapYold = plane.GetOverlapY();
+    int nStepXold = nBlkSizeXold - nOverlapXold;
+    int nStepYold = nBlkSizeYold - nOverlapYold;
+
+    if (nStepXold > 0 && nStepYold > 0 && nBlkXold > 0 && nBlkYold > 0)
+    {
+      std::vector<VECTOR> coarsePreds(nBlkCount);
+      for (int by = 0; by < nBlkY; by++)
+      {
+        for (int bx = 0; bx < nBlkX; bx++)
+        {
+          int centerX = nBlkSizeX / 2 + (nBlkSizeX - nOverlapX) * bx;
+          int blkxold = (centerX - nBlkSizeXold / 2) / nStepXold;
+          int centerY = nBlkSizeY / 2 + (nBlkSizeY - nOverlapY) * by;
+          int blkyold = (centerY - nBlkSizeYold / 2) / nStepYold;
+
+          int deltaX = std::max(0, centerX - (nBlkSizeXold / 2 + nStepXold * blkxold));
+          int deltaY = std::max(0, centerY - (nBlkSizeYold / 2 + nStepYold * blkyold));
+
+          int blkxold1 = std::min(nBlkXold - 1, std::max(0, blkxold));
+          int blkxold2 = std::min(nBlkXold - 1, std::max(0, blkxold + 1));
+          int blkyold1 = std::min(nBlkYold - 1, std::max(0, blkyold));
+          int blkyold2 = std::min(nBlkYold - 1, std::max(0, blkyold + 1));
+
+          int idx = by * nBlkX + bx;
+          if (smooth == 1)
+          {
+            VECTOR v1 = mvClip.GetBlock(0, blkxold1 + blkyold1 * nBlkXold).GetMV();
+            VECTOR v2 = mvClip.GetBlock(0, blkxold2 + blkyold1 * nBlkXold).GetMV();
+            VECTOR v3 = mvClip.GetBlock(0, blkxold1 + blkyold2 * nBlkXold).GetMV();
+            VECTOR v4 = mvClip.GetBlock(0, blkxold2 + blkyold2 * nBlkXold).GetMV();
+
+            int v1_x = v1.x * nStepXold + deltaX * (v2.x - v1.x);
+            int v1_y = v1.y * nStepXold + deltaX * (v2.y - v1.y);
+            int v2_x = v3.x * nStepXold + deltaX * (v4.x - v3.x);
+            int v2_y = v3.y * nStepXold + deltaX * (v4.y - v3.y);
+
+            coarsePreds[idx].x = (v1_x + deltaY * (v2_x - v1_x) / nStepYold) / nStepXold;
+            coarsePreds[idx].y = (v1_y + deltaY * (v2_y - v1_y) / nStepYold) / nStepXold;
+            coarsePreds[idx].sad = v1.sad;
+          }
+          else
+          {
+            int bx_sel = (deltaX * 2 < nStepXold) ? blkxold1 : blkxold2;
+            int by_sel = (deltaY * 2 < nStepYold) ? blkyold1 : blkyold2;
+            coarsePreds[idx] = mvClip.GetBlock(0, bx_sel + by_sel * nBlkXold).GetMV();
+          }
+        }
+      }
+
+      if (D3D12MotionSearch::GetInstance().SearchMVs(
+          pSrcFrame, pRefFrame,
+          nBlkX, nBlkY, nBlkSizeX, nBlkSizeY,
+          nOverlapX, nOverlapY, nPel, nLogScale,
+          st, stp, _lambda_level, lsad,
+          pnew, 0, 0, fieldShift,
+          0, fieldShift,
+          (uint32_t)verybigSAD,
+          false, nullptr,
+          true, coarsePreds.data(),
+          out, outfilebuf, &vectors[0]))
+      {
+        return;
+      }
+    }
+  }
 
   // -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
   // fixme: consider disabling internal mt, it's giving inconsistent results when used

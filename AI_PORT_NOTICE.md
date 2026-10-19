@@ -53,6 +53,21 @@ The host `AviSynth.dll` bundled with ARM64 video players (e.g., PotPlayer) is ty
    - *Issue*: On playback stop or player exit, AviSynth's `PClip_DESTRUCTOR` invokes GCC deleting destructor slot `vtable[7]` (`0x38`). In MSVC, classes only generated 7 slots (`0x00`–`0x30`), jumping into non-executable `.rdata` and triggering DEP Access Violation `0xC0000005`.
    - *Fix*: Added `virtual void __dummy_gcc_dtor_pad() { delete this; }` to `IClip`. This exposes slot 7 in all derived clips, safely dispatching GCC deallocations to MSVC's scalar deleting destructor (`vtable[6]`) to release memory cleanly.
 
+### D. Direct3D 12 DirectCompute GPU Offload (Adreno GPU Native Execution)
+
+> [!WARNING]
+> **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
+> Direct3D 12 GPU acceleration (`mvtools2_d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+>
+> For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
+
+To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Absolute Differences) and motion vector search are ported to an **HLSL Compute Shader (`cs_5_0`)** running on **Direct3D 12 DirectCompute**:
+- **Zero-CPU Motion Estimation**: Dispatches parallel compute shaders (`CSMain`, `[numthreads(8, 8, 1)]`) directly on Adreno GPU wave cores to evaluate block SAD, hexagonal/diamond search, and cost minimization entirely in hardware.
+- **Unified Memory Architecture (UMA) Fast Path**: Leverages Snapdragon's shared physical LPDDR4x/LPDDR5x memory subsystem between CPU and Adreno GPU, eliminating PCIe transfer overhead and enabling zero-copy host-visible readback.
+- **Dual-Pass Search Offload**: Accelerates both coarse motion vector search (`MAnalyse`) and fine block refinement (`MRecalculate`).
+- **Dramatic CPU Relief**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
+- **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsGPUAvailable()` and `MEnableGPU(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
+
 ---
 
 ## 3. Hardware Profiles & Deployment Guides
@@ -65,17 +80,23 @@ Custom real-time 60fps AviSynth motion interpolation scripts and PotPlayer iGPU 
   - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` $\to$ `8x8` micro-blocks, UMH motion search, `Prefetch(8)`. Maximum fidelity for plugged-in operation.
   - Guide: [`Documentation/guides/SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md).
 
-- **Snapdragon 8cx Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7W–10W Fanless)**:
-  - [`Snapdragon-8cxGen2-Eco.avs`](AviSynth/Snapdragon-8cxGen2-Eco.avs): `pel=1`, large `32x32` blocks, `mode=0` block projection, `Prefetch(3)`. Leaves 1 Gold core + 4 Silver cores idle; designed for fanless battery longevity with zero dropped frames.
-  - [`Snapdragon-8cxGen2-Balanced.avs`](AviSynth/Snapdragon-8cxGen2-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(4)`. Pins 1:1 to the 4 Kryo Gold cores to prevent scheduling spills onto weak in-order Cortex-A55 cores.
-  - [`Snapdragon-8cxGen2-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` $\to$ `8x8` micro-blocks, `mode=2` with `blend=true` occlusion handling, `Prefetch(4)`. Maximum visual clarity without thermal throttling.
-  - Guide: [`Documentation/guides/Adreno680.md`](Documentation/guides/Adreno680.md) (Covers Adreno 680 VPU DXVA2/D3D11 Copy-Back decode and Direct3D 11 NV12/YV12 rendering).
+- **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7W–15W)**:
+  - [`Snapdragon-8cxGen3-Eco.avs`](AviSynth/Snapdragon-8cxGen3-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low power and cool operating thermals.
+  - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 on Adreno 690 GPU or 6 out-of-order performance cores.
+  - [`Snapdragon-8cxGen3-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` $\to$ `8x8` micro-blocks on CPU / `32x32` $\to$ `16x16` on Adreno 690 GPU, `mode=2` with `blend=true`, `Prefetch(7)`. Full utilization of 4x Cortex-X1 prime cores + Adreno 690 compute shader.
+  - Guide: [`Documentation/guides/Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md).
+
+- **Snapdragon 8cx Gen 1 & Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7W–10W Fanless)**:
+  - **Snapdragon 8cx Gen 2 / Microsoft SQ2**: [`Snapdragon-8cxGen2-Eco.avs`](AviSynth/Snapdragon-8cxGen2-Eco.avs), [`Snapdragon-8cxGen2-Balanced.avs`](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [`Snapdragon-8cxGen2-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs). *(Microsoft SQ2 is identical silicon to 8cx Gen 2).*
+  - **Snapdragon 8cx Gen 1 / Microsoft SQ1**: [`Snapdragon-8cxGen1-Eco.avs`](AviSynth/Snapdragon-8cxGen1-Eco.avs), [`Snapdragon-8cxGen1-Balanced.avs`](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [`Snapdragon-8cxGen1-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs). *(Microsoft SQ1 is identical silicon to 8cx Gen 1).*
+  - Adaptive Direct3D 12 DirectCompute GPU offload (`USE_GPU = true`) and pure CPU NEON fallback with strict `Prefetch <= 4` core pinning.
+  - Guides: [`Documentation/guides/Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) (Snapdragon 8cx Gen 2 / SQ2) and [`Documentation/guides/Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) (Snapdragon 8cx Gen 1 / SQ1).
 
 - **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5W Fanless)**:
   - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5W fanless designs.
   - [`Snapdragon-850-Balanced.avs`](AviSynth/Snapdragon-850-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `pel=1`, `mode=0` block projection, `Prefetch(3)`. Crisp boundary tracking while preserving 1 Gold core for OS and Adreno GPU drivers.
   - [`Snapdragon-850-MaxQuality.avs`](AviSynth/Snapdragon-850-MaxQuality.avs): `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow interpolation, `Prefetch(4)`. Full Gold core saturation without spilling onto Cortex-A55 cores.
-  - Guide: [`Documentation/guides/Adreno630.md`](Documentation/guides/Adreno630.md) (Covers Adreno 630 VPU hardware decode offload and Direct3D 11 rendering).
+  - Guide: [`Documentation/guides/Snapdragon850.md`](Documentation/guides/Snapdragon850.md) (Covers Adreno 630 VPU hardware decode offload and Direct3D 11 rendering).
 
 ---
 

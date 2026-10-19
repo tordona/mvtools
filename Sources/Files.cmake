@@ -7,6 +7,8 @@ FILE(GLOB MvTools2_Sources RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
   "include/avs/*.h"
   "conc/*.h"
   "conc/*.hpp"
+  "shaders/*.h"
+  "shaders/*.hlsl"
 )
 
 IF(WIN32)

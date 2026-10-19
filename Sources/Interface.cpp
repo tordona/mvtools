@@ -54,6 +54,19 @@
 
 #include <avisynth.h>
 #include <stdint.h>
+#include "D3D12MotionSearch.h"
+
+AVSValue __cdecl Create_MIsGPUAvailable(AVSValue args, void*, IScriptEnvironment* env)
+{
+  return D3D12MotionSearch::GetInstance().IsAvailable();
+}
+
+AVSValue __cdecl Create_MEnableGPU(AVSValue args, void*, IScriptEnvironment* env)
+{
+  bool prev = D3D12MotionSearch::GetInstance().IsEnabled();
+  D3D12MotionSearch::GetInstance().SetEnabled(args[0].AsBool(true));
+  return prev;
+}
 
 
 
@@ -699,6 +712,8 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   env->AddFunction("MStoreVect", "c+[vccs]s", Create_MStoreVect, 0);
   env->AddFunction("MRestoreVect", "c[index]i", Create_MRestoreVect, 0);
   env->AddFunction("MScaleVect", "c[scale]f[scaleV]f[mode]i[flip]b[adjustSubPel]b[bits]i", Create_MScaleVect, 0);
+  env->AddFunction("MIsGPUAvailable", "", Create_MIsGPUAvailable, 0);
+  env->AddFunction("MEnableGPU", "b", Create_MEnableGPU, 0);
   //	env->AddFunction("MVFinest",     "c[isse]b", Create_MVFinest, 0);
   return("MVTools : set of tools based on a motion estimation engine");
 }
