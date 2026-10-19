@@ -1,15 +1,50 @@
-# mvtools
+# mvtools (Native ARM64 & Direct3D 12 GPU Offload Fork)
 Motion estimation and compensation plugin for Avisynth+ and Avisynth v2.6 family.\
 Supporting YUY2, 4:2:0, 4:2:2, 4:4:4 at native 8, 10, 12, 14 and 16 bit depths, 32bit float in selected filters.\
-Still supporting Windows XP.
-x86 and x64 versions
-From December 20, 2020: Linux port
+Supported architectures: **ARM64 (Native Windows on ARM)**, x86, x64, and Linux.
 
-File: mvtools2.dll
+Files:
+- **`mvtools2.dll`**: Native ARM64 NEON SIMD vector-accelerated plugin (production reference).
+- **`mvtools2_d3d12.dll`**: Native ARM64 Direct3D 12 DirectCompute GPU-accelerated plugin (experimental preview).
+
+> [!WARNING]
+> **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
+> Direct3D 12 GPU acceleration (`mvtools2_d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+>
+> For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
+
+---
+
+## Qualcomm Snapdragon 60fps Real-Time Motion Interpolation
+
+This fork provides **18 tuned real-time 60fps AviSynth motion interpolation profiles** under [`AviSynth/`](AviSynth/) and step-by-step PotPlayer iGPU offload guides under [`Documentation/guides/`](Documentation/guides/), empirically verified across 6 major Snapdragon SoC generations:
+
+| Platform | Cores / GPU | Verified Profiles | Hardware Guide |
+| :--- | :--- | :--- | :--- |
+| **Snapdragon X Plus / Elite** | 8–12x Oryon / Adreno X1-85 (~3.8 TFLOPS) | [Eco](AviSynth/Snapdragon-X-Plus-Eco.avs), [Balanced](AviSynth/Snapdragon-X-Plus-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-X-Plus-MaxQuality.avs) | [`SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md) |
+| **Snapdragon 8cx Gen 3 / SQ3** | 4x X1 + 4x A78 / Adreno 690 (~2.2 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen3-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen3-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) | [`Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md) |
+| **Snapdragon 8cx Gen 2 / SQ2** | 4x Gold + 4x Silver / Adreno 680 (~1.3 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) | [`Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) |
+| **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |
+| **Snapdragon 850** | 4x Gold + 4x Silver / Adreno 630 (~5W Fanless) | [Eco](AviSynth/Snapdragon-850-Eco.avs), [Balanced](AviSynth/Snapdragon-850-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-850-MaxQuality.avs) | [`Snapdragon850.md`](Documentation/guides/Snapdragon850.md) |
+| **Snapdragon 7c Gen 2** | 2x Gold + 6x Silver / Adreno 618 (~5W Fanless) | [Eco](AviSynth/Snapdragon-7cGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-7cGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-7cGen2-MaxQuality.avs) | [`Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md) |
+
+For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC ARM64 $\leftrightarrow$ MinGW GCC), see [**`AI_PORT_NOTICE.md`**](AI_PORT_NOTICE.md) and [**`CHANGELOG.md`**](CHANGELOG.md).
+
+---
+
+## Automated Benchmark & Telemetry Test Suite
+
+An automated benchmark harness and comparative matrix suite for reproducible frame pacing and telemetry capture is provided under [`Benchmarks/`](Benchmarks/):
+- **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware SoC autodetection, and deterministic configuration enforcement.
+- **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON vs. Direct3D 12 GPU**.
+- **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Golden reference performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
+
+See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for complete parameter references, usage guides, and verified baseline metrics.
 
 ## Credits: 
 
 - Manao, Fizick, Tsp, TSchniede, SEt, Vit, Firesledge, cretindesalpes 
+- Intel Corporation for Intel® PresentMon (MIT License; see [`Benchmarks/PresentMon-LICENSE.txt`](Benchmarks/PresentMon-LICENSE.txt)) 
 
 ## Links
 - Doom9 forum: https://forum.doom9.org/showthread.php?t=173356

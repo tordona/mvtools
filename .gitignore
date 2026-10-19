@@ -295,3 +295,18 @@ __pycache__/
 
 # Cake -
 # tools/
+
+# ------------------------------------------------------------------------------
+# Benchmark test binaries, proprietary players, test video assets, & local results
+# Note: PotPlayer is proprietary freeware (Kakao Corp); binaries must not be committed.
+# Intel PresentMon is open-source (MIT License); accompanied by Benchmarks/LICENSE-PresentMon.txt.
+# ------------------------------------------------------------------------------
+Benchmarks/PotPlayer/
+Benchmarks/*.7z
+Benchmarks/*.zip
+Benchmarks/*.exe
+!Benchmarks/PresentMon-arm64.exe
+Benchmarks/*.mov
+Benchmarks/*.mp4
+Benchmarks/*.mkv
+Benchmarks/BenchmarkResults/
