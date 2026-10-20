@@ -67,7 +67,14 @@ param(
 
     [Parameter(Mandatory = $false)]
     [Alias("SkipAppKill")]
-    [switch]$SkipProcessKill
+    [switch]$SkipProcessKill,
+
+    [Parameter(Mandatory = $false)]
+    [Alias("Video", "File")]
+    [string]$VideoPath = "",
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipVideoChecksum
 )
 
 # Compare Suite Semantic Revision
@@ -143,8 +150,15 @@ if ($RunMatrix) {
             if ($SkipProcessKill) {
                 $ArgsList += "-SkipProcessKill"
             }
+            if (-not [string]::IsNullOrWhiteSpace($VideoPath)) {
+                $ArgsList += @("-VideoPath", "$VideoPath")
+            }
+            if ($SkipVideoChecksum) {
+                $ArgsList += "-SkipVideoChecksum"
+            }
 
-            & powershell.exe $ArgsList
+            $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
+            & $psExe $ArgsList
             $RunIndex++
             Start-Sleep -Seconds 2
         }
@@ -169,6 +183,7 @@ function Get-BenchmarkReportData([string]$FilePath) {
     $platform = if ($raw -match '(?m)^\s*-\s*Host Platform:\s*(.+)$') { $Matches[1].Trim() } else { "Unknown" }
     $potVersion = if ($raw -match '(?m)^\s*-\s*PotPlayer Version:\s*(.+)$') { $Matches[1].Trim() } else { "N/A" }
     $videoSha = if ($raw -match '(?m)^\s*-\s*Target Video SHA-256:\s*(.+)$') { $Matches[1].Trim() } else { "N/A" }
+    $targetVideo = if ($raw -match '(?m)^\s*-\s*Target Video:\s*(.+)$') { [System.IO.Path]::GetFileName($Matches[1].Trim()) } else { "1080p 24fps -> 60fps Interpolation" }
 
     # Parse Tier
     $tier = if ($profile -match '(?i)Eco') { "Eco" }
@@ -255,6 +270,7 @@ function Get-BenchmarkReportData([string]$FilePath) {
         PotPlayerGpu     = $potGpu
         PotPlayerMemMb   = $potMem
         SetMemoryMaxMb   = $scriptMem
+        TargetVideo      = $targetVideo
         VideoSha256      = $videoSha
         MemoryConstrained       = if ($isMemConstrained) { "Yes" } else { "No" }
         MemoryConstrainedDetail = $memConstrainedRaw
@@ -623,7 +639,8 @@ foreach ($pk in $PlatformGroups.Keys) {
     $MdLines += "**PotPlayer Version:** $potVersionsEvaluated  "
     $MdLines += "**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v$Script:CompareVersion)  "
     $MdLines += "**Generated:** $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))  "
-    $MdLines += "**Reference Target:** 1080p 24fps -> 60fps Interpolation  "
+    $targetVideoDisplay = if ($SortedEntries.Count -gt 0 -and $SortedEntries[0].TargetVideo) { $SortedEntries[0].TargetVideo } else { "1080p 24fps -> 60fps Interpolation" }
+    $MdLines += "**Reference Target:** $targetVideoDisplay  "
     $MdLines += ""
     $MdLines += "| Tier | Motion Engine | Avg FPS | 1% Low FPS | 0.1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | PotPlayer GPU | RAM Working Set | Dropped Frames |"
     $MdLines += "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |"
