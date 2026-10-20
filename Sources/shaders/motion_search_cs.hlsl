@@ -108,11 +108,24 @@ uint ComputeBlockSAD(uint x_src, uint y_src, int vx, int vy)
     uint wordCount = nBlkSizeX >> 2;
     uint byteTail = nBlkSizeX & 3;
 
-    uint srcRowByte = y_src * nSrcPitch + x_src;
-    uint refRowByte = subplaneOffset + (uint)ref_base_y * nRefPitch + (uint)ref_base_x;
+    int maxRefX = (int)extendedWidth - (int)nBlkSizeX;
+    if (maxRefX < 0) maxRefX = 0;
+    int maxRefY = (int)extendedHeight - (int)nBlkSizeY;
+    if (maxRefY < 0) maxRefY = 0;
+
+    int clamped_ref_base_x = clamp(ref_base_x, 0, maxRefX);
+    int clamped_ref_base_y = clamp(ref_base_y, 0, maxRefY);
+    uint maxSrcY = (extendedHeight > 0) ? (extendedHeight - 1) : 0;
+    uint maxRefYRow = (extendedHeight > 0) ? (extendedHeight - 1) : 0;
 
     for (uint dy = 0; dy < nBlkSizeY; dy++)
     {
+        uint currSrcY = min(y_src + dy, maxSrcY);
+        uint currRefY = min((uint)clamp(clamped_ref_base_y + (int)dy, 0, (int)maxRefYRow), maxRefYRow);
+
+        uint srcRowByte = currSrcY * nSrcPitch + x_src;
+        uint refRowByte = subplaneOffset + currRefY * nRefPitch + (uint)clamped_ref_base_x;
+
         // Process 4 pixels at a time
         for (uint w = 0; w < wordCount; w++)
         {
@@ -128,9 +141,6 @@ uint ComputeBlockSAD(uint x_src, uint y_src, int vx, int vy)
             uint rVal = Load1Byte(g_RefPlane, refRowByte + (wordCount << 2) + t);
             sad += (uint)abs((int)sVal - (int)rVal);
         }
-
-        srcRowByte += nSrcPitch;
-        refRowByte += nRefPitch;
     }
 
     return sad;
@@ -171,6 +181,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     int nDyMax = (int)nPel * (int)(extendedHeight - y_src - nBlkSizeY - nVPadding + nVPaddingScaled);
     int nDxMin = -(int)nPel * (int)(x_src - nHPadding + nHPaddingScaled);
     int nDyMin = -(int)nPel * (int)(y_src - nVPadding + nVPaddingScaled);
+
+    if (nDxMax < nDxMin) nDxMax = nDxMin;
+    if (nDyMax < nDyMin) nDyMax = nDyMin;
 
     int2 bestMV = int2(0, fieldShift);
     uint bestSAD = verybigSAD;
