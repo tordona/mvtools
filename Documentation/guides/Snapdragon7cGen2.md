@@ -26,12 +26,13 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 ### Step 1: Hardware Video Decoder (Adreno 618 VPU)
 1. Open **PotPlayer** and press **`F5`** for **Preferences**.
 2. Navigate to **Filter Control** $\to$ **Video Decoder**.
-3. Click **Built-in Codec/DXVA Settings**.
-4. Check **Use DXVA / Hardware Acceleration**.
-5. Set **Hardware Acceleration Mode** to **`D3D11`** (recommended) or **`DXVA2 (Copy-Back)`**.
-6. Set **DXVA Resolution** to **`Always Use`**.
-7. Confirm hardware acceleration is active for **H.264 / AVC**, **HEVC / H.265**, and **VP9**.
-8. Click **Apply**.
+3. Click the **Built-in Video Codec/DXVA Settings** button.
+4. Check **Use DXVA**.
+5. Under **Hardware acceleration (DXVA) settings**:
+   - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
+   - Set **Resolution limit:** to **`Always Use`**.
+   - Confirm hardware acceleration is active for **H.264/AVC1**, **H.265/HEVC**, and **VP9**.
+6. Click **Apply**.
 
 ---
 
@@ -39,7 +40,7 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 1. In **Preferences (`F5`)**, navigate to **Video**.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
-3. Set **Resize (Scaling Algorithm)** to **`Bilinear`** or **`Bicubic (Fast)`**.
+3. Under **Resizer**, select **`Bilinear`** or **`Bicubic (Fast)`**.
 4. Click **Apply**.
 
 ---
@@ -58,12 +59,16 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ### Step 4: Load Snapdragon 7c Gen 2 AviSynth Profile
 1. In **Preferences (`F5`)**, navigate to **Video** $\to$ **AviSynth**.
-2. Check **Enable AviSynth**.
-3. Load one of the three profiles located in `AviSynth/`:
+2. Check **Enable AviSynth processing**.
+3. Check **Add "potplayer_source()"**.
+4. Check **Buffer (back/ahead)** and configure buffer limits:
+   - **Buffer Back** (first box): Set to **`10`** to **`12`** frames.
+   - **Buffer Ahead** (second box): Set to **`16`** to **`20`** frames.
+5. Under **Load script:**, browse and select your preferred Snapdragon 7c Gen 2 profile:
    - [**`Snapdragon-7cGen2-Balanced.avs`**](../../AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60fps watching)*
    - [**`Snapdragon-7cGen2-Eco.avs`**](../../AviSynth/Snapdragon-7cGen2-Eco.avs) *(For whisper-cool, ultra-long battery life, ~3.0W)*
    - [**`Snapdragon-7cGen2-MaxQuality.avs`**](../../AviSynth/Snapdragon-7cGen2-MaxQuality.avs) *(Hierarchical pyramid search for fast action scenes)*
-4. Click **Apply** and **OK**.
+6. Click **Apply** and **OK**.
 
 ---
 
@@ -93,3 +98,32 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 > [!CAUTION]
 > **Never set `Prefetch` $\ge 3$ on this chip.**
 > When AviSynth spawns more than 2 worker threads, Windows thread scheduler places worker threads onto the Cortex-A55 Silver cores. Because an A55 core takes 3.5× longer to complete a frame than an A76 core, the lookahead buffer stalls waiting for the slow thread, dropping the display output from 60 fps to ~15 fps.
+
+---
+
+## 5. Summary Configuration Checklist
+
+| Setting | Location in Preferences (`F5`) | Recommended Value |
+| :--- | :--- | :--- |
+| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
+| **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
+| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video $\to$ AviSynth | `10-12` (Back) / `16-20` (Ahead) |
+| **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-7cGen2-Balanced.avs`](../../AviSynth/Snapdragon-7cGen2-Balanced.avs) |
+
+---
+
+## 6. Verification & OSD Diagnostic
+
+To confirm that the Adreno 618 hardware decoder and 60fps AviSynth processing are active during playback:
+
+1. Play a video in PotPlayer.
+2. Press **`Tab`** to toggle the On-Screen Display (OSD).
+3. Confirm the following real-time metrics:
+   - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(confirming GPU decode)*.
+   - **Video Output:** Shows **`Direct3D 11 Video Renderer`**.
+   - **Frame Rate:** Displays **`XX fps -> 60.00 fps`**.
+   - **CPU Usage:** Stays stably low on the 2 Kryo 468 Gold cores.

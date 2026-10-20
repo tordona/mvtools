@@ -34,12 +34,13 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 1. Open **PotPlayer** and press **`F5`** to open **Preferences**.
 2. In the left navigation tree, go to:  
    **Filter Control** $\to$ **Video Decoder**.
-3. Click the **Built-in Codec/DXVA Settings** button.
+3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
-   - Check **Use DXVA / Hardware Acceleration**.
-   - **Hardware Acceleration Mode:** Select **`D3D11`** *(Recommended)* or **`DXVA2 (Copy-Back)`**.
-   - **DXVA Resolution:** Select **`Always Use`**.
-   - Verify hardware acceleration is enabled for H.264/AVC, HEVC/H.265 (8-bit & 10-bit), and VP9.
+   - Check **Use DXVA**.
+   - Under **Hardware acceleration (DXVA) settings**:
+     - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
+     - Set **Resolution limit:** to **`Always Use`**.
+     - Verify hardware acceleration is enabled for **H.264/AVC1**, **H.265/HEVC**, and **VP9**.
 5. Click **Apply**.
 
 ---
@@ -50,7 +51,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
    **Video**.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
-3. Under **Resize**, select **`Bicubic`** or **`Bilinear`**.
+3. Under **Resizer**, select **`Bicubic`** or **`Bilinear`**.
 4. Click **Apply**.
 
 ---
@@ -71,15 +72,16 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** $\to$ **AviSynth**.
-2. Check **Enable AviSynth Processing**.
-3. **Buffer Management:**
-   - **Buffer Ahead:** Set to **`24`** frames.
-   - **Buffer Back:** Set to **`12`** to **`15`** frames.
-4. Select your preferred Snapdragon 8cx Gen 3 / SQ3 script:
+2. Check **Enable AviSynth processing**.
+3. Check **Add "potplayer_source()"**.
+4. Check **Buffer (back/ahead)** and configure buffer limits:
+   - **Buffer Back** (first box): Set to **`12`** to **`15`** frames.
+   - **Buffer Ahead** (second box): Set to **`24`** frames.
+5. Under **Load script:**, select your preferred Snapdragon 8cx Gen 3 / SQ3 script:
    - **Eco (Battery Saver):** [`Snapdragon-8cxGen3-Eco.avs`](../../AviSynth/Snapdragon-8cxGen3-Eco.avs)
    - **Balanced (Recommended):** [`Snapdragon-8cxGen3-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs)
    - **Max Quality:** [`Snapdragon-8cxGen3-MaxQuality.avs`](../../AviSynth/Snapdragon-8cxGen3-MaxQuality.avs)
-5. Click **Apply** $\to$ **OK**.
+6. Click **Apply** $\to$ **OK**.
 
 > [!TIP]
 > **Adreno 690 Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
@@ -96,10 +98,11 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
-| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Settings | `Enabled` |
-| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Settings | `D3D11` or `DXVA2 (Copy-Back)` |
+| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
-| **Output Colorspace** | Video $\to$ Colorspaces | `NV12` / `YV12` *(RGB conversion disabled)* |
-| **AviSynth Processing** | Video $\to$ AviSynth | `Enabled` |
-| **Buffer Ahead** | Video $\to$ AviSynth | `24` frames |
+| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video $\to$ AviSynth | `12-15` (Back) / `24` (Ahead) |
 | **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs) |

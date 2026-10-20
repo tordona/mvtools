@@ -27,16 +27,17 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 1. Open **PotPlayer** and press **`F5`** to open **Preferences**.
 2. In the left navigation tree, navigate to:  
    **Filter Control** $\to$ **Video Decoder**.
-3. Click the **Built-in Codec/DXVA Settings** button.
+3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
-   - Check **Use DXVA / Hardware Acceleration**.
-   - **Hardware Acceleration Mode:** Select **`D3D11`** *(Recommended)* or **`DXVA2 (Copy-Back)`**.
-   - **DXVA Resolution:** Select **`Always Use`** (or `SD, HD, Full HD, UHD`).
-   - Ensure hardware acceleration is checked for:
-     - **AV1** *(Natively accelerated by Adreno X1)*
-     - **HEVC / H.265 (8-bit & 10-bit)**
-     - **H.264 / AVC**
-     - **VP9**
+   - Check **Use DXVA**.
+   - Under **Hardware acceleration (DXVA) settings**:
+     - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
+     - Set **Resolution limit:** to **`Always Use`**.
+     - Ensure hardware acceleration is checked for:
+       - **AV1** *(Natively accelerated by Adreno X1)*
+       - **H.265/HEVC**
+       - **H.264/AVC1**
+       - **VP9**
 5. Click **Apply**.
 
 > [!IMPORTANT]
@@ -53,7 +54,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
 3. **Scaling Algorithm:**
-   - Under **Resize**, select **`Bicubic`** or **`Lanczos`**.  
+   - Under **Resizer**, select **`Bicubic`** or **`Lanczos`**.  
    *(The Adreno X1 GPU executes scaling and display shaders with negligible power consumption).*
 4. Click **Apply**.
 
@@ -75,16 +76,17 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** $\to$ **AviSynth**.
-2. Check **Enable AviSynth Processing**.
-3. **Buffer Management:**
-   - **Buffer Ahead:** Set to **`24`** to **`30`** frames.
-   - **Buffer Back:** Set to **`12`** to **`16`** frames.
-4. Under script selection, select your desired Snapdragon X Plus script:
+2. Check **Enable AviSynth processing**.
+3. Check **Add "potplayer_source()"**.
+4. Check **Buffer (back/ahead)** and configure buffer limits:
+   - **Buffer Back** (first box): Set to **`12`** to **`16`** frames.
+   - **Buffer Ahead** (second box): Set to **`24`** to **`30`** frames.
+5. Under **Load script:**, select your desired Snapdragon X Plus script:
    - **Profile 1 (Eco / Battery Saver):** [`Snapdragon-X-Plus-Eco.avs`](../../AviSynth/Snapdragon-X-Plus-Eco.avs)
    - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](../../AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
    - **Profile 3 (Max Quality / TrueMotion Pro):** [`Snapdragon-X-Plus-MaxQuality.avs`](../../AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
    *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power, whisper-cool battery saver option).*
-5. Click **Apply** $\to$ **OK**.
+6. Click **Apply** $\to$ **OK**.
 
 > [!TIP]
 > **Direct3D 12 GPU Acceleration (`mvtools2_d3d12.dll` - Experimental Preview)**  
@@ -113,13 +115,13 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
-| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Settings | `Enabled` |
-| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Settings | `D3D11` or `DXVA2 (Copy-Back)` |
-| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Settings | `AV1`, `HEVC`, `H.264`, `VP9` |
+| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `AV1`, `HEVC`, `H.264`, `VP9` |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
-| **Output Colorspace** | Video $\to$ Colorspaces | `NV12` / `YV12` *(RGB conversion disabled)* |
-| **AviSynth Processing** | Video $\to$ AviSynth | `Enabled` |
-| **Buffer Ahead** | Video $\to$ AviSynth | `24` – `30` frames |
+| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video $\to$ AviSynth | `12-16` (Back) / `24-30` (Ahead) |
 | **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-X-Plus-Balanced.avs`](../../AviSynth/Snapdragon-X-Plus-Balanced.avs) |
 
 ---
