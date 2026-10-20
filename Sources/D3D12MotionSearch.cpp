@@ -330,6 +330,20 @@ bool D3D12MotionSearch::IsEnabled() const
     return pImpl->m_enabled;
 }
 
+ID3D12Device* D3D12MotionSearch::GetDevice()
+{
+    std::lock_guard<std::mutex> lock(pImpl->m_mutex);
+    pImpl->InitDevice();
+    return pImpl->m_device.Get();
+}
+
+ID3D12CommandQueue* D3D12MotionSearch::GetCommandQueue()
+{
+    std::lock_guard<std::mutex> lock(pImpl->m_mutex);
+    pImpl->InitDevice();
+    return pImpl->m_queue.Get();
+}
+
 bool D3D12MotionSearch::SearchMVs(
     MVFrame* pSrcFrame,
     MVFrame* pRefFrame,

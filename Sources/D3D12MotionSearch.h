@@ -8,6 +8,8 @@
 #include "SearchType.h"
 
 class MVFrame;
+struct ID3D12Device;
+struct ID3D12CommandQueue;
 
 struct alignas(16) D3D12MotionParams
 {
@@ -56,6 +58,9 @@ public:
     bool IsAvailable();
     void SetEnabled(bool enabled);
     bool IsEnabled() const;
+
+    ID3D12Device* GetDevice();
+    ID3D12CommandQueue* GetCommandQueue();
 
     bool SearchMVs(
         MVFrame* pSrcFrame,
