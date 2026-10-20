@@ -33,7 +33,7 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.2.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.3.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
 | [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.2.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 
 ---
@@ -83,13 +83,16 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 ### The 7-Phase Benchmark Workflow
 
 1. **[1/7] PotPlayer Verification & Automated Acquisition:**
-   Verifies PotPlayer executable integrity or automatically downloads and silently installs official native PotPlayer ARM64 (`-AutoInstallPotPlayer`).
+   - Verifies PotPlayer executable integrity or automatically downloads and silently installs official native PotPlayer ARM64 (`-AutoInstallPotPlayer`).
+   - Verifies presence of `AviSynth.dll` in PotPlayer's directory. If missing from local system and registry locations, automatically acquires the official release package from GitHub (`AviSynth/AviSynthPlus`, latest tag, `filesonly.7z`) and extracts the native architecture binary (`arm64\bin\AviSynth.dll`).
 2. **[2/7] PotPlayer Version & Test Asset Integrity Audit:**
    - Detects and records the installed or portable PotPlayer version and PE linker build timestamp (e.g. `1.7.23122 (Build: 2026-09-01 22:30:50)`).
    - Audits the target video's SHA-256 checksum (`99486359be7e3681168a0fe94e1cbb0284c48b57b2a3ce7df4fa75e185987a15`).
    - If missing or corrupted, provides direct download instructions and official Blender Mango URL.
 3. **[3/7] MVTools Plugin Presence & PE Linker Audit:**
    - Validates existence of specific plugin binaries (`mvtools2.dll` for CPU NEON, `mvtools2_d3d12.dll` for D3D12 GPU mode).
+   - If missing (or when `-AutoDownloadMvTools` is specified), automatically queries GitHub Releases (`tordona/mvtools`), downloads the latest release archive with live streaming progress, and decompresses ARM64 binaries using native 7-Zip or Windows bsdtar.
+   - Synchronizes MVTools binaries and AviSynth profiles into PotPlayer's application directory.
    - Queries and logs FileVersion, ProductVersion, PE Linker Build Date, and SHA-256 hashes.
 4. **[4/7] Deterministic Settings Injection & Single-Instance Guarantee:**
    - Injects AviSynth profile with verified absolute DLL paths.
@@ -128,10 +131,15 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 | `-ExpectedVideoHash` | | `string` | `994863...` | Expected SHA-256 hash for target video clip validation. |
 | `-SkipVideoChecksum` | | `switch` | `$false` | Bypasses SHA-256 check when benchmarking arbitrary unverified video files. |
 | `-SkipNetworkDisable` | | `switch` | `$false` | Prevents disabling network adapters during the benchmark. |
+| `-SkipProcessKill` | `SkipAppKill` | `switch` | `$false` | Skips prompt and termination of background applications (browsers, discord, slack, etc.) prior to test. |
 | `-IgnoreUsbWarning` | | `switch` | `$false` | Bypasses interactive confirmation when running from USB flash storage. |
 | `-IgnoreRamWarning` | `IgnoreMemoryWarning` | `switch` | `$false` | Bypasses interactive confirmation when physical RAM headroom is below recommended levels on memory-constrained devices. |
+| `-IgnoreBatteryWarning` | | `switch` | `$false` | Bypasses fatal error when device is running on battery power (allows testing on battery without AC connected). |
 | `-MemoryConstrained` | | `switch` | `$false` | Explicitly tags the test run as conducted on a memory-constrained device (also auto-detected if total RAM <= 4.5 GB or free RAM is below headroom). |
 | `-AutoInstallPotPlayer` | | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer ARM64 from Kakao CDN if not found on the machine. |
+| `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools ARM64 binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
+| `-MvToolsRepo` | | `string` | `"tordona/mvtools"` | GitHub repository slug for downloading release packages. |
+| `-AviSynthRepo` | | `string` | `"AviSynth/AviSynthPlus"` | GitHub repository slug for downloading official AviSynth+ releases. If `AviSynth.dll` is missing, the harness automatically downloads the latest release archive (`filesonly.7z`) and extracts `arm64\bin\AviSynth.dll`. |
 | `-OutputDir` | | `string` | `"BenchmarkResults"` | Directory where report TXT and CSV telemetry are saved. |
 
 ---
@@ -189,6 +197,8 @@ The comparative aggregation tool that parses individual audit reports and transf
 | `-IgnoreUsbWarning` | `switch` | `$false` | Bypasses interactive confirmation when running matrix benchmarks from USB flash storage. |
 | `-MemoryConstrained` | `switch` | `$false` | Forwards the memory-constrained tag across all matrix permutations executed under `-RunMatrix`. |
 | `-AutoInstallPotPlayer` | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer ARM64 if missing before running matrix benchmarks. |
+| `-AutoDownloadMvTools` | `switch` | `$false` | Automatically downloads and deploys latest official MVTools ARM64 binaries if missing before running matrix benchmarks. |
+| `-SkipProcessKill` | `switch` | `$false` | Bypasses background app termination prompt across all matrix permutations executed under `-RunMatrix`. |
 
 ---
 

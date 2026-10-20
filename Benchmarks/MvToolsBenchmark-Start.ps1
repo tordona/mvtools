@@ -3,9 +3,10 @@
     Portable, Automated Reproducible Benchmark Harness for PotPlayer + MVTools ARM64.
 .DESCRIPTION
     Fully portable benchmark harness with zero hardcoded paths:
-    1. Detects system-installed PotPlayer ('C:\Program Files\DAUM\PotPlayer') or local sibling 'PotPlayer'.
+    1. Detects system-installed PotPlayer ('%ProgramFiles%\DAUM\PotPlayer') or local sibling 'PotPlayer'.
     2. Supports automated official PotPlayer ARM64 download and silent installation from Kakao CDN (-AutoInstallPotPlayer).
     3. Audits mvtools2.dll and mvtools2_d3d12.dll version, SHA-256, and PE header linker compile timestamp.
+    4. Automatically acquires AviSynth.dll from GitHub releases (AviSynth/AviSynthPlus) when not found locally.
     5. Injects deterministic PotPlayer configuration (D3D11 DXVA, AviSynth profile, subtitler off, audio pitch off, MultipleRunning=0).
     6. Enforces single-instance integrity: verifies and guarantees only one PotPlayer instance runs at any time.
     7. Audits available physical RAM against profile SetMemoryMax requirements (+1024 MB UMA/Player buffer headroom).
@@ -14,16 +15,30 @@
     10. Integrates optional sibling 'PresentMon.exe' to capture sub-millisecond Average, High, Low, 1% Low FPS, and Dropped Frames.
     11. Runs test, records telemetry (CPU, GPU, RAM, Page Swaps, Instance Count, FPS) to CSV, and generates an audit report.
     12. Restores original configuration, power plan, and network adapters upon exit.
+.PARAMETER SkipProcessKill
+    Skips terminating background noisy applications (browsers, discord, slack, etc.)
+    prior to system idle stabilization.
 .PARAMETER AutoInstallPotPlayer
     Automatically downloads and silently installs official native PotPlayer ARM64 from Kakao CDN
     if PotPlayer is not detected on the system. Uses active live progress bar and background spinner.
+.PARAMETER AutoDownloadMvTools
+    Automatically downloads and extracts the latest official MVTools ARM64 release archive
+    (mvtools2.dll, mvtools2_d3d12.dll) from GitHub releases (tordona/mvtools). Version-agnostic
+    asset discovery with live streaming progress and 7-Zip/bsdtar decompression.
+.PARAMETER MvToolsRepo
+    GitHub repository slug for downloading release packages (default: "tordona/mvtools").
+.PARAMETER AviSynthRepo
+    GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.2.0
+    2.3.0
 .DATE
     2026-10-19
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.0 (2026-10-19): Added automated GitHub acquisition for MVTools ARM64 and AviSynth+, dual
+                           AppData/local PotPlayer INI targeting, binary PE architecture validation,
+                           user download confirmations, and background app quiescence prompts.
     - v2.2.0 (2026-10-19): Added automated official PotPlayer ARM64 acquisition and silent installation
                            with live stream download progress (speed, percent, ETA) and animated
                            background installation spinner with elapsed seconds timer and safety watchdog.
@@ -91,11 +106,18 @@ param(
     [switch]$SkipNetworkDisable,
 
     [Parameter(Mandatory = $false)]
+    [Alias("SkipAppKill")]
+    [switch]$SkipProcessKill,
+
+    [Parameter(Mandatory = $false)]
     [switch]$IgnoreUsbWarning,
 
     [Parameter(Mandatory = $false)]
     [Alias("IgnoreMemoryWarning")]
     [switch]$IgnoreRamWarning,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreBatteryWarning,
 
     [Parameter(Mandatory = $false)]
     [switch]$MemoryConstrained,
@@ -104,11 +126,29 @@ param(
     [switch]$AutoInstallPotPlayer,
 
     [Parameter(Mandatory = $false)]
+    [Alias("DownloadMvTools", "UpdateMvTools")]
+    [switch]$AutoDownloadMvTools,
+
+    [Parameter(Mandatory = $false)]
+    [string]$MvToolsRepo = "tordona/mvtools",
+
+    [Parameter(Mandatory = $false)]
+    [string]$AviSynthRepo = "AviSynth/AviSynthPlus",
+
+    [Parameter(Mandatory = $false)]
     [string]$OutputDir = ""
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.2.0"
+$Script:HarnessVersion = "2.3.0"
+
+# Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
+try {
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+} catch {}
+try {
+    Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+} catch {}
 
 # =========================================================
 # 0. RESOLVE PORTABLE SCRIPT & REPOSITORY ROOTS
@@ -124,41 +164,197 @@ if (Test-Path (Join-Path $ScriptDir "..\AviSynth")) {
     $RepoRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
 }
 
-# Resolve PotPlayer directory: check sibling folder, then system installed locations
+$ExplicitMvToolsDir = if ($PSBoundParameters.ContainsKey('MvToolsDir') -and -not [string]::IsNullOrWhiteSpace($MvToolsDir)) { $MvToolsDir } else { "" }
+
+# Helper to dynamically discover MVTools binaries across potential locations
+function Resolve-MvToolsSearchDirectory {
+    param(
+        [string]$ExplicitDir = "",
+        [string]$TargetPotPlayerDir = "",
+        [string]$CurrentScriptDir = "",
+        [string]$CurrentRepoRoot = ""
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitDir) -and (Test-Path $ExplicitDir)) {
+        return (Resolve-Path $ExplicitDir).Path
+    }
+
+    # Candidate search paths where mvtools2.dll might already exist:
+    $searchCandidates = @(
+        $TargetPotPlayerDir,
+        (Join-Path $TargetPotPlayerDir "plugins"),
+        (Join-Path $TargetPotPlayerDir "AviSynth"),
+        $CurrentScriptDir,
+        (Join-Path $CurrentScriptDir "plugins"),
+        (Join-Path $CurrentRepoRoot "Release\ARM64"),
+        (Join-Path $CurrentRepoRoot "out\ARM64\MSVC"),
+        (Join-Path $CurrentRepoRoot "ARM64\Release"),
+        (Join-Path $CurrentRepoRoot "ARM64\Debug")
+    )
+    foreach ($cand in $searchCandidates) {
+        if (-not [string]::IsNullOrWhiteSpace($cand) -and (Test-Path (Join-Path $cand "mvtools2.dll"))) {
+            return (Resolve-Path $cand).Path
+        }
+    }
+
+    # If mvtools2.dll is not yet found, default to verified PotPlayer directory if valid
+    if (-not [string]::IsNullOrWhiteSpace($TargetPotPlayerDir) -and (Test-Path $TargetPotPlayerDir)) {
+        return (Resolve-Path $TargetPotPlayerDir).Path
+    }
+
+    # Otherwise default to Benchmarks script directory
+    return $CurrentScriptDir
+}
+
+# ---------------------------------------------------------
+# POTPLAYER INI & INSTALLATION TARGET RESOLUTION
+# ---------------------------------------------------------
+function Test-IsDefaultPotPlayerLocation([string]$Dir) {
+    if ([string]::IsNullOrWhiteSpace($Dir)) { return $false }
+    try {
+        $norm = [System.IO.Path]::GetFullPath($Dir).TrimEnd('\', '/')
+        $defaultCandidates = @(
+            (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"),
+            (Join-Path ${env:ProgramW6432} "DAUM\PotPlayer"),
+            (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer")
+        )
+        foreach ($cand in $defaultCandidates) {
+            if (-not [string]::IsNullOrWhiteSpace($cand)) {
+                $normCand = [System.IO.Path]::GetFullPath($cand).TrimEnd('\', '/')
+                if ($norm.Equals($normCand, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    return $true
+                }
+            }
+        }
+    } catch {}
+    return $false
+}
+
+function Get-PotPlayerIniTargets([string]$PotPlayerDir) {
+    if (Test-IsDefaultPotPlayerLocation $PotPlayerDir) {
+        $appData = if ($env:APPDATA) { $env:APPDATA } else { [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData) }
+        return @(
+            (Join-Path $appData "PotPlayer64\PotPlayer64.ini"),
+            (Join-Path $appData "PotPlayerMini64\PotPlayerMini64.ini")
+        )
+    } else {
+        return @(
+            (Join-Path $PotPlayerDir "PotPlayer64.ini"),
+            (Join-Path $PotPlayerDir "PotPlayerMini64.ini")
+        )
+    }
+}
+
+function Initialize-PotPlayerIniFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PotPlayerDir
+    )
+
+    $isDefault = Test-IsDefaultPotPlayerLocation $PotPlayerDir
+    $iniTargets = Get-PotPlayerIniTargets $PotPlayerDir
+
+    if ($isDefault) {
+        Write-Host "  -> Ensuring PotPlayer configuration at default AppData locations..." -ForegroundColor Gray
+    } else {
+        Write-Host "  -> Ensuring PotPlayer configuration at install location: $PotPlayerDir..." -ForegroundColor Gray
+    }
+
+    foreach ($target in $iniTargets) {
+        $parentDir = Split-Path $target -Parent
+        if (-not (Test-Path $parentDir)) {
+            try {
+                New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            } catch {
+                Write-Warning "Could not create directory '$parentDir': $($_.Exception.Message)"
+            }
+        }
+
+        if (-not (Test-Path $target)) {
+            $leaf = Split-Path $target -Leaf
+            $candidateSource = Join-Path $PotPlayerDir $leaf
+            $copied = $false
+
+            # 1. Try copying from install directory if an INI exists there
+            if ((Test-Path $candidateSource) -and ($candidateSource -ne $target)) {
+                try {
+                    Copy-Item -Path $candidateSource -Destination $target -Force -ErrorAction Stop
+                    Write-Host "     Copied baseline INI to: $target" -ForegroundColor Gray
+                    $copied = $true
+                } catch {
+                    Write-Warning "Could not copy '$candidateSource' to '$target': $($_.Exception.Message)"
+                }
+            }
+
+            # 2. Try copying from sibling template if present in install dir (e.g. PotPlayer64.ini to PotPlayerMini64.ini)
+            if (-not $copied) {
+                $altLeaf = if ($leaf -match '(?i)Mini') { "PotPlayer64.ini" } else { "PotPlayerMini64.ini" }
+                $altSource = Join-Path $PotPlayerDir $altLeaf
+                if ((Test-Path $altSource) -and ($altSource -ne $target)) {
+                    try {
+                        Copy-Item -Path $altSource -Destination $target -Force -ErrorAction Stop
+                        Write-Host "     Copied template INI ($altLeaf) to: $target" -ForegroundColor Gray
+                        $copied = $true
+                    } catch {}
+                }
+            }
+
+            # 3. If still not copied, create clean baseline INI
+            if (-not (Test-Path $target)) {
+                try {
+                    $autoIniVal = if ($isDefault) { "0" } else { "1" }
+                    $initialContent = "[Settings]`r`nAutoIni=$autoIniVal`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n"
+                    [System.IO.File]::WriteAllText($target, $initialContent, [System.Text.Encoding]::Unicode)
+                    Write-Host "     Created clean baseline INI: $target" -ForegroundColor Gray
+                } catch {
+                    Write-Warning "Could not initialize baseline INI at '$target': $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+    return $iniTargets
+}
+
+# Resolve PotPlayer directory: check system installed locations, registry, then local sibling
 if ([string]::IsNullOrWhiteSpace($PotPlayerDir)) {
     $siblingDir = Join-Path $ScriptDir "PotPlayer"
-    $installedDir64 = Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"
-    $installedDir32 = Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer"
+    $installedDir64 = if ($env:ProgramFiles) { Join-Path ${env:ProgramFiles} "DAUM\PotPlayer" } else { "" }
+    $installedDir32 = if (${env:ProgramFiles(x86)}) { Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer" } else { "" }
 
-    if (Test-Path (Join-Path $siblingDir "PotPlayer64.exe")) {
-        $PotPlayerDir = $siblingDir
-    } elseif (Test-Path (Join-Path $installedDir64 "PotPlayer64.exe")) {
+    # Query registry dynamically for user or system PotPlayer installations
+    $regPotDir = $null
+    $potRegKeys = @(
+        "HKCU:\SOFTWARE\Daum\PotPlayer64",
+        "HKLM:\SOFTWARE\Daum\PotPlayer64",
+        "HKCU:\SOFTWARE\Daum\PotPlayer",
+        "HKLM:\SOFTWARE\Daum\PotPlayer"
+    )
+    foreach ($prk in $potRegKeys) {
+        if (Test-Path $prk) {
+            $prop = Get-ItemProperty -Path $prk -ErrorAction SilentlyContinue
+            if ($prop.ProgramFolder -and ((Test-Path (Join-Path $prop.ProgramFolder "PotPlayer64.exe")) -or (Test-Path (Join-Path $prop.ProgramFolder "PotPlayerMini64.exe")))) {
+                $regPotDir = $prop.ProgramFolder
+                break
+            }
+        }
+    }
+
+    # Prefer system/default installed PotPlayer if present, then registry, then local sibling
+    if ($installedDir64 -and ((Test-Path (Join-Path $installedDir64 "PotPlayer64.exe")) -or (Test-Path (Join-Path $installedDir64 "PotPlayerMini64.exe")))) {
         $PotPlayerDir = $installedDir64
-    } elseif (Test-Path (Join-Path $installedDir32 "PotPlayer64.exe")) {
+    } elseif ($regPotDir -and ((Test-Path (Join-Path $regPotDir "PotPlayer64.exe")) -or (Test-Path (Join-Path $regPotDir "PotPlayerMini64.exe")))) {
+        $PotPlayerDir = $regPotDir
+    } elseif ($installedDir32 -and ((Test-Path (Join-Path $installedDir32 "PotPlayer64.exe")) -or (Test-Path (Join-Path $installedDir32 "PotPlayerMini64.exe")))) {
         $PotPlayerDir = $installedDir32
-    } else {
+    } elseif ((Test-Path (Join-Path $siblingDir "PotPlayer64.exe")) -or (Test-Path (Join-Path $siblingDir "PotPlayerMini64.exe"))) {
         $PotPlayerDir = $siblingDir
+    } else {
+        $PotPlayerDir = if ($installedDir64) { $installedDir64 } else { $siblingDir }
     }
 }
 
 # Resolve MVTools binary search directory
-if ([string]::IsNullOrWhiteSpace($MvToolsDir)) {
-    $Candidates = @(
-        $PotPlayerDir,
-        (Join-Path $PotPlayerDir "plugins"),
-        (Join-Path $ScriptDir "plugins"),
-        $ScriptDir
-    )
-    foreach ($c in $Candidates) {
-        if (Test-Path (Join-Path $c "mvtools2.dll")) {
-            $MvToolsDir = $c
-            break
-        }
-    }
-    if ([string]::IsNullOrWhiteSpace($MvToolsDir)) {
-        $MvToolsDir = $PotPlayerDir
-    }
-}
+$MvToolsDir = Resolve-MvToolsSearchDirectory -ExplicitDir $ExplicitMvToolsDir -TargetPotPlayerDir $PotPlayerDir -CurrentScriptDir $ScriptDir -CurrentRepoRoot $RepoRoot
 
 # Resolve Output directory
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
@@ -334,6 +530,134 @@ function Find-PresentMonExecutable {
 }
 
 # ---------------------------------------------------------
+# HELPER: Read PE Header Machine Architecture
+# ---------------------------------------------------------
+function Get-PeMachine {
+    param([string]$FilePath)
+    if (-not (Test-Path $FilePath)) { return 0 }
+    $fs = $null
+    try {
+        $fs = [System.IO.File]::OpenRead($FilePath)
+        $br = New-Object System.IO.BinaryReader($fs)
+        $fs.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $peOffset = $br.ReadInt32()
+        $fs.Seek($peOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $machine = $br.ReadUInt16()
+        $fs.Close()
+        $fs = $null
+        return $machine
+    } catch {
+        if ($fs) { $fs.Close() }
+        return 0
+    }
+}
+
+# ---------------------------------------------------------
+# HELPER: Resolve Target Binary Architecture (ARM64 vs x64 vs x86)
+# ---------------------------------------------------------
+function Get-TargetBinaryArchitecture {
+    param([string]$TargetPotPlayerDir = "")
+
+    # Priority 1: Check PE Machine header of target PotPlayer executable
+    if (-not [string]::IsNullOrWhiteSpace($TargetPotPlayerDir)) {
+        $potCandidates = @(
+            (Join-Path $TargetPotPlayerDir "PotPlayer64.exe"),
+            (Join-Path $TargetPotPlayerDir "PotPlayerMini64.exe"),
+            (Join-Path $TargetPotPlayerDir "PotPlayer.exe")
+        )
+        foreach ($pe in $potCandidates) {
+            if (Test-Path $pe) {
+                $machine = Get-PeMachine -FilePath $pe
+                if ($machine -eq 0xAA64) { return "arm64" }
+                if ($machine -eq 0x8664) { return "x64" }
+                if ($machine -eq 0x014C) { return "x86" }
+            }
+        }
+    }
+
+    # Priority 2: System-wide registry machine architecture
+    try {
+        $regArch = Get-ItemPropertyValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -Name "PROCESSOR_ARCHITECTURE" -ErrorAction SilentlyContinue
+        if ($regArch -match '(?i)ARM64') { return "arm64" }
+    } catch {}
+
+    # Priority 3: WMI Processor Architecture (12 = ARM64)
+    try {
+        $wmiArch = (Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1).Architecture
+        if ($wmiArch -eq 12) { return "arm64" }
+    } catch {}
+
+    # Priority 4: Environment indicators for ARM64
+    if ($env:PROCESSOR_ARCHITECTURE -match '(?i)ARM64' -or 
+        $env:PROCESSOR_ARCHITEW6432 -match '(?i)ARM64' -or 
+        $env:PROCESSOR_IDENTIFIER -match '(?i)ARM|Qualcomm|Snapdragon|Oryon') {
+        return "arm64"
+    }
+
+    # Priority 5: x64
+    if ($env:PROCESSOR_ARCHITECTURE -match '(?i)AMD64|x64') {
+        return "x64"
+    }
+
+    # Default to ARM64 for MVTools ARM64 harness
+    return "arm64"
+}
+
+# ---------------------------------------------------------
+# HELPER: Explicit Download Permission Confirmation
+# ---------------------------------------------------------
+function Confirm-DownloadPermission {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ItemName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourceUrl,
+
+        [Parameter(Mandatory = $false)]
+        [string]$TargetDir = "",
+
+        [Parameter(Mandatory = $false)]
+        [string]$SizeDesc = ""
+    )
+
+    Write-Host "`n========================================================" -ForegroundColor Yellow
+    Write-Host " PERMISSION REQUIRED: EXTERNAL FILE DOWNLOAD" -ForegroundColor Yellow
+    Write-Host "========================================================" -ForegroundColor Yellow
+    Write-Host " Item:        $ItemName" -ForegroundColor White
+    Write-Host " Source:      $SourceUrl" -ForegroundColor Cyan
+    if (-not [string]::IsNullOrWhiteSpace($SizeDesc)) {
+        Write-Host " Size:        $SizeDesc" -ForegroundColor Gray
+    }
+    if (-not [string]::IsNullOrWhiteSpace($TargetDir)) {
+        Write-Host " Destination: $TargetDir" -ForegroundColor Gray
+    }
+    Write-Host "--------------------------------------------------------" -ForegroundColor Gray
+
+    try {
+        Write-Host "Do you want to proceed with downloading this file? [Y/n]: " -NoNewline -ForegroundColor Cyan
+        $response = Read-Host
+    } catch {
+        Write-Host "[ERROR] External file download requires user permission, but unable to prompt host." -ForegroundColor Red
+        Write-Host "Aborting download of '$ItemName'.`n" -ForegroundColor Yellow
+        return $false
+    }
+
+    if ($null -eq $response) {
+        Write-Host "  -> No input received (End of stream). Download aborted.`n" -ForegroundColor DarkYellow
+        return $false
+    }
+
+    if ([string]::IsNullOrWhiteSpace($response) -or $response -match '^(?i)y(es)?$') {
+        Write-Host "  -> Permission granted. Proceeding with download...`n" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "  -> Permission declined by user. Download aborted.`n" -ForegroundColor DarkYellow
+        return $false
+    }
+}
+
+# ---------------------------------------------------------
 # HELPER: Automated Acquisition & Silent Installation of PotPlayer ARM64
 # ---------------------------------------------------------
 function Install-PotPlayerARM64 {
@@ -341,6 +665,14 @@ function Install-PotPlayerARM64 {
         [string]$TargetDir = "",
         [bool]$Elevated = $false
     )
+
+    # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+    } catch {}
+    try {
+        Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+    } catch {}
 
     $Url = "https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe"
     $TempInstaller = Join-Path $env:TEMP ("PotPlayerSetupARM64_{0}.exe" -f [System.Guid]::NewGuid().ToString("N"))
@@ -351,14 +683,23 @@ function Install-PotPlayerARM64 {
     Write-Host " Architecture: Native Windows on ARM64" -ForegroundColor Gray
     Write-Host "========================================================`n" -ForegroundColor Cyan
 
+    # Prompt user permission before downloading
+    if (-not (Confirm-DownloadPermission -ItemName "PotPlayer ARM64 Official Installer" -SourceUrl $Url -TargetDir $TempInstaller -SizeDesc "~35 MB")) {
+        return $null
+    }
+
     # Phase 1: Download with live stream progress
     Write-Host "[1/2] Downloading Official PotPlayer ARM64 Installer..." -ForegroundColor Cyan
 
-    $Client = [System.Net.Http.HttpClient]::new()
+    $Client = $null
     $FileStream = $null
     $Stream = $null
+    $DownloadSuccess = $false
+
     try {
-        $Response = $Client.GetAsync($Url, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        $Client = New-Object System.Net.Http.HttpClient
+        # 1 corresponds to HttpCompletionOption.ResponseHeadersRead
+        $Response = $Client.GetAsync($Url, 1).GetAwaiter().GetResult()
         if (-not $Response.IsSuccessStatusCode) {
             throw "Failed to download PotPlayer installer from CDN! HTTP status: $($Response.StatusCode) $($Response.ReasonPhrase)"
         }
@@ -400,21 +741,47 @@ function Install-PotPlayerARM64 {
         }
 
         $FileStream.Close()
+        $FileStream = $null
         $Stream.Close()
+        $Stream = $null
         $TotalMb = ($TotalRead / 1MB).ToString("0.0")
         $TotalSec = [math]::Round($Stopwatch.Elapsed.TotalSeconds, 1)
         Write-Host "`r  [OK] Download complete! ($TotalMb MB downloaded in ${TotalSec}s)                              " -ForegroundColor Green
+        $DownloadSuccess = $true
     }
     catch {
-        Write-Host "`r  [ERROR] Download failed: $_" -ForegroundColor Red
-        if ($FileStream) { $FileStream.Dispose() }
-        if ($Stream) { $Stream.Dispose() }
-        $Client.Dispose()
-        if (Test-Path $TempInstaller) { Remove-Item $TempInstaller -Force -ErrorAction SilentlyContinue }
-        return $null
+        Write-Host "`r  [WARNING] Streaming download encountered an issue: $($_.Exception.Message). Attempting WebClient fallback..." -ForegroundColor Yellow
+        if ($FileStream) { $FileStream.Dispose(); $FileStream = $null }
+        if ($Stream) { $Stream.Dispose(); $Stream = $null }
+        if ($Client) { $Client.Dispose(); $Client = $null }
+
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($Url, $TempInstaller)
+            $webClient.Dispose()
+            if ((Test-Path $TempInstaller) -and ((Get-Item $TempInstaller).Length -gt 0)) {
+                Write-Host "  [OK] Download complete! (Fallback successful)                                   " -ForegroundColor Green
+                $DownloadSuccess = $true
+            } else {
+                throw "Downloaded file was empty or missing."
+            }
+        } catch {
+            Write-Host "`r  [ERROR] Fallback download failed: $_" -ForegroundColor Red
+            if (Test-Path $TempInstaller) { Remove-Item $TempInstaller -Force -ErrorAction SilentlyContinue }
+            $DownloadSuccess = $false
+        }
     }
     finally {
-        $Client.Dispose()
+        if ($FileStream) { $FileStream.Dispose() }
+        if ($Stream) { $Stream.Dispose() }
+        if ($Client) { $Client.Dispose() }
+    }
+
+    # Ensure Phase 1 actually succeeded before attempting Phase 2
+    if (-not $DownloadSuccess -or -not (Test-Path $TempInstaller) -or (Get-Item $TempInstaller).Length -eq 0) {
+        Write-Host "`n[FATAL ERROR] PotPlayer download was incomplete or failed. Installation aborted.`n" -ForegroundColor Red
+        if (Test-Path $TempInstaller) { Remove-Item $TempInstaller -Force -ErrorAction SilentlyContinue }
+        return $null
     }
 
     # Phase 2: Silent installation with animated spinner & live timer
@@ -440,6 +807,7 @@ function Install-PotPlayerARM64 {
         $Spinner = @('|', '/', '-', '\')
         $SpinIndex = 0
         $InstallWatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $StableSuccessCount = 0
 
         while (-not $Process.HasExited) {
             $Char = $Spinner[$SpinIndex % $Spinner.Length]
@@ -447,6 +815,45 @@ function Install-PotPlayerARM64 {
             Write-Host -NoNewline "`r  [$Char] Unpacking and registering ARM64 components... (${ElapsedSec}s elapsed)   " -ForegroundColor Yellow
             Start-Sleep -Milliseconds 250
             $SpinIndex++
+
+            # Early completion detection: check if core files and uninstaller are fully deployed
+            if ($InstallWatch.Elapsed.TotalSeconds -ge 6) {
+                $InstalledCandidate = $null
+                $CheckList = @()
+                if (-not [string]::IsNullOrWhiteSpace($TargetDir)) { $CheckList += $TargetDir }
+                $CheckList += @(
+                    (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"),
+                    (Join-Path ${env:ProgramW6432} "DAUM\PotPlayer"),
+                    (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer"),
+                    (Join-Path $env:LOCALAPPDATA "DAUM\PotPlayer")
+                )
+                foreach ($chk in $CheckList) {
+                    if (-not [string]::IsNullOrWhiteSpace($chk)) {
+                        $potBin = Join-Path $chk "PotPlayer64.exe"
+                        $potMini = Join-Path $chk "PotPlayerMini64.exe"
+                        $potUninst = Join-Path $chk "uninstall.exe"
+                        if (((Test-Path $potBin) -or (Test-Path $potMini)) -and (Test-Path $potUninst)) {
+                            $InstalledCandidate = $chk
+                            break
+                        }
+                    }
+                }
+
+                if ($InstalledCandidate) {
+                    $StableSuccessCount++
+                    # If core files are verified stable across 8 cycles (2.0s), installer completed unpacking
+                    if ($StableSuccessCount -ge 8) {
+                        try {
+                            if (-not $Process.WaitForExit(3000)) {
+                                Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+                            }
+                        } catch {}
+                        break
+                    }
+                } else {
+                    $StableSuccessCount = 0
+                }
+            }
 
             # Safety watchdog (180 seconds max)
             if ($InstallWatch.Elapsed.TotalSeconds -gt 180) {
@@ -456,13 +863,16 @@ function Install-PotPlayerARM64 {
             }
         }
 
-        $Process.WaitForExit()
+        try { [void]$Process.WaitForExit(2000) } catch {}
         $InstallSec = [math]::Round($InstallWatch.Elapsed.TotalSeconds, 1)
 
-        if ($Process.ExitCode -eq 0) {
+        $ExitCode = 0
+        try { $ExitCode = $Process.ExitCode } catch {}
+
+        if ($ExitCode -eq 0 -or $StableSuccessCount -ge 8) {
             Write-Host "`r  [OK] PotPlayer installed successfully in ${InstallSec}s!                                    `n" -ForegroundColor Green
         } else {
-            Write-Host "`r  [WARNING] Installer exited with code $($Process.ExitCode) after ${InstallSec}s. Checking for installed files...`n" -ForegroundColor Yellow
+            Write-Host "`r  [WARNING] Installer exited with code $ExitCode after ${InstallSec}s. Checking for installed files...`n" -ForegroundColor Yellow
         }
     }
     catch {
@@ -486,7 +896,12 @@ function Install-PotPlayerARM64 {
     )
 
     foreach ($loc in $CheckLocations) {
-        if (-not [string]::IsNullOrWhiteSpace($loc) -and (Test-Path (Join-Path $loc "PotPlayer64.exe"))) {
+        if (-not [string]::IsNullOrWhiteSpace($loc) -and ((Test-Path (Join-Path $loc "PotPlayer64.exe")) -or (Test-Path (Join-Path $loc "PotPlayerMini64.exe")))) {
+            try {
+                icacls.exe "$loc" /grant "*S-1-5-32-545:(OI)(CI)M" /T /Q | Out-Null
+            } catch {}
+            Install-MvToolsToPotPlayer -TargetPotPlayerDir $loc -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+            Initialize-PotPlayerIniFiles -PotPlayerDir $loc | Out-Null
             return $loc
         }
     }
@@ -495,10 +910,1148 @@ function Install-PotPlayerARM64 {
 }
 
 # ---------------------------------------------------------
+# HELPER: Discover Latest MVTools ARM64 Release Asset from GitHub
+# ---------------------------------------------------------
+function Get-MvToolsLatestReleaseAsset {
+    param(
+        [string]$RepoSlug = "tordona/mvtools",
+        [string]$ReleaseTag = "latest"
+    )
+
+    $ReleaseInfo = [ordered]@{
+        TagName     = ""
+        DownloadUrl = ""
+        FileName    = ""
+        Size        = 0
+        Source      = "GitHubAPI"
+    }
+
+    $ApiUrl = if ($ReleaseTag -eq "latest") {
+        "https://api.github.com/repos/$RepoSlug/releases/latest"
+    } else {
+        "https://api.github.com/repos/$RepoSlug/releases/tags/$ReleaseTag"
+    }
+
+    try {
+        $uaVersion = if ($Script:HarnessVersion) { $Script:HarnessVersion } else { "2.3.0" }
+        $headers = @{
+            "User-Agent" = "MvToolsBenchmarkHarness/$uaVersion"
+            "Accept"     = "application/vnd.github.v3+json"
+        }
+        $release = Invoke-RestMethod -Uri $ApiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        if ($release -and $release.assets -and $release.assets.Count -gt 0) {
+            $ReleaseInfo.TagName = if ($release.tag_name) { $release.tag_name } else { $ReleaseTag }
+
+            # Priority 1: Match *arm64*.7z (most specific)
+            $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
+
+            # Priority 2: Match *mvtools*.7z
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+            }
+
+            # Priority 3: Match any .7z
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
+            }
+
+            # Priority 4: Match *arm64*.zip
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.zip$' } | Select-Object -First 1
+            }
+
+            # Priority 5: Match any .zip
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+            }
+
+            if ($asset) {
+                $ReleaseInfo.DownloadUrl = $asset.browser_download_url
+                $ReleaseInfo.FileName = $asset.name
+                $ReleaseInfo.Size = $asset.size
+                return $ReleaseInfo
+            }
+        }
+    } catch {
+        Write-Host "  -> GitHub API notice: $($_.Exception.Message)" -ForegroundColor Gray
+    }
+
+    # Fallback to direct asset download redirect URL if API unavailable or release not yet indexed
+    $fallbackVer = "2.7.47.100-arm64"
+    $baseSearch = if ($PSScriptRoot) { $PSScriptRoot } elseif ($ScriptDir) { $ScriptDir } else { (Get-Location).Path }
+    $versionH = Join-Path $baseSearch "..\Sources\version.h"
+    if (Test-Path $versionH) {
+        $verContent = Get-Content $versionH -Raw -ErrorAction SilentlyContinue
+        if ($verContent -match 'FILEVERSION_STR\s*"([^"]+)"') {
+            $fallbackVer = $matches[1]
+        }
+    }
+    $fallbackFileName = "mvtools-$fallbackVer.7z"
+    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest") { $ReleaseTag } else { "latest" }
+    $ReleaseInfo.FileName = $fallbackFileName
+    $ReleaseInfo.DownloadUrl = "https://github.com/$RepoSlug/releases/latest/download/$fallbackFileName"
+    $ReleaseInfo.Source = "DirectDownloadFallback"
+
+    return $ReleaseInfo
+}
+
+# ---------------------------------------------------------
+# HELPER: Automated Acquisition & Extraction of MVTools ARM64 Release
+# ---------------------------------------------------------
+function Install-MvToolsRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$TargetDir = "",
+
+        [Parameter(Mandatory = $false)]
+        [string]$RepoSlug = "tordona/mvtools",
+
+        [Parameter(Mandatory = $false)]
+        [string]$ReleaseTag = "latest"
+    )
+
+    # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+    } catch {}
+    try {
+        Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+    } catch {}
+
+    Write-Host "`n========================================================" -ForegroundColor Cyan
+    Write-Host " AUTOMATED MVTOOLS ARM64 ACQUISITION & SETUP" -ForegroundColor Cyan
+    Write-Host " Repository: https://github.com/$RepoSlug" -ForegroundColor Gray
+    Write-Host " Target Architecture: Windows on ARM64" -ForegroundColor Gray
+    Write-Host "========================================================`n" -ForegroundColor Cyan
+
+    Write-Host "[1/3] Resolving latest MVTools ARM64 release package..." -ForegroundColor Cyan
+    $assetInfo = Get-MvToolsLatestReleaseAsset -RepoSlug $RepoSlug -ReleaseTag $ReleaseTag
+    Write-Host "  -> Release Tag: $($assetInfo.TagName)" -ForegroundColor White
+    Write-Host "  -> Asset Name:  $($assetInfo.FileName)" -ForegroundColor White
+    Write-Host "  -> Source:      $($assetInfo.Source)" -ForegroundColor Gray
+    Write-Host "  -> URL:         $($assetInfo.DownloadUrl)" -ForegroundColor Gray
+
+    # Prompt user permission before downloading
+    $sizeDesc = if ($assetInfo.Size -gt 0) { ("{0:N1} MB" -f ($assetInfo.Size / 1MB)) } else { "" }
+    $tempArchive = Join-Path $env:TEMP ("mvtools_dl_{0}_{1}" -f [System.Guid]::NewGuid().ToString("N"), $assetInfo.FileName)
+    if (-not (Confirm-DownloadPermission -ItemName "MVTools ARM64 Release ($($assetInfo.FileName))" -SourceUrl $assetInfo.DownloadUrl -TargetDir $tempArchive -SizeDesc $sizeDesc)) {
+        return $null
+    }
+
+    # Phase 2: Download with live stream progress
+    Write-Host "`n[2/3] Downloading $($assetInfo.FileName)..." -ForegroundColor Cyan
+
+    $client = $null
+    $fileStream = $null
+    $stream = $null
+    $downloadSuccess = $false
+
+    try {
+        $client = New-Object System.Net.Http.HttpClient
+        # 1 corresponds to HttpCompletionOption.ResponseHeadersRead
+        $response = $client.GetAsync($assetInfo.DownloadUrl, 1).GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            throw "HTTP $($response.StatusCode) ($($response.ReasonPhrase)) while accessing $($assetInfo.DownloadUrl)"
+        }
+
+        $totalBytes = $response.Content.Headers.ContentLength
+        $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $fileStream = [System.IO.File]::Create($tempArchive)
+
+        $buffer = New-Object byte[] 65536
+        $totalRead = 0
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $lastUiUpdate = [System.Diagnostics.Stopwatch]::StartNew()
+
+        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $fileStream.Write($buffer, 0, $read)
+            $totalRead += $read
+
+            if ($lastUiUpdate.ElapsedMilliseconds -ge 100 -or $totalRead -eq $totalBytes) {
+                $percent = if ($totalBytes -gt 0) { [math]::Round(($totalRead / $totalBytes) * 100) } else { 0 }
+                $mbRead = ($totalRead / 1MB).ToString("0.0")
+                $mbTotal = if ($totalBytes -gt 0) { ($totalBytes / 1MB).ToString("0.0") } else { "???" }
+                $elapsedSec = [math]::Max($stopwatch.Elapsed.TotalSeconds, 0.001)
+                $speed = ($totalRead / 1MB / $elapsedSec).ToString("0.0")
+
+                $filledLength = [int](($percent / 100) * 20)
+                $arrow = if ($filledLength -gt 0) { ">" } else { "" }
+                $bar = ("=" * [math]::Max(0, $filledLength - 1)) + $arrow
+                $bar = $bar.PadRight(20, ' ')
+
+                $etaStr = ""
+                if ($totalBytes -gt 0 -and ($totalRead / $elapsedSec) -gt 0) {
+                    $remainingSec = [math]::Round(($totalBytes - $totalRead) / ($totalRead / $elapsedSec))
+                    $etaStr = " [ETA: ${remainingSec}s]"
+                }
+
+                Write-Host -NoNewline ("`r  [$bar] $percent% ($mbRead / $mbTotal MB) | $speed MB/s$etaStr   ") -ForegroundColor DarkCyan
+                $lastUiUpdate.Restart()
+            }
+        }
+
+        $fileStream.Close()
+        $fileStream = $null
+        $stream.Close()
+        $stream = $null
+        $totalMb = ($totalRead / 1MB).ToString("0.0")
+        $totalSec = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
+        Write-Host "`r  [OK] Download complete! ($totalMb MB downloaded in ${totalSec}s)                              " -ForegroundColor Green
+        $downloadSuccess = $true
+    }
+    catch {
+        Write-Host "`r  [WARNING] Streaming download encountered an issue: $($_.Exception.Message). Attempting WebClient fallback..." -ForegroundColor Yellow
+        if ($fileStream) { $fileStream.Dispose(); $fileStream = $null }
+        if ($stream) { $stream.Dispose(); $stream = $null }
+        if ($client) { $client.Dispose(); $client = $null }
+
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($assetInfo.DownloadUrl, $tempArchive)
+            $webClient.Dispose()
+            if ((Test-Path $tempArchive) -and ((Get-Item $tempArchive).Length -gt 0)) {
+                Write-Host "  [OK] Download complete! (Fallback successful)                                   " -ForegroundColor Green
+                $downloadSuccess = $true
+            } else {
+                throw "Downloaded file was empty or missing."
+            }
+        } catch {
+            Write-Host "`r  [ERROR] Fallback download failed: $_" -ForegroundColor Red
+            Write-Host "  URL: $($assetInfo.DownloadUrl)" -ForegroundColor Yellow
+            Write-Host "  Please ensure the release package exists and is published at https://github.com/$RepoSlug/releases.`n" -ForegroundColor Yellow
+            if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+            $downloadSuccess = $false
+        }
+    }
+    finally {
+        if ($fileStream) { $fileStream.Dispose() }
+        if ($stream) { $stream.Dispose() }
+        if ($client) { $client.Dispose() }
+    }
+
+    # Ensure Phase 2 actually succeeded before attempting Phase 3
+    if (-not $downloadSuccess -or -not (Test-Path $tempArchive) -or (Get-Item $tempArchive).Length -eq 0) {
+        Write-Host "`n[FATAL ERROR] MVTools release download was incomplete or failed. Extraction aborted.`n" -ForegroundColor Red
+        if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+        return $null
+    }
+
+    # Phase 3: Extraction and ARM64 binary placement
+    Write-Host "`n[3/3] Extracting ARM64 binaries..." -ForegroundColor Cyan
+
+    $tempExtractDir = Join-Path $env:TEMP ("mvtools_extract_{0}" -f [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tempExtractDir -Force | Out-Null
+
+    try {
+        # Check extraction utilities: 7z or Windows bsdtar
+        $extractorExe = $null
+        $extractorType = $null
+
+        $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
+        $cmd7z = Get-Command 7z -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cmd7z) {
+            $extractorExe = $cmd7z.Source
+            $extractorType = "7z"
+        } elseif (Test-Path (Join-Path $winDir "7z.exe")) {
+            $extractorExe = Join-Path $winDir "7z.exe"
+            $extractorType = "7z"
+        } elseif ($env:ProgramFiles -and (Test-Path (Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"))) {
+            $extractorExe = Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"
+            $extractorType = "7z"
+        } elseif (${env:ProgramFiles(x86)} -and (Test-Path (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"))) {
+            $extractorExe = Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"
+            $extractorType = "7z"
+        }
+
+        if (-not $extractorExe) {
+            $cmdTar = Get-Command tar.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cmdTar) {
+                $extractorExe = $cmdTar.Source
+                $extractorType = "tar"
+            } elseif (Test-Path (Join-Path $winDir "System32\tar.exe")) {
+                $extractorExe = Join-Path $winDir "System32\tar.exe"
+                $extractorType = "tar"
+            }
+        }
+
+        if ($extractorType -eq "7z") {
+            Write-Host "  -> Decompressing using 7-Zip ($extractorExe)..." -ForegroundColor Gray
+            & $extractorExe x "$tempArchive" "-o$tempExtractDir" -y | Out-Null
+        } elseif ($extractorType -eq "tar") {
+            Write-Host "  -> Decompressing using Windows bsdtar ($extractorExe)..." -ForegroundColor Gray
+            & $extractorExe -xf "$tempArchive" -C "$tempExtractDir"
+        } elseif ($assetInfo.FileName -match '(?i)\.zip$') {
+            Write-Host "  -> Decompressing using PowerShell Expand-Archive..." -ForegroundColor Gray
+            Expand-Archive -Path $tempArchive -DestinationPath $tempExtractDir -Force
+        } else {
+            throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
+        }
+
+        # Locate ARM64 binaries
+        $allExtracted = Get-ChildItem -Path $tempExtractDir -Recurse -File
+
+        # Priority 1: Binaries located under an 'ARM64' directory
+        $arm64Pool = $allExtracted | Where-Object { $_.DirectoryName -match '(?i)ARM64' }
+        if (-not $arm64Pool) {
+            $arm64Pool = $allExtracted
+        }
+
+        $cpuDll = $arm64Pool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
+        $gpuDll = $arm64Pool | Where-Object { $_.Name -ieq "mvtools2_d3d12.dll" } | Select-Object -First 1
+        $depanDll = $arm64Pool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
+        $depanEstDll = $arm64Pool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
+
+        if (-not $cpuDll) {
+            throw "Could not locate 'mvtools2.dll' inside the downloaded release archive!"
+        }
+
+        # Destination directory
+        $deployDir = if (-not [string]::IsNullOrWhiteSpace($TargetDir)) { $TargetDir } else { $ScriptDir }
+        if (-not (Test-Path $deployDir)) {
+            New-Item -ItemType Directory -Path $deployDir -Force | Out-Null
+        }
+
+        Copy-Item -Path $cpuDll.FullName -Destination (Join-Path $deployDir "mvtools2.dll") -Force
+        Write-Host "  -> Deployed mvtools2.dll (ARM64 CPU NEON) to: $deployDir" -ForegroundColor Green
+
+        if ($gpuDll) {
+            Copy-Item -Path $gpuDll.FullName -Destination (Join-Path $deployDir "mvtools2_d3d12.dll") -Force
+            Write-Host "  -> Deployed mvtools2_d3d12.dll (Direct3D 12 GPU) to: $deployDir" -ForegroundColor Green
+        } else {
+            Write-Host "  -> mvtools2_d3d12.dll not present in archive (CPU-only build package)." -ForegroundColor Gray
+        }
+
+        if ($depanDll) {
+            Copy-Item -Path $depanDll.FullName -Destination (Join-Path $deployDir "DePan.dll") -Force
+        }
+        if ($depanEstDll) {
+            Copy-Item -Path $depanEstDll.FullName -Destination (Join-Path $deployDir "DePanEstimate.dll") -Force
+        }
+
+        # Deploy AviSynth profiles if present in the release archive
+        $avsFiles = $allExtracted | Where-Object { $_.Extension -ieq ".avs" }
+        if ($avsFiles -and $avsFiles.Count -gt 0) {
+            $avsTargetDirs = @()
+            if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+                $avsTargetDirs += (Join-Path $RepoRoot "AviSynth")
+            }
+            if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) {
+                $avsTargetDirs += (Join-Path $ScriptDir "AviSynth")
+            }
+            if (-not [string]::IsNullOrWhiteSpace($TargetDir)) {
+                $avsTargetDirs += (Join-Path $TargetDir "AviSynth")
+            }
+            foreach ($tDir in ($avsTargetDirs | Select-Object -Unique)) {
+                if (-not (Test-Path $tDir)) {
+                    New-Item -ItemType Directory -Path $tDir -Force | Out-Null
+                }
+                foreach ($avs in $avsFiles) {
+                    Copy-Item -Path $avs.FullName -Destination (Join-Path $tDir $avs.Name) -Force
+                }
+                Write-Host "  -> Deployed $($avsFiles.Count) AviSynth profile(s) to: $tDir" -ForegroundColor Green
+            }
+        }
+
+        # Deploy PresentMon executable if present in archive and missing in Benchmarks
+        $pmExe = $allExtracted | Where-Object { $_.Name -match '(?i)^PresentMon.*\.exe$' } | Select-Object -First 1
+        if ($pmExe) {
+            $pmTarget = Join-Path $ScriptDir $pmExe.Name
+            if (-not (Test-Path $pmTarget)) {
+                Copy-Item -Path $pmExe.FullName -Destination $pmTarget -Force
+                Write-Host "  -> Deployed $($pmExe.Name) to: $ScriptDir" -ForegroundColor Green
+            }
+        }
+
+        Write-Host "`n  [OK] MVTools ARM64 binaries deployed successfully to: $deployDir`n" -ForegroundColor Green
+        return $deployDir
+    }
+    catch {
+        Write-Host "  [ERROR] Extraction and deployment failed: $_" -ForegroundColor Red
+        return $null
+    }
+    finally {
+        if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $tempExtractDir) { Remove-Item $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+# ---------------------------------------------------------
+# HELPER: Discover Latest AviSynth+ Release Asset from GitHub
+# ---------------------------------------------------------
+function Get-AviSynthPlusLatestReleaseAsset {
+    param(
+        [string]$RepoSlug = "AviSynth/AviSynthPlus",
+        [string]$ReleaseTag = "latest"
+    )
+
+    $ReleaseInfo = [ordered]@{
+        TagName     = ""
+        DownloadUrl = ""
+        FileName    = ""
+        Size        = 0
+        Source      = "GitHubAPI"
+    }
+
+    $ApiUrl = if ($ReleaseTag -eq "latest") {
+        "https://api.github.com/repos/$RepoSlug/releases/latest"
+    } else {
+        "https://api.github.com/repos/$RepoSlug/releases/tags/$ReleaseTag"
+    }
+
+    try {
+        $uaVersion = if ($Script:HarnessVersion) { $Script:HarnessVersion } else { "2.3.0" }
+        $headers = @{
+            "User-Agent" = "MvToolsBenchmarkHarness/$uaVersion"
+            "Accept"     = "application/vnd.github.v3+json"
+        }
+        $release = Invoke-RestMethod -Uri $ApiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        if ($release -and $release.assets -and $release.assets.Count -gt 0) {
+            $ReleaseInfo.TagName = if ($release.tag_name) { $release.tag_name } else { $ReleaseTag }
+
+            # Priority 1: Match filesonly archive ending in .7z (excluding macOS)
+            $asset = $release.assets | Where-Object { 
+                $_.name -match '(?i)filesonly.*\.7z$' -and $_.name -notmatch '(?i)macOS' 
+            } | Select-Object -First 1
+
+            # Priority 2: Any filesonly archive (excluding macOS)
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { 
+                    $_.name -match '(?i)filesonly' -and $_.name -notmatch '(?i)macOS' 
+                } | Select-Object -First 1
+            }
+
+            # Priority 3: Any .7z archive (excluding macOS)
+            if (-not $asset) {
+                $asset = $release.assets | Where-Object { 
+                    $_.name -match '(?i)\.7z$' -and $_.name -notmatch '(?i)macOS' 
+                } | Select-Object -First 1
+            }
+
+            if ($asset) {
+                $ReleaseInfo.DownloadUrl = $asset.browser_download_url
+                $ReleaseInfo.FileName = $asset.name
+                $ReleaseInfo.Size = $asset.size
+                return $ReleaseInfo
+            }
+        }
+    } catch {
+        Write-Host "  -> AviSynth+ GitHub API notice: $($_.Exception.Message)" -ForegroundColor Gray
+    }
+
+    # Fallback to direct download URL if API is rate-limited or unavailable
+    $fallbackFileName = "AviSynthPlus_3.7.5_20250420-filesonly.7z"
+    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest") { $ReleaseTag } else { "v3.7.5" }
+    $ReleaseInfo.FileName = $fallbackFileName
+    $ReleaseInfo.DownloadUrl = "https://github.com/$RepoSlug/releases/download/$($ReleaseInfo.TagName)/$fallbackFileName"
+    $ReleaseInfo.Source = "DirectDownloadFallback"
+
+    return $ReleaseInfo
+}
+
+# ---------------------------------------------------------
+# HELPER: Automated Acquisition & Deployment of AviSynth+ Release
+# ---------------------------------------------------------
+function Install-AviSynthPlusRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPotPlayerDir,
+
+        [Parameter(Mandatory = $false)]
+        [string]$RepoSlug = "AviSynth/AviSynthPlus",
+
+        [Parameter(Mandatory = $false)]
+        [string]$ReleaseTag = "latest",
+
+        [Parameter(Mandatory = $false)]
+        [string]$Arch = ""
+    )
+
+    if (-not (Test-Path $TargetPotPlayerDir)) {
+        Write-Host "  [ERROR] Target PotPlayer directory '$TargetPotPlayerDir' does not exist." -ForegroundColor Red
+        return $null
+    }
+
+    # Resolve target architecture dynamically (arm64, x64, x86)
+    $targetArch = if (-not [string]::IsNullOrWhiteSpace($Arch)) {
+        $Arch.ToLower().Trim()
+    } else {
+        Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    }
+
+    # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+    } catch {}
+    try {
+        Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+    } catch {}
+
+    Write-Host "`n========================================================" -ForegroundColor Cyan
+    Write-Host " AUTOMATED AVISYNTH+ ACQUISITION & SETUP" -ForegroundColor Cyan
+    Write-Host " Repository: https://github.com/$RepoSlug" -ForegroundColor Gray
+    Write-Host " Target Architecture: $targetArch" -ForegroundColor Gray
+    Write-Host " Destination: $TargetPotPlayerDir" -ForegroundColor Gray
+    Write-Host "========================================================`n" -ForegroundColor Cyan
+
+    Write-Host "[1/3] Resolving latest AviSynth+ 'filesonly' release package..." -ForegroundColor Cyan
+    $assetInfo = Get-AviSynthPlusLatestReleaseAsset -RepoSlug $RepoSlug -ReleaseTag $ReleaseTag
+    if (-not $assetInfo -or [string]::IsNullOrWhiteSpace($assetInfo.DownloadUrl)) {
+        Write-Host "  [ERROR] Could not resolve AviSynth+ release asset from GitHub ($RepoSlug)." -ForegroundColor Red
+        return $null
+    }
+
+    Write-Host "  -> Release Tag: $($assetInfo.TagName)" -ForegroundColor White
+    Write-Host "  -> Asset Name:  $($assetInfo.FileName)" -ForegroundColor White
+    Write-Host "  -> Source:      $($assetInfo.Source)" -ForegroundColor Gray
+    Write-Host "  -> URL:         $($assetInfo.DownloadUrl)" -ForegroundColor Gray
+
+    # Prompt user permission before downloading
+    $sizeDesc = if ($assetInfo.Size -gt 0) { ("{0:N1} MB" -f ($assetInfo.Size / 1MB)) } else { "" }
+    $tempArchive = Join-Path $env:TEMP ("avisynth_dl_{0}_{1}" -f [System.Guid]::NewGuid().ToString("N"), $assetInfo.FileName)
+    if (-not (Confirm-DownloadPermission -ItemName "AviSynth+ Release ($($assetInfo.FileName))" -SourceUrl $assetInfo.DownloadUrl -TargetDir $tempArchive -SizeDesc $sizeDesc)) {
+        return $null
+    }
+
+    # Phase 2: Download with live stream progress
+    Write-Host "`n[2/3] Downloading $($assetInfo.FileName)..." -ForegroundColor Cyan
+
+    $client = $null
+    $fileStream = $null
+    $stream = $null
+    $downloadSuccess = $false
+
+    try {
+        $client = New-Object System.Net.Http.HttpClient
+        # 1 corresponds to HttpCompletionOption.ResponseHeadersRead
+        $response = $client.GetAsync($assetInfo.DownloadUrl, 1).GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            throw "HTTP $($response.StatusCode) ($($response.ReasonPhrase)) while accessing $($assetInfo.DownloadUrl)"
+        }
+
+        $totalBytes = $response.Content.Headers.ContentLength
+        $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $fileStream = [System.IO.File]::Create($tempArchive)
+
+        $buffer = New-Object byte[] 65536
+        $totalRead = 0
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $lastUiUpdate = [System.Diagnostics.Stopwatch]::StartNew()
+
+        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $fileStream.Write($buffer, 0, $read)
+            $totalRead += $read
+
+            if ($lastUiUpdate.ElapsedMilliseconds -ge 100 -or $totalRead -eq $totalBytes) {
+                $percent = if ($totalBytes -gt 0) { [math]::Round(($totalRead / $totalBytes) * 100) } else { 0 }
+                $mbRead = ($totalRead / 1MB).ToString("0.0")
+                $mbTotal = if ($totalBytes -gt 0) { ($totalBytes / 1MB).ToString("0.0") } else { "???" }
+                $elapsedSec = [math]::Max($stopwatch.Elapsed.TotalSeconds, 0.001)
+                $speed = ($totalRead / 1MB / $elapsedSec).ToString("0.0")
+
+                $filledLength = [int](($percent / 100) * 20)
+                $arrow = if ($filledLength -gt 0) { ">" } else { "" }
+                $bar = ("=" * [math]::Max(0, $filledLength - 1)) + $arrow
+                $bar = $bar.PadRight(20, ' ')
+
+                $etaStr = ""
+                if ($totalBytes -gt 0 -and ($totalRead / $elapsedSec) -gt 0) {
+                    $remainingSec = [math]::Round(($totalBytes - $totalRead) / ($totalRead / $elapsedSec))
+                    $etaStr = " [ETA: ${remainingSec}s]"
+                }
+
+                Write-Host -NoNewline ("`r  [$bar] $percent% ($mbRead / $mbTotal MB) | $speed MB/s$etaStr   ") -ForegroundColor DarkCyan
+                $lastUiUpdate.Restart()
+            }
+        }
+
+        $fileStream.Close()
+        $fileStream = $null
+        $stream.Close()
+        $stream = $null
+        $totalMb = ($totalRead / 1MB).ToString("0.0")
+        $totalSec = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
+        Write-Host "`r  [OK] Download complete! ($totalMb MB downloaded in ${totalSec}s)                              " -ForegroundColor Green
+        $downloadSuccess = $true
+    }
+    catch {
+        Write-Host "`r  [WARNING] Streaming download encountered an issue: $($_.Exception.Message). Attempting WebClient fallback..." -ForegroundColor Yellow
+        if ($fileStream) { $fileStream.Dispose(); $fileStream = $null }
+        if ($stream) { $stream.Dispose(); $stream = $null }
+        if ($client) { $client.Dispose(); $client = $null }
+
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($assetInfo.DownloadUrl, $tempArchive)
+            $webClient.Dispose()
+            if ((Test-Path $tempArchive) -and ((Get-Item $tempArchive).Length -gt 0)) {
+                Write-Host "  [OK] Download complete! (Fallback successful)                                   " -ForegroundColor Green
+                $downloadSuccess = $true
+            } else {
+                throw "Downloaded file was empty or missing."
+            }
+        } catch {
+            Write-Host "`r  [ERROR] Fallback download failed: $_" -ForegroundColor Red
+            if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+            $downloadSuccess = $false
+        }
+    }
+    finally {
+        if ($fileStream) { $fileStream.Dispose() }
+        if ($stream) { $stream.Dispose() }
+        if ($client) { $client.Dispose() }
+    }
+
+    if (-not $downloadSuccess -or -not (Test-Path $tempArchive) -or (Get-Item $tempArchive).Length -eq 0) {
+        Write-Host "`n[FATAL ERROR] AviSynth+ release download was incomplete or failed. Extraction aborted.`n" -ForegroundColor Red
+        if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+        return $null
+    }
+
+    # Phase 3: Extraction and AviSynth.dll binary placement
+    Write-Host "`n[3/3] Extracting $targetArch AviSynth.dll binary..." -ForegroundColor Cyan
+
+    $tempExtractDir = Join-Path $env:TEMP ("avisynth_extract_{0}" -f [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tempExtractDir -Force | Out-Null
+
+    try {
+        # Dynamically locate 7-Zip or Windows bsdtar without hardcoded drive paths
+        $extractorExe = $null
+        $extractorType = $null
+
+        $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
+        $cmd7z = Get-Command 7z -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cmd7z) {
+            $extractorExe = $cmd7z.Source
+            $extractorType = "7z"
+        } elseif (-not [string]::IsNullOrWhiteSpace($winDir) -and (Test-Path (Join-Path $winDir "7z.exe"))) {
+            $extractorExe = Join-Path $winDir "7z.exe"
+            $extractorType = "7z"
+        } elseif ($env:ProgramFiles -and (Test-Path (Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"))) {
+            $extractorExe = Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"
+            $extractorType = "7z"
+        } elseif (${env:ProgramFiles(x86)} -and (Test-Path (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"))) {
+            $extractorExe = Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"
+            $extractorType = "7z"
+        }
+
+        if (-not $extractorExe) {
+            $cmdTar = Get-Command tar.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cmdTar) {
+                $extractorExe = $cmdTar.Source
+                $extractorType = "tar"
+            } elseif (-not [string]::IsNullOrWhiteSpace($winDir) -and (Test-Path (Join-Path $winDir "System32\tar.exe"))) {
+                $extractorExe = Join-Path $winDir "System32\tar.exe"
+                $extractorType = "tar"
+            }
+        }
+
+        if ($extractorType -eq "7z") {
+            Write-Host "  -> Decompressing using 7-Zip ($extractorExe)..." -ForegroundColor Gray
+            & $extractorExe x "$tempArchive" "-o$tempExtractDir" -y | Out-Null
+        } elseif ($extractorType -eq "tar") {
+            Write-Host "  -> Decompressing using Windows bsdtar ($extractorExe)..." -ForegroundColor Gray
+            & $extractorExe -xf "$tempArchive" -C "$tempExtractDir"
+        } elseif ($assetInfo.FileName -match '(?i)\.zip$') {
+            Write-Host "  -> Decompressing using PowerShell Expand-Archive..." -ForegroundColor Gray
+            Expand-Archive -Path $tempArchive -DestinationPath $tempExtractDir -Force
+        } else {
+            throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
+        }
+
+        # Locate AviSynth.dll under the requested architecture directory (e.g. arm64/bin/AviSynth.dll)
+        $allExtracted = Get-ChildItem -Path $tempExtractDir -Recurse -File
+
+        # Priority 1: Match target arch directory and bin directory (e.g., \arm64\bin\AviSynth.dll)
+        $targetDll = $allExtracted | Where-Object { 
+            $_.Name -ieq "AviSynth.dll" -and 
+            $_.DirectoryName -match "(?i)[\\/]$([regex]::Escape($targetArch))[\\/]bin" 
+        } | Select-Object -First 1
+
+        # Priority 2: Match target arch directory anywhere in directory path
+        if (-not $targetDll) {
+            $targetDll = $allExtracted | Where-Object { 
+                $_.Name -ieq "AviSynth.dll" -and 
+                $_.DirectoryName -match "(?i)[\\/]$([regex]::Escape($targetArch))([\\/]|$)" 
+            } | Select-Object -First 1
+        }
+
+        # Priority 3: Fall back to any AviSynth.dll extracted
+        if (-not $targetDll) {
+            $targetDll = $allExtracted | Where-Object { $_.Name -ieq "AviSynth.dll" } | Select-Object -First 1
+        }
+
+        if (-not $targetDll) {
+            throw "Could not locate 'AviSynth.dll' for architecture '$targetArch' inside the downloaded release archive!"
+        }
+
+        # Verify binary architecture directly from the extracted PE header (guarantees native machine type)
+        $peMachine = Get-PeMachine -FilePath $targetDll.FullName
+        $peArchDesc = switch ($peMachine) {
+            0xAA64 { "ARM64 (0xAA64)" }
+            0x8664 { "x64 (0x8664)" }
+            0x014C { "x86 (0x014C)" }
+            Default { "Unknown (0x{0:X4})" -f $peMachine }
+        }
+
+        $expectedMachine = switch ($targetArch) {
+            "arm64" { 0xAA64 }
+            "x64"   { 0x8664 }
+            "x86"   { 0x014C }
+            Default { 0 }
+        }
+
+        if ($expectedMachine -ne 0 -and $peMachine -ne $expectedMachine) {
+            Write-Host "  [WARNING] Initial candidate '$($targetDll.FullName)' machine ($peArchDesc) does not match expected target architecture '$targetArch'!" -ForegroundColor DarkYellow
+            # Search all extracted AviSynth.dll files for the one that has the exact PE machine
+            $exactDll = $allExtracted | Where-Object { 
+                $_.Name -ieq "AviSynth.dll" -and (Get-PeMachine -FilePath $_.FullName) -eq $expectedMachine 
+            } | Select-Object -First 1
+
+            if ($exactDll) {
+                $targetDll = $exactDll
+                $peMachine = $expectedMachine
+                $peArchDesc = switch ($peMachine) {
+                    0xAA64 { "ARM64 (0xAA64)" }
+                    0x8664 { "x64 (0x8664)" }
+                    0x014C { "x86 (0x014C)" }
+                }
+                Write-Host "  -> Successfully matched alternative candidate with exact PE Machine: $peArchDesc" -ForegroundColor Green
+            } else {
+                throw "PE Header Verification Failure: Extracted AviSynth.dll machine is $peArchDesc, but expected $targetArch binary! Incompatible binary will cause STATUS_INVALID_IMAGE_FORMAT (0xc000007b)."
+            }
+        }
+
+        Write-Host "  -> Verified AviSynth.dll PE Machine: $peArchDesc (100% native match for $targetArch)" -ForegroundColor Green
+
+        $destDll = Join-Path $TargetPotPlayerDir "AviSynth.dll"
+        Copy-Item -Path $targetDll.FullName -Destination $destDll -Force -ErrorAction Stop
+        Write-Host "  -> Deployed AviSynth.dll ($targetArch) to: $destDll" -ForegroundColor Green
+
+        # Deploy built-in AviSynth plugins (e.g., ImageSeq.dll, TimeStretch.dll, etc.) to AviSynth subfolder if present
+        $builtInPlugins = $allExtracted | Where-Object { 
+            $_.Extension -ieq ".dll" -and 
+            $_.DirectoryName -match "(?i)[\\/]$([regex]::Escape($targetArch))[\\/]lib[\\/]avisynth" 
+        }
+        if ($builtInPlugins -and $builtInPlugins.Count -gt 0) {
+            $potAvsSubDir = Join-Path $TargetPotPlayerDir "AviSynth"
+            if (-not (Test-Path $potAvsSubDir)) {
+                New-Item -ItemType Directory -Path $potAvsSubDir -Force | Out-Null
+            }
+            foreach ($plug in $builtInPlugins) {
+                Copy-Item -Path $plug.FullName -Destination (Join-Path $potAvsSubDir $plug.Name) -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "  -> Deployed $($builtInPlugins.Count) built-in AviSynth plugin(s) to: $potAvsSubDir" -ForegroundColor Green
+        }
+
+        return $destDll
+    }
+    catch {
+        Write-Host "  [ERROR] AviSynth+ extraction and deployment failed: $_" -ForegroundColor Red
+        return $null
+    }
+    finally {
+        if (Test-Path $tempArchive) { Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $tempExtractDir) { Remove-Item $tempExtractDir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+# ---------------------------------------------------------
+# HELPER: List Available AviSynth Profiles Across Potential Locations
+# ---------------------------------------------------------
+function Get-AvailableAviSynthProfiles {
+    param(
+        [string]$RepoRoot = ".",
+        [string]$ScriptDir = ""
+    )
+    $candidateDirs = @()
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        $candidateDirs += (Join-Path $RepoRoot "AviSynth")
+        $candidateDirs += (Join-Path $RepoRoot "Release\AviSynth")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) {
+        $candidateDirs += (Join-Path $ScriptDir "AviSynth")
+        $candidateDirs += (Join-Path $ScriptDir "..\AviSynth")
+        $candidateDirs += (Join-Path $ScriptDir "..\Release\AviSynth")
+    }
+    $candidateDirs += @(".\AviSynth", "..\AviSynth", "..\Release\AviSynth")
+
+    $foundDir = $null
+    foreach ($d in ($candidateDirs | Select-Object -Unique)) {
+        if (-not [string]::IsNullOrWhiteSpace($d) -and (Test-Path $d)) {
+            $checkFiles = Get-ChildItem -Path $d -Filter "*.avs" -ErrorAction SilentlyContinue
+            if ($checkFiles -and $checkFiles.Count -gt 0) {
+                $foundDir = $d
+                break
+            }
+        }
+    }
+    if (-not $foundDir) { return @() }
+
+    $files = Get-ChildItem -Path $foundDir -Filter "*.avs" | Sort-Object Name
+    $profiles = @()
+    foreach ($f in $files) {
+        $content = Get-Content $f.FullName -Raw
+        $supportGpu = $content -match '(?i)USE_GPU'
+        $tier = if ($f.Name -match '(?i)Eco') { "Eco" }
+                elseif ($f.Name -match '(?i)MaxQuality|Quality') { "MaxQuality" }
+                elseif ($f.Name -match '(?i)Balanced') { "Balanced" }
+                else { "Custom" }
+
+        $platform = $f.Name -replace '(?i)[-_](Balanced|Eco|MaxQuality|Custom)\.avs$', ''
+        if ($platform -ieq $f.Name) {
+            $platform = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+        }
+
+        $hwDesc = ""
+        if ($content -match '(?m)^\s*#\s*Hardware:\s*(.+)$') {
+            $hwDesc = $Matches[1].Trim()
+        }
+
+        $profiles += [PSCustomObject]@{
+            Name         = $f.Name
+            FullName     = $f.FullName
+            Platform     = $platform
+            Tier         = $tier
+            SupportsGpu  = $supportGpu
+            HardwareDesc = $hwDesc
+        }
+    }
+    return $profiles
+}
+
+# ---------------------------------------------------------
+# HELPER: Ensure AviSynth Profiles (Auto-downloads release if missing)
+# ---------------------------------------------------------
+function Ensure-AviSynthProfiles {
+    param(
+        [string]$RepoRoot = ".",
+        [string]$ScriptDir = "",
+        [string]$MvToolsRepo = "tordona/mvtools"
+    )
+
+    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
+    if ($profiles -and $profiles.Count -gt 0) {
+        return $profiles
+    }
+
+    Write-Host "`n[MISSING COMPONENT] No .avs profiles found in AviSynth directory!" -ForegroundColor Yellow
+    Write-Host "AviSynth benchmark profiles are required for hardware detection and test execution." -ForegroundColor Gray
+    Write-Host "Attempting automated acquisition of official release package from GitHub ($MvToolsRepo)..." -ForegroundColor Cyan
+
+    $deployTarget = if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) { $ScriptDir } else { "." }
+    $null = Install-MvToolsRelease -TargetDir $deployTarget -RepoSlug $MvToolsRepo
+
+    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
+    if (-not $profiles -or $profiles.Count -eq 0) {
+        Write-Warning "No .avs profiles found in AviSynth directory after download attempt!"
+    }
+    return $profiles
+}
+
+# ---------------------------------------------------------
+# HELPER: Deploy MVTools ARM64 Binaries, AviSynth.dll, & Profiles to PotPlayer
+# ---------------------------------------------------------
+function Install-MvToolsToPotPlayer {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetPotPlayerDir,
+        [string]$MvToolsSourceDir = "",
+        [string]$RepoRoot = ".",
+        [string]$ScriptDir = "",
+        [string]$MvToolsRepo = "tordona/mvtools",
+        [string]$AviSynthRepo = "AviSynth/AviSynthPlus"
+    )
+
+    if (-not (Test-Path $TargetPotPlayerDir)) {
+        return $false
+    }
+
+    Write-Host "`n[SETUP] Deploying MVTools & AviSynth components to PotPlayer: $TargetPotPlayerDir" -ForegroundColor Cyan
+
+    # 1. Resolve source of MVTools ARM64 binaries
+    $candidateDirs = @()
+    if (-not [string]::IsNullOrWhiteSpace($MvToolsSourceDir)) { $candidateDirs += $MvToolsSourceDir }
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        $candidateDirs += @(
+            (Join-Path $RepoRoot "Release\ARM64"),
+            (Join-Path $RepoRoot "out\ARM64\MSVC\Release"),
+            (Join-Path $RepoRoot "out\ARM64\MSVC"),
+            (Join-Path $RepoRoot "Release")
+        )
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) {
+        $candidateDirs += @(
+            $ScriptDir,
+            (Join-Path $ScriptDir "..\Release\ARM64")
+        )
+    }
+
+    $resolvedSourceDir = $null
+    foreach ($cand in ($candidateDirs | Select-Object -Unique)) {
+        if (-not [string]::IsNullOrWhiteSpace($cand) -and (Test-Path (Join-Path $cand "mvtools2.dll"))) {
+            $resolvedSourceDir = $cand
+            break
+        }
+    }
+
+    # If MVTools binaries are not found locally, attempt automated acquisition from GitHub
+    if (-not $resolvedSourceDir -and -not (Test-Path (Join-Path $TargetPotPlayerDir "mvtools2.dll"))) {
+        Write-Host "  -> MVTools ARM64 binaries not found locally. Initiating automated acquisition from GitHub ($MvToolsRepo)..." -ForegroundColor Cyan
+        $dlDir = Install-MvToolsRelease -TargetDir $TargetPotPlayerDir -RepoSlug $MvToolsRepo
+        if ($dlDir -and (Test-Path (Join-Path $TargetPotPlayerDir "mvtools2.dll"))) {
+            $resolvedSourceDir = $TargetPotPlayerDir
+        }
+    }
+
+    # 2. Deploy MVTools DLLs directly into PotPlayer directory
+    $deployedCount = 0
+    if ($resolvedSourceDir) {
+        $binaries = @("mvtools2.dll", "mvtools2_d3d12.dll", "DePan.dll", "DePanEstimate.dll")
+        foreach ($bin in $binaries) {
+            $src = Join-Path $resolvedSourceDir $bin
+            $dst = Join-Path $TargetPotPlayerDir $bin
+            if ((Test-Path $src) -and ($src -ne $dst)) {
+                try {
+                    Copy-Item -Path $src -Destination $dst -Force -ErrorAction Stop
+                    $deployedCount++
+                } catch {
+                    Write-Warning "Could not copy $bin to '$TargetPotPlayerDir': $($_.Exception.Message)"
+                }
+            } elseif (Test-Path $dst) {
+                $deployedCount++
+            }
+        }
+        Write-Host "  -> Verified/Installed $deployedCount MVTools binary file(s) in PotPlayer directory." -ForegroundColor Green
+    } else {
+        Write-Warning "Could not find or acquire MVTools binaries to install into PotPlayer directory."
+    }
+
+    # 3. Ensure native AviSynth.dll is present in PotPlayer directory (required for PotPlayer AviSynth engine)
+    $targetPotArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    $expectedMachine = switch ($targetPotArch) {
+        "arm64" { 0xAA64 }
+        "x64"   { 0x8664 }
+        "x86"   { 0x014C }
+        Default { 0 }
+    }
+
+    $potAviSynthDll = Join-Path $TargetPotPlayerDir "AviSynth.dll"
+    $needAviSynthAcquisition = $false
+
+    if (Test-Path $potAviSynthDll) {
+        $existingMach = Get-PeMachine -FilePath $potAviSynthDll
+        $existingDesc = switch ($existingMach) {
+            0xAA64 { "ARM64 (0xAA64)" }
+            0x8664 { "x64 (0x8664)" }
+            0x014C { "x86 (0x014C)" }
+            Default { "0x{0:X4}" -f $existingMach }
+        }
+
+        if ($expectedMachine -ne 0 -and $existingMach -ne $expectedMachine) {
+            Write-Host "  [WARNING] Existing AviSynth.dll in PotPlayer directory ($existingDesc) does not match required PotPlayer architecture '$targetPotArch'!" -ForegroundColor DarkYellow
+            Write-Host "  -> Removing mismatched binary to ensure clean native acquisition..." -ForegroundColor Yellow
+            Remove-Item -Path $potAviSynthDll -Force -ErrorAction SilentlyContinue
+            $needAviSynthAcquisition = $true
+        } else {
+            Write-Host "  -> AviSynth.dll verified in PotPlayer directory ($existingDesc)." -ForegroundColor Green
+        }
+    } else {
+        $needAviSynthAcquisition = $true
+    }
+
+    if ($needAviSynthAcquisition) {
+        $foundAviSynth = $null
+
+        # Check system / environment standard paths dynamically without hardcoded drive letters
+        $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
+        $systemLocations = @()
+        if (-not [string]::IsNullOrWhiteSpace($winDir)) {
+            $systemLocations += @(
+                (Join-Path $winDir "System32\AviSynth.dll"),
+                (Join-Path $winDir "SysWOW64\AviSynth.dll"),
+                (Join-Path $winDir "AviSynth.dll")
+            )
+        }
+        if ($env:ProgramFiles) {
+            $systemLocations += @(
+                (Join-Path ${env:ProgramFiles} "AviSynth+\AviSynth.dll"),
+                (Join-Path ${env:ProgramFiles} "AviSynth\AviSynth.dll"),
+                (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer\AviSynth.dll")
+            )
+        }
+        if (${env:ProgramFiles(x86)}) {
+            $systemLocations += @(
+                (Join-Path ${env:ProgramFiles(x86)} "AviSynth+\AviSynth.dll"),
+                (Join-Path ${env:ProgramFiles(x86)} "AviSynth\AviSynth.dll"),
+                (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer\AviSynth.dll")
+            )
+        }
+        if ($env:LOCALAPPDATA) {
+            $systemLocations += (Join-Path $env:LOCALAPPDATA "Programs\AviSynth\AviSynth.dll")
+        }
+
+        # Check PATH command resolution
+        $cmdAs = Get-Command AviSynth.dll -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cmdAs -and (Test-Path $cmdAs.Source)) {
+            $candMach = Get-PeMachine -FilePath $cmdAs.Source
+            if ($expectedMachine -eq 0 -or $candMach -eq $expectedMachine) {
+                $foundAviSynth = $cmdAs.Source
+            }
+        }
+
+        # Check standard environment locations
+        if (-not $foundAviSynth) {
+            foreach ($asLoc in $systemLocations) {
+                if (Test-Path $asLoc) {
+                    $candMach = Get-PeMachine -FilePath $asLoc
+                    if ($expectedMachine -eq 0 -or $candMach -eq $expectedMachine) {
+                        $foundAviSynth = $asLoc
+                        break
+                    }
+                }
+            }
+        }
+
+        # Check Windows Registry for installed AviSynth+ or PotPlayer
+        if (-not $foundAviSynth) {
+            $regKeys = @(
+                "HKLM:\SOFTWARE\AviSynth",
+                "HKLM:\SOFTWARE\WOW6432Node\AviSynth",
+                "HKCU:\SOFTWARE\AviSynth",
+                "HKCU:\SOFTWARE\Daum\PotPlayer64",
+                "HKLM:\SOFTWARE\Daum\PotPlayer64",
+                "HKCU:\SOFTWARE\Daum\PotPlayer",
+                "HKLM:\SOFTWARE\Daum\PotPlayer"
+            )
+            foreach ($rk in $regKeys) {
+                if (Test-Path $rk) {
+                    $prop = Get-ItemProperty -Path $rk -ErrorAction SilentlyContinue
+                    if ($prop.plugindir) {
+                        $cand = Join-Path (Split-Path $prop.plugindir -Parent) "AviSynth.dll"
+                        if (Test-Path $cand) {
+                            $candMach = Get-PeMachine -FilePath $cand
+                            if ($expectedMachine -eq 0 -or $candMach -eq $expectedMachine) {
+                                $foundAviSynth = $cand; break
+                            }
+                        }
+                    }
+                    if ($prop.ProgramFolder) {
+                        $cand = Join-Path $prop.ProgramFolder "AviSynth.dll"
+                        if (Test-Path $cand) {
+                            $candMach = Get-PeMachine -FilePath $cand
+                            if ($expectedMachine -eq 0 -or $candMach -eq $expectedMachine) {
+                                $foundAviSynth = $cand; break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        # Check repository or script directory tree
+        if (-not $foundAviSynth -and -not [string]::IsNullOrWhiteSpace($RepoRoot) -and (Test-Path $RepoRoot)) {
+            $repoDlls = Get-ChildItem -Path $RepoRoot -Filter "AviSynth.dll" -Recurse -Depth 3 -ErrorAction SilentlyContinue
+            foreach ($rd in $repoDlls) {
+                $candMach = Get-PeMachine -FilePath $rd.FullName
+                if ($expectedMachine -eq 0 -or $candMach -eq $expectedMachine) {
+                    $foundAviSynth = $rd.FullName
+                    break
+                }
+            }
+        }
+
+        if ($foundAviSynth) {
+            try {
+                Copy-Item -Path $foundAviSynth -Destination $potAviSynthDll -Force -ErrorAction Stop
+                $deployedMach = Get-PeMachine -FilePath $potAviSynthDll
+                $deployedDesc = switch ($deployedMach) {
+                    0xAA64 { "ARM64 (0xAA64)" }
+                    0x8664 { "x64 (0x8664)" }
+                    0x014C { "x86 (0x014C)" }
+                    Default { "0x{0:X4}" -f $deployedMach }
+                }
+                Write-Host "  -> Installed AviSynth.dll ($deployedDesc) from '$foundAviSynth' to PotPlayer directory." -ForegroundColor Green
+            } catch {
+                Write-Warning "Could not copy AviSynth.dll to '$TargetPotPlayerDir': $($_.Exception.Message)"
+            }
+        } else {
+            # Not found locally: invoke automated acquisition from GitHub releases
+            Write-Host "  -> Native $targetPotArch AviSynth.dll not found locally. Initiating automated acquisition from AviSynthPlus release ($AviSynthRepo)..." -ForegroundColor Cyan
+            $installedDll = Install-AviSynthPlusRelease -TargetPotPlayerDir $TargetPotPlayerDir -RepoSlug $AviSynthRepo -Arch $targetPotArch
+            if ($installedDll -and (Test-Path $installedDll)) {
+                $foundAviSynth = $installedDll
+            } else {
+                Write-Warning "AviSynth.dll could not be acquired. PotPlayer requires AviSynth.dll to execute .avs scripts. Please ensure AviSynth+ is installed or place AviSynth.dll in '$TargetPotPlayerDir'."
+            }
+        }
+    }
+
+    # 4. Deploy all AviSynth profiles to PotPlayer\AviSynth directory
+    $potAvsDir = Join-Path $TargetPotPlayerDir "AviSynth"
+    if (-not (Test-Path $potAvsDir)) {
+        try {
+            New-Item -ItemType Directory -Path $potAvsDir -Force -ErrorAction Stop | Out-Null
+        } catch {}
+    }
+    $avsSourceDirs = @(
+        (Join-Path $RepoRoot "AviSynth"),
+        (Join-Path $ScriptDir "AviSynth")
+    )
+    $avsCount = 0
+    foreach ($avsSrc in $avsSourceDirs) {
+        if (Test-Path $avsSrc) {
+            $profiles = Get-ChildItem -Path $avsSrc -Filter "*.avs" -ErrorAction SilentlyContinue
+            if ($profiles -and $profiles.Count -gt 0) {
+                foreach ($p in $profiles) {
+                    try {
+                        Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
+                        $avsCount++
+                    } catch {}
+                }
+                break
+            }
+        }
+    }
+
+    # If no local profiles found, acquire official profiles from GitHub release
+    if ($avsCount -eq 0) {
+        Write-Host "  -> No .avs profiles found in local directories. Ensuring profiles via release download..." -ForegroundColor Cyan
+        $null = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
+        foreach ($avsSrc in $avsSourceDirs) {
+            if (Test-Path $avsSrc) {
+                $profiles = Get-ChildItem -Path $avsSrc -Filter "*.avs" -ErrorAction SilentlyContinue
+                if ($profiles -and $profiles.Count -gt 0) {
+                    foreach ($p in $profiles) {
+                        try {
+                            Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
+                            $avsCount++
+                        } catch {}
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    if ($avsCount -gt 0) {
+        Write-Host "  -> Installed $avsCount AviSynth profile(s) into: $potAvsDir" -ForegroundColor Green
+    }
+
+    return $true
+}
+
+# ---------------------------------------------------------
 # HELPER: System Hardware Platform & Recommendation Engine
 # ---------------------------------------------------------
 function Get-SystemPlatformRecommendation {
-    param([string]$RepoRoot = ".")
+    param(
+        [string]$RepoRoot = ".",
+        [string]$ScriptDir = "",
+        [string]$MvToolsRepo = "tordona/mvtools"
+    )
     $cpuName = ""
     $gpuName = ""
     try {
@@ -511,7 +2064,7 @@ function Get-SystemPlatformRecommendation {
     } catch {}
 
     $combined = "$cpuName $gpuName"
-    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot
+    $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
 
     # Baseline hardware detection rules
     $platform = "Snapdragon-X-Plus"
@@ -587,46 +2140,6 @@ function Get-SystemPlatformRecommendation {
 }
 
 # ---------------------------------------------------------
-# HELPER: List Available AviSynth Profiles
-# ---------------------------------------------------------
-function Get-AvailableAviSynthProfiles {
-    param([string]$RepoRoot = ".")
-    $avsDir = Join-Path $RepoRoot "AviSynth"
-    if (-not (Test-Path $avsDir)) { return @() }
-    
-    $files = Get-ChildItem -Path $avsDir -Filter "*.avs" | Sort-Object Name
-    $profiles = @()
-    foreach ($f in $files) {
-        $content = Get-Content $f.FullName -Raw
-        $supportGpu = $content -match '(?i)USE_GPU'
-        $tier = if ($f.Name -match '(?i)Eco') { "Eco" }
-                elseif ($f.Name -match '(?i)MaxQuality|Quality') { "MaxQuality" }
-                elseif ($f.Name -match '(?i)Balanced') { "Balanced" }
-                else { "Custom" }
-
-        $platform = $f.Name -replace '(?i)[-_](Balanced|Eco|MaxQuality|Custom)\.avs$', ''
-        if ($platform -ieq $f.Name) {
-            $platform = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-        }
-
-        $hwDesc = ""
-        if ($content -match '(?m)^\s*#\s*Hardware:\s*(.+)$') {
-            $hwDesc = $Matches[1].Trim()
-        }
-
-        $profiles += [PSCustomObject]@{
-            Name         = $f.Name
-            FullName     = $f.FullName
-            Platform     = $platform
-            Tier         = $tier
-            SupportsGpu  = $supportGpu
-            HardwareDesc = $hwDesc
-        }
-    }
-    return $profiles
-}
-
-# ---------------------------------------------------------
 # HELPER: Resolve Profile Path (Supports Name, Tier, Partial, Path)
 # ---------------------------------------------------------
 function Resolve-AviSynthProfilePath {
@@ -634,10 +2147,12 @@ function Resolve-AviSynthProfilePath {
         [string]$InputProfile,
         [string]$RepoRoot = ".",
         [string]$RecommendedName = "",
-        [string]$PlatformKey = ""
+        [string]$PlatformKey = "",
+        [string]$ScriptDir = "",
+        [string]$MvToolsRepo = "tordona/mvtools"
     )
 
-    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot
+    $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
 
     if (-not [string]::IsNullOrWhiteSpace($InputProfile)) {
         # 1. Exact path match
@@ -685,11 +2200,13 @@ function Select-ProfileAndModeInteractive {
         [string]$RepoRoot,
         [PSCustomObject]$Recommendation,
         [string]$CurrentProfile,
-        [string]$CurrentGpuMode
+        [string]$CurrentGpuMode,
+        [string]$ScriptDir = "",
+        [string]$MvToolsRepo = "tordona/mvtools"
     )
 
-    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot
-    if ($profiles.Count -eq 0) {
+    $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
+    if (-not $profiles -or $profiles.Count -eq 0) {
         Write-Warning "No .avs profiles found in AviSynth directory!"
         return @{ ProfilePath = $CurrentProfile; GpuMode = $CurrentGpuMode }
     }
@@ -1042,7 +2559,7 @@ function Get-SystemMetrics {
         }
 
         # Check instance count
-        $allPotProcs = Get-Process -Name "PotPlayer64", "PotPlayer" -ErrorAction SilentlyContinue
+        $allPotProcs = Get-Process -Name "PotPlayer64", "PotPlayerMini64", "PotPlayer" -ErrorAction SilentlyContinue
         $potCount = if ($allPotProcs) { $allPotProcs.Count } else { 0 }
 
         return [PSCustomObject]@{
@@ -1069,7 +2586,7 @@ function Get-SystemMetrics {
 # HELPER: Enforce Single-Instance Purity
 # ---------------------------------------------------------
 function Ensure-SinglePotPlayerInstance([int]$TargetPid = 0) {
-    $procs = Get-Process -Name "PotPlayer64", "PotPlayer" -ErrorAction SilentlyContinue
+    $procs = Get-Process -Name "PotPlayer64", "PotPlayerMini64", "PotPlayer" -ErrorAction SilentlyContinue
     if (-not $procs) { return $true }
 
     if ($TargetPid -eq 0) {
@@ -1301,6 +2818,7 @@ function Get-PotPlayerVersionInfo([string]$Dir) {
     )
     $exeCandidates = @(
         (Join-Path $Dir "PotPlayer64.exe"),
+        (Join-Path $Dir "PotPlayerMini64.exe"),
         (Join-Path $Dir "PotPlayer.exe")
     )
 
@@ -1368,35 +2886,49 @@ function Get-PotPlayerVersionInfo([string]$Dir) {
 # ---------------------------------------------------------
 function Set-PotPlayerSettings {
     param(
-        [string]$IniPath,
+        [Alias("IniPath")]
+        [string[]]$IniPaths = @(),
         [string]$ProfilePath,
         [string]$PotPlayerDir = "",
         [string]$MvToolsDir = "",
         [string]$GpuModeChoice = ""
     )
 
-    if (-not (Test-Path $IniPath)) {
-        Write-Error "PotPlayer INI file not found: $IniPath"
-        return $false
+    if (-not $IniPaths -or $IniPaths.Count -eq 0) {
+        if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir)) {
+            $IniPaths = Get-PotPlayerIniTargets $PotPlayerDir
+        } else {
+            Write-Error "No INI paths or PotPlayerDir provided to Set-PotPlayerSettings."
+            return $false
+        }
     }
 
-    Write-Host "  -> Auditing and enforcing deterministic PotPlayer configuration..." -ForegroundColor Yellow
-
-    # Backup original INI if no backup exists
-    $BakPath = "$IniPath.bak"
-    if (-not (Test-Path $BakPath)) {
-        Copy-Item -Path $IniPath -Destination $BakPath -Force
-        Write-Host "     Created backup: $BakPath" -ForegroundColor Gray
+    if ([string]::IsNullOrWhiteSpace($PotPlayerDir) -and $IniPaths.Count -gt 0) {
+        $PotPlayerDir = Split-Path $IniPaths[0] -Parent
     }
 
-    if ([string]::IsNullOrWhiteSpace($PotPlayerDir)) {
-        $PotPlayerDir = Split-Path $IniPath -Parent
-    }
+    $isDefault = Test-IsDefaultPotPlayerLocation $PotPlayerDir
+    Write-Host "  -> Auditing and enforcing deterministic PotPlayer configuration across $($IniPaths.Count) target(s)..." -ForegroundColor Yellow
 
-    # Prepare multi-line AviSynth preset file in PotPlayer\AviSynth\
+    # Prepare multi-line AviSynth preset file (use PotPlayer\AviSynth if writable, otherwise ScriptDir\AviSynth)
     $AvsDir = Join-Path $PotPlayerDir "AviSynth"
-    if (-not (Test-Path $AvsDir)) {
-        New-Item -ItemType Directory -Path $AvsDir -Force | Out-Null
+    $canWriteAvsDir = $true
+    try {
+        if (-not (Test-Path $AvsDir)) {
+            New-Item -ItemType Directory -Path $AvsDir -Force | Out-Null
+        }
+        $testAvs = Join-Path $AvsDir (".perm_test_" + [Guid]::NewGuid().ToString("N"))
+        [System.IO.File]::WriteAllText($testAvs, "test")
+        Remove-Item $testAvs -Force -ErrorAction SilentlyContinue
+    } catch {
+        $canWriteAvsDir = $false
+    }
+
+    if (-not $canWriteAvsDir) {
+        $AvsDir = Join-Path $ScriptDir "AviSynth"
+        if (-not (Test-Path $AvsDir)) {
+            New-Item -ItemType Directory -Path $AvsDir -Force | Out-Null
+        }
     }
     $TargetAvs = Join-Path $AvsDir "BenchmarkProfile.avs"
 
@@ -1439,7 +2971,32 @@ function Set-PotPlayerSettings {
     Write-Host "     Generated multi-line AviSynth profile: $TargetAvs" -ForegroundColor Gray
     Write-Host "     Active Acceleration Engine: $script:ActiveMotionEngine" -ForegroundColor Cyan
 
-    $ImportScript = "Import(`"$($TargetAvs.Replace('\', '/'))`")"
+    # Also save under canonical profile name in PotPlayer's AviSynth directory so it appears in the player's preset list
+    $profileLeafName = Split-Path $ProfilePath -Leaf
+    $canonicalPotAvs = Join-Path $AvsDir $profileLeafName
+    try {
+        [System.IO.File]::WriteAllText($canonicalPotAvs, $ResolvedAvs, [System.Text.Encoding]::ASCII)
+    } catch {}
+
+    # If running from default location, also deploy profile presets into AppData AviSynth directories
+    if ($isDefault) {
+        $appData = if ($env:APPDATA) { $env:APPDATA } else { [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData) }
+        $appDataAvsDirs = @(
+            (Join-Path $appData "PotPlayer64\AviSynth"),
+            (Join-Path $appData "PotPlayerMini64\AviSynth")
+        )
+        foreach ($adAvs in $appDataAvsDirs) {
+            try {
+                if (-not (Test-Path $adAvs)) { New-Item -ItemType Directory -Path $adAvs -Force | Out-Null }
+                [System.IO.File]::WriteAllText((Join-Path $adAvs "BenchmarkProfile.avs"), $ResolvedAvs, [System.Text.Encoding]::ASCII)
+                [System.IO.File]::WriteAllText((Join-Path $adAvs $profileLeafName), $ResolvedAvs, [System.Text.Encoding]::ASCII)
+            } catch {}
+        }
+    }
+
+    # Encode multi-line AviSynth script for PotPlayer's internal script editor using native \x02\x01 delimiters
+    $scriptLines = $ResolvedAvs -split "\r?\n"
+    $PotPlayerScriptValue = $scriptLines -join ([char]2 + [char]1)
 
     # Mandatory Benchmark Baseline by INI Section
     $SectionSettings = [ordered]@{
@@ -1452,6 +3009,7 @@ function Set-PotPlayerSettings {
             "MainWindowState"       = "128"  # Fullscreen maximized state flag
         }
         "Settings" = [ordered]@{
+            "AutoIni"               = if ($isDefault) { "0" } else { "1" }
             "AttachWindowIndex"     = "0"      # Detach/close side panel (playlist dock)
             "UseSideWindow"         = "0"      # Disable side docking window
             "StartScreenSize"       = "4"      # Start screen size: Fullscreen
@@ -1467,112 +3025,174 @@ function Set-PotPlayerSettings {
             "VideoRen2"             = "15"     # Built-in Direct3D 11 Video Renderer (DXGI swapchain for PresentMon)
             "AvisynthUse"           = "1"      # AviSynth enabled
             "AvisynthSource"        = "1"      # AviSynth source filter enabled
+            "AvisynthDelayUse"      = "0"      # No audio sync delay
+            "AvisynthUseProgressive"= "0"      # Standard progressive processing
             "UseSelfDxva"           = "1001"   # D3D11 DXVA Hardware Decode
             "SubShow"               = "0"      # Subtitles OFF (prevents rasterizer jitter)
             "TopMost"               = "2"      # On top while playing (prevents foreground occlusion)
             "DX11ResizeMode"        = "25"     # Bilinear/Bicubic D3D11 GPU resize
             "AudioPitchUse"         = "0"      # Audio time-stretching off
             "D3DFullScreenUi"       = "0"      # Overlay UI off during fullscreen
-            "AvisynthScript"        = $ImportScript
+            "AvisynthScript"        = $PotPlayerScriptValue
         }
     }
 
-    $IniLines = Get-Content -Path $IniPath -Encoding Unicode
-    $UpdatedLines = [System.Collections.Generic.List[string]]::new()
-    $CurrentSection = ""
-    $ExistingSections = @{}
-    $AppliedKeys = @{}
-    $ChangesCount = 0
+    $allSuccess = $true
 
-    foreach ($sec in $SectionSettings.Keys) {
-        foreach ($k in $SectionSettings[$sec].Keys) {
-            $AppliedKeys["$sec.$k"] = $false
+    foreach ($IniPath in $IniPaths) {
+        if (-not (Test-Path $IniPath)) {
+            $pDir = Split-Path $IniPath -Parent
+            if (-not (Test-Path $pDir)) {
+                try { New-Item -ItemType Directory -Path $pDir -Force | Out-Null } catch {}
+            }
+            try {
+                $autoVal = if ($isDefault) { "0" } else { "1" }
+                "[Settings]`r`nAutoIni=$autoVal`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n" | Set-Content -Path $IniPath -Encoding Unicode
+            } catch {}
         }
-    }
 
-    foreach ($line in $IniLines) {
-        if ($line -match '^\s*\[([^\]]+)\]') {
-            # Entering new section: flush missing keys from prior section
+        # Backup original INI if no backup exists
+        $BakPath = "$IniPath.bak"
+        if (-not (Test-Path $BakPath) -and (Test-Path $IniPath)) {
+            try {
+                Copy-Item -Path $IniPath -Destination $BakPath -Force -ErrorAction Stop
+                Write-Host "     Created backup: $BakPath" -ForegroundColor Gray
+            } catch {
+                Write-Warning "Could not backup PotPlayer configuration file: $($_.Exception.Message)"
+            }
+        }
+
+        $IniLines = Get-Content -Path $IniPath -Encoding Unicode
+        $UpdatedLines = [System.Collections.Generic.List[string]]::new()
+        $CurrentSection = ""
+        $ExistingSections = @{}
+        $AppliedKeys = @{}
+        $ChangesCount = 0
+
+        foreach ($sec in $SectionSettings.Keys) {
+            foreach ($k in $SectionSettings[$sec].Keys) {
+                $AppliedKeys["$sec.$k"] = $false
+            }
+        }
+
+        foreach ($line in $IniLines) {
+            if ($line -match '^\s*\[([^\]]+)\]') {
+                # Entering new section: flush missing keys from prior section
+                if (-not [string]::IsNullOrWhiteSpace($CurrentSection) -and $SectionSettings.Contains($CurrentSection)) {
+                    foreach ($k in $SectionSettings[$CurrentSection].Keys) {
+                        if (-not $AppliedKeys["$CurrentSection.$k"]) {
+                            $targetVal = $SectionSettings[$CurrentSection][$k]
+                            [void]$UpdatedLines.Add("$k=$targetVal")
+                            $AppliedKeys["$CurrentSection.$k"] = $true
+                            $ChangesCount++
+                            Write-Host "     [ADDED] [$CurrentSection] $k=$targetVal" -ForegroundColor DarkYellow
+                        }
+                    }
+                }
+                $CurrentSection = $Matches[1].Trim()
+                $ExistingSections[$CurrentSection] = $true
+                [void]$UpdatedLines.Add($line)
+                continue
+            }
+
             if (-not [string]::IsNullOrWhiteSpace($CurrentSection) -and $SectionSettings.Contains($CurrentSection)) {
+                $matchedKey = $null
                 foreach ($k in $SectionSettings[$CurrentSection].Keys) {
-                    if (-not $AppliedKeys["$CurrentSection.$k"]) {
+                    if ($line -match "^\s*$([regex]::Escape($k))\s*=(.*)$") {
+                        $matchedKey = $k
+                        $currentVal = $Matches[1]
                         $targetVal = $SectionSettings[$CurrentSection][$k]
+                        if ($k -ne "AvisynthScript" -and $currentVal -ne $targetVal) {
+                            Write-Host "     [FIXED] [$CurrentSection] $($k): '$currentVal' -> '$targetVal'" -ForegroundColor DarkYellow
+                            $ChangesCount++
+                        }
                         [void]$UpdatedLines.Add("$k=$targetVal")
                         $AppliedKeys["$CurrentSection.$k"] = $true
-                        $ChangesCount++
-                        Write-Host "     [ADDED] [$CurrentSection] $k=$targetVal" -ForegroundColor DarkYellow
+                        break
                     }
                 }
+                if ($matchedKey) { continue }
             }
-            $CurrentSection = $Matches[1].Trim()
-            $ExistingSections[$CurrentSection] = $true
+
             [void]$UpdatedLines.Add($line)
-            continue
         }
 
+        # Flush missing keys for the final section
         if (-not [string]::IsNullOrWhiteSpace($CurrentSection) -and $SectionSettings.Contains($CurrentSection)) {
-            $matchedKey = $null
             foreach ($k in $SectionSettings[$CurrentSection].Keys) {
-                if ($line -match "^\s*$([regex]::Escape($k))\s*=(.*)$") {
-                    $matchedKey = $k
-                    $currentVal = $Matches[1]
+                if (-not $AppliedKeys["$CurrentSection.$k"]) {
                     $targetVal = $SectionSettings[$CurrentSection][$k]
-                    if ($k -ne "AvisynthScript" -and $currentVal -ne $targetVal) {
-                        Write-Host "     [FIXED] [$CurrentSection] $($k): '$currentVal' -> '$targetVal'" -ForegroundColor DarkYellow
-                        $ChangesCount++
-                    }
                     [void]$UpdatedLines.Add("$k=$targetVal")
                     $AppliedKeys["$CurrentSection.$k"] = $true
-                    break
+                    $ChangesCount++
+                    Write-Host "     [ADDED] [$CurrentSection] $k=$targetVal" -ForegroundColor DarkYellow
                 }
             }
-            if ($matchedKey) { continue }
         }
 
-        [void]$UpdatedLines.Add($line)
-    }
-
-    # Flush missing keys for the final section
-    if (-not [string]::IsNullOrWhiteSpace($CurrentSection) -and $SectionSettings.Contains($CurrentSection)) {
-        foreach ($k in $SectionSettings[$CurrentSection].Keys) {
-            if (-not $AppliedKeys["$CurrentSection.$k"]) {
-                $targetVal = $SectionSettings[$CurrentSection][$k]
-                [void]$UpdatedLines.Add("$k=$targetVal")
-                $AppliedKeys["$CurrentSection.$k"] = $true
-                $ChangesCount++
-                Write-Host "     [ADDED] [$CurrentSection] $k=$targetVal" -ForegroundColor DarkYellow
+        # Append any sections that didn't exist in the file at all
+        foreach ($sec in $SectionSettings.Keys) {
+            if (-not $ExistingSections.ContainsKey($sec)) {
+                [void]$UpdatedLines.Add("[$sec]")
+                foreach ($k in $SectionSettings[$sec].Keys) {
+                    $targetVal = $SectionSettings[$sec][$k]
+                    [void]$UpdatedLines.Add("$k=$targetVal")
+                    $AppliedKeys["$sec.$k"] = $true
+                    $ChangesCount++
+                    Write-Host "     [ADDED] [$sec] $k=$targetVal" -ForegroundColor DarkYellow
+                }
             }
         }
-    }
 
-    # Append any sections that didn't exist in the file at all
-    foreach ($sec in $SectionSettings.Keys) {
-        if (-not $ExistingSections.ContainsKey($sec)) {
-            [void]$UpdatedLines.Add("[$sec]")
-            foreach ($k in $SectionSettings[$sec].Keys) {
-                $targetVal = $SectionSettings[$sec][$k]
-                [void]$UpdatedLines.Add("$k=$targetVal")
-                $AppliedKeys["$sec.$k"] = $true
-                $ChangesCount++
-                Write-Host "     [ADDED] [$sec] $k=$targetVal" -ForegroundColor DarkYellow
-            }
+        try {
+            $UpdatedLines | Set-Content -Path $IniPath -Encoding Unicode -ErrorAction Stop
+            Write-Host "  -> Settings Enforced in: $IniPath ($ChangesCount adjustments made)." -ForegroundColor Green
+        } catch {
+            Write-Warning "Could not write settings to '$IniPath': $($_.Exception.Message)"
+            $allSuccess = $false
         }
     }
 
-    $UpdatedLines | Set-Content -Path $IniPath -Encoding Unicode
-    Write-Host "  -> Settings Enforced ($ChangesCount adjustments made). Target script injected: $(Split-Path $ProfilePath -Leaf)" -ForegroundColor Green
-    return $true
+    if ($allSuccess) {
+        Write-Host "  -> Target script injected cleanly across all configuration files: $(Split-Path $ProfilePath -Leaf)" -ForegroundColor Green
+    }
+    return $allSuccess
 }
 
-function Restore-PotPlayerSettings([string]$IniPath) {
-    $BakPath = "$IniPath.bak"
-    if (Test-Path $BakPath) {
-        Move-Item -Path $BakPath -Destination $IniPath -Force
-        Write-Host "  -> Restored original PotPlayer configuration." -ForegroundColor Green
+function Restore-PotPlayerSettings {
+    param(
+        [Parameter(ValueFromPipeline = $true)]
+        [Alias("IniPath")]
+        [string[]]$IniPaths = @()
+    )
+
+    foreach ($IniPath in $IniPaths) {
+        if ([string]::IsNullOrWhiteSpace($IniPath)) { continue }
+        $BakPath = "$IniPath.bak"
+        if (Test-Path $BakPath) {
+            try {
+                Move-Item -Path $BakPath -Destination $IniPath -Force -ErrorAction Stop
+                Write-Host "  -> Restored original PotPlayer configuration ($IniPath)." -ForegroundColor Green
+            } catch {
+                Write-Warning "Could not restore PotPlayer configuration backup for '$IniPath': $($_.Exception.Message)"
+            }
+        }
     }
-    $TargetAvs = Join-Path (Split-Path $IniPath -Parent) "AviSynth\BenchmarkProfile.avs"
-    if (Test-Path $TargetAvs) {
-        Remove-Item $TargetAvs -Force -ErrorAction SilentlyContinue
+
+    $cleanupDirs = @($ScriptDir)
+    foreach ($p in $IniPaths) {
+        if (-not [string]::IsNullOrWhiteSpace($p)) {
+            $parent = Split-Path $p -Parent
+            if ($parent -and -not ($cleanupDirs -contains $parent)) {
+                $cleanupDirs += $parent
+            }
+        }
+    }
+    foreach ($dir in $cleanupDirs) {
+        $avsCand = Join-Path $dir "AviSynth\BenchmarkProfile.avs"
+        if (Test-Path $avsCand) {
+            Remove-Item $avsCand -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -1606,34 +3226,32 @@ if ($PresentMonExe) {
 # ---------------------------------------------------------
 # STEP 1: VERIFY OR ACQUIRE POTPLAYER INSTANCE
 # ---------------------------------------------------------
-$PotExe = Join-Path $PotPlayerDir "PotPlayer64.exe"
+$PotExe = if (Test-Path (Join-Path $PotPlayerDir "PotPlayer64.exe")) {
+    Join-Path $PotPlayerDir "PotPlayer64.exe"
+} elseif (Test-Path (Join-Path $PotPlayerDir "PotPlayerMini64.exe")) {
+    Join-Path $PotPlayerDir "PotPlayerMini64.exe"
+} else {
+    Join-Path $PotPlayerDir "PotPlayer64.exe"
+}
 
 if (-not (Test-Path $PotExe)) {
     Write-Host "`n[1/7] PotPlayer Instance Not Detected at: $PotPlayerDir" -ForegroundColor Yellow
 
-    # Check if automated acquisition is requested or should be offered
-    $ShouldInstall = $AutoInstallPotPlayer
-    if (-not $ShouldInstall -and $Host.UI -and $Host.UI.RawUI) {
-        Write-Host "`n[MISSING COMPONENT] PotPlayer instance was not found!" -ForegroundColor Yellow
-        Write-Host "PotPlayer is required for deterministic real-time video playback and frame pacing telemetry." -ForegroundColor Gray
-        Write-Host "Official Kakao CDN: https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe`n" -ForegroundColor DarkCyan
-
-        $Prompt = Read-Host "Would you like to automatically download and install official PotPlayer ARM64 now? [Y/n]"
-        if ([string]::IsNullOrWhiteSpace($Prompt) -or $Prompt.Trim().ToLower() -eq 'y') {
-            $ShouldInstall = $true
+    $TargetInstallDir = if ($PotPlayerDir -ne (Join-Path $ScriptDir "PotPlayer")) { $PotPlayerDir } else { "" }
+    $InstalledPath = Install-PotPlayerARM64 -TargetDir $TargetInstallDir -Elevated $IsAdmin
+        if ($InstalledPath -is [array]) {
+            $InstalledPath = ($InstalledPath | Where-Object { $_ -is [string] -and -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last 1)
         }
-    }
-
-    if ($ShouldInstall) {
-        $TargetInstallDir = if ($PotPlayerDir -ne (Join-Path $ScriptDir "PotPlayer")) { $PotPlayerDir } else { "" }
-        $InstalledPath = Install-PotPlayerARM64 -TargetDir $TargetInstallDir -Elevated $IsAdmin
-        if ($InstalledPath -and (Test-Path (Join-Path $InstalledPath "PotPlayer64.exe"))) {
-            $PotPlayerDir = $InstalledPath
-            $PotExe = Join-Path $PotPlayerDir "PotPlayer64.exe"
-            Write-Host "  -> PotPlayer verified at: $PotExe" -ForegroundColor Green
+    if ($InstalledPath -and ((Test-Path (Join-Path $InstalledPath "PotPlayer64.exe")) -or (Test-Path (Join-Path $InstalledPath "PotPlayerMini64.exe")))) {
+        $PotPlayerDir = $InstalledPath
+        $PotExe = if (Test-Path (Join-Path $PotPlayerDir "PotPlayer64.exe")) {
+            Join-Path $PotPlayerDir "PotPlayer64.exe"
         } else {
-            Write-Host "`n[FATAL ERROR] Automated PotPlayer installation did not produce a valid PotPlayer64.exe!" -ForegroundColor Red
-            exit 1
+            Join-Path $PotPlayerDir "PotPlayerMini64.exe"
+        }
+        Write-Host "  -> PotPlayer verified at: $PotExe" -ForegroundColor Green
+        if ([string]::IsNullOrWhiteSpace($ExplicitMvToolsDir)) {
+            $MvToolsDir = Resolve-MvToolsSearchDirectory -ExplicitDir "" -TargetPotPlayerDir $PotPlayerDir -CurrentScriptDir $ScriptDir -CurrentRepoRoot $RepoRoot
         }
     } else {
         Write-Host "`n[FATAL ERROR] PotPlayer instance was not found at: '$PotPlayerDir'!" -ForegroundColor Red
@@ -1643,22 +3261,24 @@ if (-not (Test-Path $PotExe)) {
         Write-Host "Users must obtain PotPlayer directly from official channels:" -ForegroundColor White
         Write-Host "  Official Portal: https://potplayer.tv" -ForegroundColor Cyan
         Write-Host "  Official Direct ARM64 Installer: https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe" -ForegroundColor Cyan
+        $progFilesDisplay = if ($env:ProgramFiles) { (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer") } else { "%ProgramFiles%\DAUM\PotPlayer" }
         Write-Host "Setup options:" -ForegroundColor Yellow
         Write-Host "  1. Run with -AutoInstallPotPlayer to automatically download and silently install ARM64 release, OR" -ForegroundColor White
-        Write-Host "  2. Install PotPlayer to default directory ('C:\Program Files\DAUM\PotPlayer'), OR" -ForegroundColor White
+        Write-Host "  2. Install PotPlayer to default directory ('$progFilesDisplay'), OR" -ForegroundColor White
         Write-Host "  3. Copy your official portable PotPlayer folder into '$PotPlayerDir', OR" -ForegroundColor White
-        Write-Host "  4. Specify your custom path via -PotPlayerDir 'C:\Path\To\PotPlayer'.`n" -ForegroundColor White
+        Write-Host "  4. Specify your custom path via -PotPlayerDir '<path>'.`n" -ForegroundColor White
         exit 1
     }
 } else {
     Write-Host "`n[1/7] Using existing PotPlayer instance at: $PotPlayerDir" -ForegroundColor Green
 }
 
-$PotIni = Join-Path $PotPlayerDir "PotPlayer64.ini"
-if (-not (Test-Path $PotIni)) {
-    Write-Host "  -> Initializing clean baseline PotPlayer64.ini in: $PotPlayerDir" -ForegroundColor Gray
-    "[Settings]`r`nMultipleRunning=0`r`n" | Set-Content -Path $PotIni -Encoding Unicode
-}
+# Deploy MVTools plugins, AviSynth.dll, and all .avs profiles into PotPlayer directory
+Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+
+# Initialize and resolve PotPlayer configuration target files (AppData for default install, local for non-default)
+$PotIniTargets = Initialize-PotPlayerIniFiles -PotPlayerDir $PotPlayerDir
+$PotIni = $PotIniTargets[0]
 
 
 # ---------------------------------------------------------
@@ -1687,18 +3307,18 @@ Confirm-StorageMediaSuitability -Paths @($VideoFullPath) -BypassPrompt:$IgnoreUs
 # ---------------------------------------------------------
 # HARDWARE DETECTION & PROFILE / GPU MODE SELECTION
 # ---------------------------------------------------------
-$PlatformRec = Get-SystemPlatformRecommendation -RepoRoot $RepoRoot
+$PlatformRec = Get-SystemPlatformRecommendation -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
 
 $ChosenProfilePath = $null
 $ChosenGpuMode = $GpuMode
 
 $isConsoleHost = [Environment]::UserInteractive -and ($Host.UI.RawUI -ne $null)
 if ($Interactive -or ([string]::IsNullOrWhiteSpace($AviSynthProfile) -and $isConsoleHost)) {
-    $interactiveResult = Select-ProfileAndModeInteractive -RepoRoot $RepoRoot -Recommendation $PlatformRec -CurrentProfile $AviSynthProfile -CurrentGpuMode $GpuMode
+    $interactiveResult = Select-ProfileAndModeInteractive -RepoRoot $RepoRoot -Recommendation $PlatformRec -CurrentProfile $AviSynthProfile -CurrentGpuMode $GpuMode -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
     $ChosenProfilePath = $interactiveResult.ProfilePath
     $ChosenGpuMode = $interactiveResult.GpuMode
 } else {
-    $ChosenProfilePath = Resolve-AviSynthProfilePath -InputProfile $AviSynthProfile -RepoRoot $RepoRoot -RecommendedName $PlatformRec.RecommendedProfile -PlatformKey $PlatformRec.PlatformKey
+    $ChosenProfilePath = Resolve-AviSynthProfilePath -InputProfile $AviSynthProfile -RepoRoot $RepoRoot -RecommendedName $PlatformRec.RecommendedProfile -PlatformKey $PlatformRec.PlatformKey -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
     if ($ChosenGpuMode -eq "Auto" -or [string]::IsNullOrWhiteSpace($ChosenGpuMode)) {
         $ChosenGpuMode = $PlatformRec.RecommendedGpuMode
     }
@@ -1743,21 +3363,53 @@ if (-not $VideoChecksumPassed) {
 # ---------------------------------------------------------
 # STEP 3: MVTOOLS BINARY VALIDATION & BUILD DATE AUDIT
 # ---------------------------------------------------------
+if ([string]::IsNullOrWhiteSpace($ExplicitMvToolsDir)) {
+    $MvToolsDir = Resolve-MvToolsSearchDirectory -ExplicitDir "" -TargetPotPlayerDir $PotPlayerDir -CurrentScriptDir $ScriptDir -CurrentRepoRoot $RepoRoot
+}
 Write-Host "`n[3/7] Auditing MVTools Plugins in: $MvToolsDir..." -ForegroundColor Yellow
 $MvToolsCpuPath = Join-Path $MvToolsDir "mvtools2.dll"
 $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
 
+# Check if binaries are missing or if automated download was requested
+$cpuMissing = -not (Test-Path $MvToolsCpuPath)
+$gpuNeededAndMissing = ($ResolvedGpuMode -in @("GPU", "D3D12")) -and (-not (Test-Path $MvToolsGpuPath))
+
+if ($AutoDownloadMvTools -or $cpuMissing -or $gpuNeededAndMissing) {
+    $targetDir = if (-not [string]::IsNullOrWhiteSpace($MvToolsDir)) { $MvToolsDir } else { $ScriptDir }
+        # Verify targetDir is writable; if not (e.g. Program Files without elevation), fallback to ScriptDir
+        try {
+            $testFile = Join-Path $targetDir (".write_test_" + [Guid]::NewGuid().ToString("N"))
+            [System.IO.File]::WriteAllText($testFile, "test")
+            Remove-Item $testFile -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Warning "Directory '$targetDir' is not writable without elevation. Deploying to '$ScriptDir' instead."
+            $targetDir = $ScriptDir
+        }
+
+        $dlResult = Install-MvToolsRelease -TargetDir $targetDir -RepoSlug $MvToolsRepo
+        if ($dlResult -is [array]) {
+            $dlResult = ($dlResult | Where-Object { $_ -is [string] -and -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last 1)
+        }
+        if ($dlResult) {
+            $MvToolsDir = $dlResult
+            $MvToolsCpuPath = Join-Path $MvToolsDir "mvtools2.dll"
+            $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
+            # Ensure newly acquired binaries and profiles are synced to PotPlayer
+            Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+        }
+    }
+
 # Assert that required MVTools binaries exist
 if (-not (Test-Path $MvToolsCpuPath)) {
     Write-Host "`n[FATAL ERROR] Required MVTools CPU binary 'mvtools2.dll' not found in '$MvToolsDir'!" -ForegroundColor Red
-    Write-Host "Please build or place 'mvtools2.dll' in '$MvToolsDir'.`n" -ForegroundColor Yellow
+    Write-Host "Please build or place 'mvtools2.dll' in '$MvToolsDir', or pass -AutoDownloadMvTools to fetch from GitHub releases.`n" -ForegroundColor Yellow
     exit 1
 }
 
 if ($ResolvedGpuMode -eq "GPU" -or $ResolvedGpuMode -eq "D3D12") {
     if (-not (Test-Path $MvToolsGpuPath)) {
         Write-Host "`n[FATAL ERROR] Direct3D 12 GPU mode requested, but 'mvtools2_d3d12.dll' was not found in '$MvToolsDir'!" -ForegroundColor Red
-        Write-Host "Please build or place 'mvtools2_d3d12.dll' in '$MvToolsDir'.`n" -ForegroundColor Yellow
+        Write-Host "Please build or place 'mvtools2_d3d12.dll' in '$MvToolsDir', or pass -AutoDownloadMvTools to fetch from GitHub releases.`n" -ForegroundColor Yellow
         exit 1
     }
 }
@@ -1785,7 +3437,7 @@ if ($GpuMeta) {
 # STEP 4: POTPLAYER SETTINGS VERIFICATION & SINGLE-INSTANCE
 # ---------------------------------------------------------
 Write-Host "`n[4/7] Verifying & Injecting Deterministic Configuration..." -ForegroundColor Yellow
-$SettingsReady = Set-PotPlayerSettings -IniPath $PotIni -ProfilePath $ProfileFullPath -PotPlayerDir $PotPlayerDir -MvToolsDir $MvToolsDir -GpuModeChoice $ResolvedGpuMode
+$SettingsReady = Set-PotPlayerSettings -IniPaths $PotIniTargets -ProfilePath $ProfileFullPath -PotPlayerDir $PotPlayerDir -MvToolsDir $MvToolsDir -GpuModeChoice $ResolvedGpuMode
 if (-not $SettingsReady) {
     Write-Host "`n[FATAL ERROR] Failed to configure PotPlayer settings.`n" -ForegroundColor Red
     exit 1
@@ -1846,7 +3498,7 @@ if ($CurrentFreeRamMb -lt $TotalRequiredRamMb) {
         if (-not $isInteractiveHost) {
             Write-Host "[ERROR] Low RAM headroom detected in non-interactive/redirected execution mode. Aborting benchmark." -ForegroundColor Red
             Write-Host "To allow execution on memory-constrained devices in automated scripts, re-run with -IgnoreRamWarning.`n" -ForegroundColor Yellow
-            Restore-PotPlayerSettings -IniPath $PotIni
+            Restore-PotPlayerSettings -IniPaths $PotIniTargets
             exit 1
         }
 
@@ -1854,7 +3506,7 @@ if ($CurrentFreeRamMb -lt $TotalRequiredRamMb) {
         $userChoice = Read-Host
         if ($userChoice -notmatch '^(?i)y(es)?$') {
             Write-Host "`n[BENCHMARK ABORTED] Execution stopped by user due to low memory headroom.`n" -ForegroundColor Red
-            Restore-PotPlayerSettings -IniPath $PotIni
+            Restore-PotPlayerSettings -IniPaths $PotIniTargets
             exit 1
         }
         Write-Host "  -> Continuing benchmark despite low memory headroom as confirmed by user...`n" -ForegroundColor DarkYellow
@@ -1893,10 +3545,14 @@ $Battery = Get-CimInstance -ClassName Win32_Battery -ErrorAction SilentlyContinu
 if ($Battery) {
     $IsAcOnline = (Get-CimInstance -Namespace "root\wmi" -ClassName "BatteryStatus" -ErrorAction SilentlyContinue).PowerOnline
     if ($IsAcOnline -eq $false) {
-        Write-Host "`n[FATAL ERROR] Device is running on battery power!" -ForegroundColor Red
-        Write-Host "Connect AC adapter for reproducible benchmarking without battery clock throttling.`n" -ForegroundColor Yellow
-        Restore-PotPlayerSettings -IniPath $PotIni
-        exit 1
+        if ($IgnoreBatteryWarning) {
+            Write-Warning "Device is running on battery power ($($Battery.EstimatedChargeRemaining)%). Benchmark continuing (-IgnoreBatteryWarning specified), but battery clock throttling may affect results."
+        } else {
+            Write-Host "`n[FATAL ERROR] Device is running on battery power!" -ForegroundColor Red
+            Write-Host "Connect AC adapter for reproducible benchmarking without battery clock throttling.`n" -ForegroundColor Yellow
+            Restore-PotPlayerSettings -IniPaths $PotIniTargets
+            exit 1
+        }
     }
     $Charge = $Battery.EstimatedChargeRemaining
     Write-Host "  -> AC Connected. Battery: $Charge%" -ForegroundColor Green
@@ -1914,15 +3570,49 @@ Write-Host "  -> Switched to High Performance mode." -ForegroundColor Green
 
 # Kill Background Apps
 $NoisyProcesses = @("chrome", "msedge", "firefox", "brave", "opera", "teams", "ms-teams", "slack", "discord", "onedrive", "dropbox", "spotify", "steam")
-$KilledCount = 0
+$runningNoisy = @()
 foreach ($p in $NoisyProcesses) {
-    $found = Get-Process -Name $p -ErrorAction SilentlyContinue
-    if ($found) {
-        Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
-        $KilledCount++
+    if (Get-Process -Name $p -ErrorAction SilentlyContinue) {
+        $runningNoisy += $p
     }
 }
-Write-Host "  -> Quiesced $KilledCount background processes." -ForegroundColor Green
+
+if ($runningNoisy.Count -gt 0) {
+    $shouldKill = $true
+    if (-not $SkipProcessKill) {
+        $isInteractiveHost = [Environment]::UserInteractive -and ($Host.UI.RawUI -ne $null) -and (-not [Console]::IsInputRedirected)
+        if ($isInteractiveHost) {
+            Write-Host "`n[WARNING] Active Background Applications Detected!" -ForegroundColor Yellow
+            Write-Host "  The following background application(s) are currently running: $($runningNoisy -join ', ')" -ForegroundColor Yellow
+            Write-Host "  Terminating background applications prevents CPU/GPU spikes during the benchmark." -ForegroundColor White
+            Write-Host "  Do you want to terminate these background applications? [Y/n]: " -NoNewline -ForegroundColor Cyan
+            $choice = Read-Host
+            if ($choice -match '^\s*(?i)n(o)?\s*$') {
+                $shouldKill = $false
+                Write-Host "  -> Skipping background application termination as requested by user.`n" -ForegroundColor DarkYellow
+            } else {
+                $shouldKill = $true
+            }
+        }
+    } else {
+        $shouldKill = $false
+        Write-Host "  -> Skipping background application termination (-SkipProcessKill specified)." -ForegroundColor DarkYellow
+    }
+
+    if ($shouldKill) {
+        $KilledCount = 0
+        foreach ($p in $runningNoisy) {
+            $found = Get-Process -Name $p -ErrorAction SilentlyContinue
+            if ($found) {
+                Stop-Process -Name $p -Force -ErrorAction SilentlyContinue
+                $KilledCount++
+            }
+        }
+        Write-Host "  -> Quiesced $KilledCount background process group(s)." -ForegroundColor Green
+    }
+} else {
+    Write-Host "  -> Background apps audit: Clean (no active noisy processes detected)." -ForegroundColor Green
+}
 
 # Disable Network
 $DisabledAdapters = @()
@@ -2234,7 +3924,7 @@ PresentMon CSV: $(if (Test-Path $PresentMonCsv) { $PresentMonCsv } else { "N/A" 
     Ensure-SinglePotPlayerInstance -TargetPid 0 | Out-Null
 
     # Restore PotPlayer original INI
-    Restore-PotPlayerSettings -IniPath $PotIni
+    Restore-PotPlayerSettings -IniPaths $PotIniTargets
 
     # Restore Power Scheme
     if ($OriginalSchemeGuid) {

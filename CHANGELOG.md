@@ -1,5 +1,5 @@
 Change log
-- 2.7.47-arm64 (20261016)
+- 2.7.47.100-arm64 (20261019)
   - Direct3D 12 DirectCompute GPU Offload (Adreno GPU Native Execution):
     - Ported block SAD (Sum of Absolute Differences) and motion vector search into HLSL Compute Shader (`cs_5_0`).
     - Executes natively on Qualcomm Adreno GPU with zero CPU overhead.
@@ -33,10 +33,25 @@ Change log
       - Snapdragon 8cx Gen 1 / Microsoft SQ1 (4x Gold + 4x Silver, Adreno 680): Eco, Balanced, MaxQuality with single-pass dense 16x16 D3D12 GPU offload (2 dispatches, cutting GPU evaluations by 60% to eliminate 7W fanless thermal throttling and sustain solid 60fps) and pure CPU NEON fallback.
       - Snapdragon 850 (4x Gold + 4x Silver): Eco, Balanced, MaxQuality with MScaleVect 540p proxy search (pure CPU NEON baseline to eliminate 5W GPU thermal throttling).
       - Snapdragon 7c Gen 2 (2x Gold + 6x Silver, e.g., Samsung Galaxy Book Go): Eco, Balanced, MaxQuality with levels=1 pyramid elimination, strict Prefetch(2, 4) core pinning, and MScaleVect 540p proxy search (pure CPU NEON baseline to avoid 32-bit LPDDR4x bus contention).
+    - Standardized Semantic Versioning headers (`# Revision:` and `# Changelog:`) across all 18 profiles.
+    - Embedded dynamic `USE_GPU` parameter toggle across all profiles for runtime switching between CPU NEON and D3D12 GPU.
     - Hardened low-power profiles (850 & 7c Gen 2) as pure CPU-only, reserving GPU offload toggles for high-bandwidth/active-cooled platforms (Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, and 8cx Gen 1).
+  - Automated Benchmark Test Suite & Telemetry:
+    - Added automated benchmark harness `Benchmarks/MvToolsBenchmark-Start.ps1` (v2.3.0) and matrix comparer `Benchmarks/MvToolsBenchmarks-Compare.ps1` (v2.2.0).
+    - Dual AppData & Portable PotPlayer INI targeting: automatically routes and enforces deterministic playback, D3D11 render, and AviSynth configuration across `%APPDATA%\PotPlayer64\PotPlayer64.ini` and `%APPDATA%\PotPlayerMini64\PotPlayerMini64.ini` for standard installs, or local directory INIs for portable installs.
+    - Native Fullscreen Configuration: enforces clean native fullscreen playback via player INI settings (`StartScreenSize=4`, `PlayScreenSize=5`, `PlayScreenSizeFirst=1`, `MainWindowState=128`, `FullScreenFitMode=0`) with zero external window message polling or CLI flag bloat.
+    - Binary PE Machine Architecture Validation: checks PE headers (`0xAA64` ARM64 vs `0x8664` x64 vs `0x014C` x86) via `Get-PeMachine` to prevent emulator architecture mismatch crashes.
+    - Explicit Download Confirmation Prompts: requires explicit user authorization (`Confirm-DownloadPermission`) displaying source URL, destination, and file size before downloading external packages.
+    - Background Process Quiescence & Interactive Prompt: inspects running noisy processes (browsers, Slack, Teams, etc.), displays a clear warning, and offers an interactive `[Y/n]` prompt defaulting to Yes on Enter, with `-SkipProcessKill` CLI bypass.
+    - Automated AviSynth+ Acquisition: downloads and extracts official native `AviSynth.dll` from GitHub releases (`AviSynth/AviSynthPlus`, latest tag `filesonly.7z`) directly to the PotPlayer directory.
+    - Automated MVTools ARM64 Acquisition: downloads and extracts official release binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`, `DePan.dll`, `DePanEstimate.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`).
+    - Automated Official PotPlayer ARM64 Setup: downloads and silently installs official native PotPlayer ARM64 from Kakao CDN with live speed/ETA progress and safety watchdog (`-AutoInstallPotPlayer`).
+    - Reference Baseline Comparison Matrices: preserved across 6 Snapdragon SoC generations under `Benchmarks/Baseline/`.
+    - PresentMon ARM64 Telemetry: integrated empirical panel scanout ETW analysis, integer VSync drift detection, render latency tracking, and profile revision reporting.
   - Documentation & Hardware Guides:
     - Added AI_PORT_NOTICE.md detailing port architecture, cross-compiler ABI mechanics, and Antigravity skills.
     - Added PotPlayer hardware decode (DXVA2/D3D11 Copy-Back) and Direct3D 11 rendering guides in Documentation/guides/ (SnapdragonXPlus.md, Snapdragon8cxGen3.md, Snapdragon8cxGen2.md, Snapdragon8cxGen1.md, Snapdragon850.md, Snapdragon7cGen2.md).
+
 
 - 2.7.47 (20260424)
   - Update Avisynth headers to V12 interface (AcquireGlobalLock/ReleaseGlobalLock support)

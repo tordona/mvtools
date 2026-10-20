@@ -8,13 +8,16 @@
     Optionally executes the full 3x2 permutation test matrix back-to-back.
 .PARAMETER AutoInstallPotPlayer
     Forwards automated PotPlayer ARM64 download and silent installation to matrix benchmark runs.
+.PARAMETER AutoDownloadMvTools
+    Forwards automated MVTools ARM64 release download and deployment from GitHub to matrix benchmark runs.
 .VERSION
-    2.2.0
+    2.3.0
 .DATE
     2026-10-19
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.0 (2026-10-19): Added -AutoDownloadMvTools forwarding for unattended matrix benchmarks.
     - v2.2.0 (2026-10-19): Added -AutoInstallPotPlayer forwarding for unattended matrix benchmarks.
     - v2.1.0 (2026-10-19): Added empirical panel scanout support, VSync phase drift discard
                            classification, dynamic architectural findings, and profile revision audit.
@@ -57,11 +60,18 @@ param(
     [switch]$MemoryConstrained,
 
     [Parameter(Mandatory = $false)]
-    [switch]$AutoInstallPotPlayer
+    [switch]$AutoInstallPotPlayer,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AutoDownloadMvTools,
+
+    [Parameter(Mandatory = $false)]
+    [Alias("SkipAppKill")]
+    [switch]$SkipProcessKill
 )
 
 # Compare Suite Semantic Revision
-$Script:CompareVersion = "2.2.0"
+$Script:CompareVersion = "2.3.0"
 
 $ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($ScriptDir)) {
@@ -126,6 +136,12 @@ if ($RunMatrix) {
             }
             if ($AutoInstallPotPlayer) {
                 $ArgsList += "-AutoInstallPotPlayer"
+            }
+            if ($AutoDownloadMvTools) {
+                $ArgsList += "-AutoDownloadMvTools"
+            }
+            if ($SkipProcessKill) {
+                $ArgsList += "-SkipProcessKill"
             }
 
             & powershell.exe $ArgsList
@@ -422,7 +438,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
             $droppedStr = $tiersWithDrops -join ", "
             $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this SoC."
         } elseif ($hasVsyncDrift) {
-            $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 FPS with minimal render latency (<0.5 ms). The 2–3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
+            $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 FPS with minimal render latency (<0.5 ms). The 2-3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
         } else {
             $Lines += "- **Stability & Real-Time Headroom:** Frame drops were recorded on high-complexity passes ($($tiersWithDrops -join ', ')). Consider lower-overhead tiers (e.g. Eco) or capping prefetch threads to maintain real-time presentation deadlines."
         }
