@@ -16,7 +16,7 @@ USE_GPU = false
 # Dynamic parameters adapted to USE_GPU
 plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
 threads     = USE_GPU ? 2 : 4     # GPU: 2 worker threads (double-buffered); CPU: 4 Oryon cores
-mem_limit   = USE_GPU ? 768 : 1024
+mem_limit   = USE_GPU ? 1536 : 2048
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)

@@ -19,11 +19,11 @@ plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
 use_chroma  = USE_GPU ? false : true
 # GPU offload executes on command queue (4 threads optimal, matches Balanced); CPU uses 8 Oryon cores
 threads     = USE_GPU ? 4 : 8
-mem_limit   = USE_GPU ? 1536 : 4096
+mem_limit   = USE_GPU ? 2048 : 4096
 
 # Subpixel & Block Parameters:
-# pel_val: 2 = true half-pixel precision (GPU DirectCompute offload); 1 = integer-pel (ultra-efficient)
-pel_val     = 2
+# pel_val: Dynamic based on USE_GPU (pel=1 on GPU cuts memory bandwidth and compute by 75% for 4K; pel=2 on CPU Oryon cores)
+pel_val     = USE_GPU ? 1 : 2
 # sharp=1 (bicubic) eliminates the 18ms CPU scalar bottleneck of sharp=2 (Wiener filter)
 sharp_mode  = USE_GPU ? 1 : 2
 pad_size    = USE_GPU ? 8 : 16

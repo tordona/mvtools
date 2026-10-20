@@ -49,6 +49,7 @@ struct D3D12MotionSearch::Impl
     struct RefCacheEntry
     {
         ComPtr<ID3D12Resource> buffer;
+        void* pMapped = nullptr;
         size_t bufferSize = 0;
         const uint8_t* pPtr = nullptr;
         size_t size = 0;
@@ -66,6 +67,7 @@ struct D3D12MotionSearch::Impl
 
     // Cached GPU Buffers
     ComPtr<ID3D12Resource> m_srcBuffer;
+    void* m_pSrcMapped = nullptr;
     size_t m_srcBufferSize = 0;
     const uint8_t* m_cachedSrcPtr = nullptr;
     size_t m_cachedSrcSize = 0;
@@ -221,10 +223,13 @@ struct D3D12MotionSearch::Impl
         return true;
     }
 
-    void EnsureBuffers(size_t blockCount)
+    bool EnsureBuffers(size_t blockCount)
     {
+        if (!m_device || m_device->GetDeviceRemovedReason() != S_OK)
+            return false;
+
         size_t predSize = blockCount * sizeof(int32_t) * 2;
-        if (m_predBufferSize < predSize)
+        if (m_predBufferSize < predSize || !m_predBuffer || !m_pPredMapped)
         {
             if (m_predBuffer && m_pPredMapped)
             {
@@ -233,11 +238,16 @@ struct D3D12MotionSearch::Impl
             }
             m_predBufferSize = (predSize * 3) / 2;
             m_predBuffer.Reset();
-            CreateBuffer(m_predBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &m_predBuffer);
-            m_predBuffer->Map(0, nullptr, &m_pPredMapped);
+            if (FAILED(CreateBuffer(m_predBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &m_predBuffer)))
+                return false;
+            if (FAILED(m_predBuffer->Map(0, nullptr, &m_pPredMapped)) || !m_pPredMapped)
+            {
+                m_pPredMapped = nullptr;
+                return false;
+            }
         }
 
-        if (m_tempPredBufferSize < predSize)
+        if (m_tempPredBufferSize < predSize || !m_tempPredBuffer || !m_pTempPredMapped)
         {
             if (m_tempPredBuffer && m_pTempPredMapped)
             {
@@ -246,12 +256,17 @@ struct D3D12MotionSearch::Impl
             }
             m_tempPredBufferSize = (predSize * 3) / 2;
             m_tempPredBuffer.Reset();
-            CreateBuffer(m_tempPredBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &m_tempPredBuffer);
-            m_tempPredBuffer->Map(0, nullptr, &m_pTempPredMapped);
+            if (FAILED(CreateBuffer(m_tempPredBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &m_tempPredBuffer)))
+                return false;
+            if (FAILED(m_tempPredBuffer->Map(0, nullptr, &m_pTempPredMapped)) || !m_pTempPredMapped)
+            {
+                m_pTempPredMapped = nullptr;
+                return false;
+            }
         }
 
         size_t outSize = blockCount * sizeof(D3D12BlockResult);
-        if (m_outBufferSize < outSize)
+        if (m_outBufferSize < outSize || !m_uavBuffer || !m_readbackBuffer || !m_pReadbackMapped)
         {
             if (m_readbackBuffer && m_pReadbackMapped)
             {
@@ -261,14 +276,35 @@ struct D3D12MotionSearch::Impl
             m_outBufferSize = (outSize * 3) / 2;
             m_uavBuffer.Reset();
             m_readbackBuffer.Reset();
-            CreateBuffer(m_outBufferSize, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, &m_uavBuffer);
-            CreateBuffer(m_outBufferSize, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_FLAG_NONE, &m_readbackBuffer);
-            m_readbackBuffer->Map(0, nullptr, &m_pReadbackMapped);
+            if (FAILED(CreateBuffer(m_outBufferSize, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, &m_uavBuffer)))
+                return false;
+            if (FAILED(CreateBuffer(m_outBufferSize, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_FLAG_NONE, &m_readbackBuffer)))
+                return false;
+            if (FAILED(m_readbackBuffer->Map(0, nullptr, &m_pReadbackMapped)) || !m_pReadbackMapped)
+            {
+                m_pReadbackMapped = nullptr;
+                return false;
+            }
         }
+
+        return true;
     }
 
     ~Impl()
     {
+        if (m_srcBuffer && m_pSrcMapped)
+        {
+            m_srcBuffer->Unmap(0, nullptr);
+            m_pSrcMapped = nullptr;
+        }
+        for (int i = 0; i < REF_CACHE_SLOTS; i++)
+        {
+            if (m_refCache[i].buffer && m_refCache[i].pMapped)
+            {
+                m_refCache[i].buffer->Unmap(0, nullptr);
+                m_refCache[i].pMapped = nullptr;
+            }
+        }
         if (m_constBuffer && m_pConstMapped)
         {
             m_constBuffer->Unmap(0, nullptr);
@@ -316,7 +352,7 @@ D3D12MotionSearch& D3D12MotionSearch::GetInstance()
 bool D3D12MotionSearch::IsAvailable()
 {
     std::lock_guard<std::mutex> lock(pImpl->m_mutex);
-    return pImpl->InitDevice() && pImpl->m_enabled;
+    return pImpl->InitDevice() && pImpl->m_enabled && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
 }
 
 void D3D12MotionSearch::SetEnabled(bool enabled)
@@ -386,16 +422,26 @@ bool D3D12MotionSearch::SearchMVs(
     int refPitch = refPlane->GetPitch();
     int extHeight = srcPlane->GetExtendedHeight();
     int extWidth = srcPlane->GetExtendedWidth();
+    int actualRefPel = refPlane->GetPel();
+    int effectivePel = (actualRefPel > 0) ? std::min(nPel, actualRefPel) : nPel;
     size_t srcSize = (size_t)srcPitch * extHeight;
-    size_t refSize = (size_t)refPitch * extHeight * nPel * nPel;
+    size_t refSize = (size_t)refPitch * extHeight * effectivePel * effectivePel;
 
     std::lock_guard<std::mutex> lock(pImpl->m_mutex);
-    if (!pImpl->InitDevice() || !pImpl->m_enabled)
+    if (!pImpl->InitDevice() || !pImpl->m_enabled || !pImpl->m_device)
     {
         return false;
     }
+    if (pImpl->m_device->GetDeviceRemovedReason() != S_OK)
+    {
+        pImpl->m_available = false;
+        return false;
+    }
 
-    pImpl->EnsureBuffers(blkCount);
+    if (!pImpl->EnsureBuffers(blkCount))
+    {
+        return false;
+    }
 
     // 1. Source buffer upload or cache hit
     bool srcHit = false;
@@ -418,16 +464,26 @@ bool D3D12MotionSearch::SearchMVs(
 
     if (!srcHit)
     {
-        if (pImpl->m_srcBufferSize < srcSize)
+        if (pImpl->m_srcBufferSize < srcSize || !pImpl->m_srcBuffer || !pImpl->m_pSrcMapped)
         {
+            if (pImpl->m_srcBuffer && pImpl->m_pSrcMapped)
+            {
+                pImpl->m_srcBuffer->Unmap(0, nullptr);
+                pImpl->m_pSrcMapped = nullptr;
+            }
             pImpl->m_srcBufferSize = (srcSize * 3) / 2;
             pImpl->m_srcBuffer.Reset();
-            pImpl->CreateBuffer(pImpl->m_srcBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_srcBuffer);
+            if (FAILED(pImpl->CreateBuffer(pImpl->m_srcBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_srcBuffer)))
+            {
+                return false;
+            }
+            if (FAILED(pImpl->m_srcBuffer->Map(0, nullptr, &pImpl->m_pSrcMapped)) || !pImpl->m_pSrcMapped)
+            {
+                pImpl->m_pSrcMapped = nullptr;
+                return false;
+            }
         }
-        void* pMapped = nullptr;
-        pImpl->m_srcBuffer->Map(0, nullptr, &pMapped);
-        memcpy(pMapped, pSrc, srcSize);
-        pImpl->m_srcBuffer->Unmap(0, nullptr);
+        memcpy(pImpl->m_pSrcMapped, pSrc, srcSize);
 
         pImpl->m_cachedSrcPtr = pSrc;
         pImpl->m_cachedSrcSize = srcSize;
@@ -491,17 +547,27 @@ bool D3D12MotionSearch::SearchMVs(
         }
 
         refSlot = lruSlot;
-        if (pImpl->m_refCache[refSlot].bufferSize < refSize)
+        if (pImpl->m_refCache[refSlot].bufferSize < refSize || !pImpl->m_refCache[refSlot].buffer || !pImpl->m_refCache[refSlot].pMapped)
         {
+            if (pImpl->m_refCache[refSlot].buffer && pImpl->m_refCache[refSlot].pMapped)
+            {
+                pImpl->m_refCache[refSlot].buffer->Unmap(0, nullptr);
+                pImpl->m_refCache[refSlot].pMapped = nullptr;
+            }
             pImpl->m_refCache[refSlot].bufferSize = (refSize * 3) / 2;
             pImpl->m_refCache[refSlot].buffer.Reset();
-            pImpl->CreateBuffer(pImpl->m_refCache[refSlot].bufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_refCache[refSlot].buffer);
+            if (FAILED(pImpl->CreateBuffer(pImpl->m_refCache[refSlot].bufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_refCache[refSlot].buffer)))
+            {
+                return false;
+            }
+            if (FAILED(pImpl->m_refCache[refSlot].buffer->Map(0, nullptr, &pImpl->m_refCache[refSlot].pMapped)) || !pImpl->m_refCache[refSlot].pMapped)
+            {
+                pImpl->m_refCache[refSlot].pMapped = nullptr;
+                return false;
+            }
         }
 
-        void* pMapped = nullptr;
-        pImpl->m_refCache[refSlot].buffer->Map(0, nullptr, &pMapped);
-        memcpy(pMapped, pRef, refSize);
-        pImpl->m_refCache[refSlot].buffer->Unmap(0, nullptr);
+        memcpy(pImpl->m_refCache[refSlot].pMapped, pRef, refSize);
 
         pImpl->m_refCache[refSlot].pPtr = pRef;
         pImpl->m_refCache[refSlot].size = refSize;
@@ -610,14 +676,23 @@ bool D3D12MotionSearch::SearchMVs(
     pImpl->m_fenceValue++;
     pImpl->m_queue->Signal(pImpl->m_fence.Get(), pImpl->m_fenceValue);
     pImpl->m_fence->SetEventOnCompletion(pImpl->m_fenceValue, pImpl->m_fenceEvent);
-    WaitForSingleObject(pImpl->m_fenceEvent, INFINITE);
+    DWORD waitResult = WaitForSingleObject(pImpl->m_fenceEvent, 2000);
+    if (waitResult != WAIT_OBJECT_0)
+    {
+        if (pImpl->m_device->GetDeviceRemovedReason() != S_OK)
+        {
+            pImpl->m_available = false;
+        }
+        return false;
+    }
 
     // Read back results into host arrays
     pImpl->m_hostResults.resize(blkCount);
-    if (pImpl->m_pReadbackMapped)
+    if (!pImpl->m_pReadbackMapped)
     {
-        memcpy(pImpl->m_hostResults.data(), pImpl->m_pReadbackMapped, blkCount * sizeof(D3D12BlockResult));
+        return false;
     }
+    memcpy(pImpl->m_hostResults.data(), pImpl->m_pReadbackMapped, blkCount * sizeof(D3D12BlockResult));
 
     int* pBlkData = pOutArray + 1; // Skips header
     for (int i = 0; i < blkCount; i++)
