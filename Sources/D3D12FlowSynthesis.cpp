@@ -1138,7 +1138,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(0, pImpl->m_descSize)); // SRV t0..t3 for Y
         slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(4, pImpl->m_descSize)); // UAV u0 for Y
 
-        slot.cmdList->Dispatch((width + 15) / 16, (height + 15) / 16, 1);
+        slot.cmdList->Dispatch((width + 15) / 16, (height + 7) / 8, 1);
 
         if (planecount > 1)
         {
@@ -1157,13 +1157,13 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(5, pImpl->m_descSize)); // SRV t0..t3 for U
             slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(9, pImpl->m_descSize)); // UAV u0 for U
 
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 15) / 16, 1);
+            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
 
             // Dispatch V Plane
             slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(10, pImpl->m_descSize)); // SRV t0..t3 for V
             slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(14, pImpl->m_descSize)); // UAV u0 for V
 
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 15) / 16, 1);
+            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
         }
     }
     else
@@ -1181,7 +1181,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(16, pImpl->m_descSize));
         slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(18, pImpl->m_descSize));
 
-        slot.cmdList->Dispatch((width + 15) / 16, (height + 15) / 16, 1);
+        slot.cmdList->Dispatch((width + 15) / 16, (height + 7) / 8, 1);
 
         if (planecount > 1)
         {
@@ -1195,12 +1195,12 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(19, pImpl->m_descSize));
             slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(21, pImpl->m_descSize));
 
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 15) / 16, 1);
+            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
 
             slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(22, pImpl->m_descSize));
             slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(24, pImpl->m_descSize));
 
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 15) / 16, 1);
+            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
         }
     }
 
