@@ -71,18 +71,17 @@ RWTexture2D<float> g_BlendOutPlane   : register(u0);
 
 // =============================================================================
 // Compute Shader Entry Point: FlowWarpCS
-// Gather-based subpixel warping with hardware bilinear texture filtering
+// Gather-based subpixel warping with Adreno Wave64 (16x8) & FP16 Dynamic Median
 // =============================================================================
 
-[numthreads(16, 16, 1)]
+[numthreads(16, 8, 1)]
 void FlowWarpCS(uint3 DTid : SV_DispatchThreadID)
 {
     if (DTid.x >= width || DTid.y >= height)
         return;
 
-    // 1. Fetch raw motion vectors for current pixel
-    float2 rawMvF;
-    float2 rawMvB;
+    // 1. Fetch raw motion vectors for current pixel (FP32 coordinates)
+    float2 rawMvF, rawMvB;
 
     if (flowMode == 0)
     {
@@ -100,49 +99,49 @@ void FlowWarpCS(uint3 DTid : SV_DispatchThreadID)
         rawMvB = g_MotionVectorsB.SampleLevel(g_LinearClamp, normCoord, 0);
     }
 
-    // Convert motion vectors from nPel units to plane pixel displacement
-    // mvScale accounts for chroma subsampling (e.g. 0.5 for YUV420 chroma)
-    float2 dispF = (rawMvF / nPel) * float2(mvScaleX, mvScaleY);
-    float2 dispB = (rawMvB / nPel) * float2(mvScaleX, mvScaleY);
+    // Displacement and sampling coordinates in FP32 for exact subpixel accuracy
+    float2 invDims = float2(1.0f / (float)width, 1.0f / (float)height);
+    float2 pixelCenter = float2(DTid.xy) + 0.5f;
 
-    // Warped sampling coordinates in Frame N (Src) and Frame N+1 (Ref)
-    // Forward displacement in src (Frame 0) moves along vector proportional to time t
-    // Backward displacement in ref (Frame 1) moves along vector proportional to (1 - t)
-    float2 warpedCoordF = (float2(DTid.xy) + 0.5f + dispF * time) / float2(width, height);
-    float2 warpedCoordB = (float2(DTid.xy) + 0.5f + dispB * (1.0f - time)) / float2(width, height);
+    float2 dispScale = (1.0f / nPel) * float2(mvScaleX, mvScaleY);
+    float2 dispF = rawMvF * dispScale;
+    float2 dispB = rawMvB * dispScale;
 
-    // Subpixel bilinear motion-compensated samples
-    float pMCF = g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
-    float pMCB = g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
+    float2 warpedCoordF = (pixelCenter + dispF * time) * invDims;
+    float2 warpedCoordB = (pixelCenter + dispB * (1.0f - time)) * invDims;
+
+    // Subpixel bilinear motion-compensated samples (evaluated in min16float)
+    min16float pMCF = (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
+    min16float pMCB = (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
 
     // Uncompensated static samples at current pixel (x, y)
-    float staticF = g_SrcPlane.Load(int3(DTid.xy, 0));
-    float staticB = g_RefPlane.Load(int3(DTid.xy, 0));
+    min16float staticF = (min16float)g_SrcPlane.Load(int3(DTid.xy, 0));
+    min16float staticB = (min16float)g_RefPlane.Load(int3(DTid.xy, 0));
 
-    // Static temporal cross-fade between Frame 0 and Frame 1
-    float avg = lerp(staticF, staticB, time);
+    // Static temporal cross-fade
+    min16float halfTime = (min16float)time;
+    min16float avg = lerp(staticF, staticB, halfTime);
 
-    float finalVal;
-
+    min16float finalVal;
     if (maskMode == 0)
     {
         // Mode 0: Pure motion-compensated blend
-        finalVal = lerp(pMCF, pMCB, time);
+        finalVal = lerp(pMCF, pMCB, halfTime);
     }
     else if (maskMode == 1)
     {
         // Mode 1: Static Median
-        float mca = lerp(pMCF, pMCB, time);
+        min16float mca = lerp(pMCF, pMCB, halfTime);
         finalVal = clamp(mca, min(staticF, staticB), max(staticF, staticB));
     }
     else
     {
         // Mode 2: Dynamic Median (Exact parity with CPU NEON MBlockFps)
-        // dyn = MEDIAN(avg, pMCB, pMCF)
+        // dyn = MEDIAN(avg, pMCB, pMCF) in native Adreno FP16 ALUs
         finalVal = clamp(avg, min(pMCB, pMCF), max(pMCB, pMCF));
     }
 
-    g_OutPlane[DTid.xy] = saturate(finalVal);
+    g_OutPlane[DTid.xy] = (float)saturate(finalVal);
 }
 
 // =============================================================================
@@ -170,14 +169,14 @@ void UnpackMotionVectorsCS(uint3 DTid : SV_DispatchThreadID)
 // Pure frame blend fallback for scene changes or unusable motion vectors
 // =============================================================================
 
-[numthreads(16, 16, 1)]
+[numthreads(16, 8, 1)]
 void FlowBlendFallbackCS(uint3 DTid : SV_DispatchThreadID)
 {
     if (DTid.x >= blendWidth || DTid.y >= blendHeight)
         return;
 
-    float sF = g_BlendSrcPlane[DTid.xy];
-    float sB = g_BlendRefPlane[DTid.xy];
+    min16float sF = (min16float)g_BlendSrcPlane[DTid.xy];
+    min16float sB = (min16float)g_BlendRefPlane[DTid.xy];
 
-    g_BlendOutPlane[DTid.xy] = lerp(sF, sB, blendTime);
+    g_BlendOutPlane[DTid.xy] = (float)lerp(sF, sB, (min16float)blendTime);
 }
