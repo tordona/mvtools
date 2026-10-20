@@ -59,10 +59,11 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** $\to$ **Colorspaces**.
-2. Ensure preferred output formats prioritize native planar YUV:
+2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
+3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
+4. In the format list, ensure preferred output formats prioritize native planar YUV:
    - **`NV12`**
    - **`YV12`**
-3. Ensure **Always use RGB32** is **Unchecked**.
 
 ---
 

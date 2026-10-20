@@ -63,10 +63,11 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** $\to$ **Colorspaces**.
-2. Verify preferred formats are set to native planar YUV:
+2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32` *(prevents CPU color space conversion stalls)*.
+3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
+4. In the format list, verify preferred formats are set to native planar YUV:
    - **`NV12`**
    - **`YV12`**
-3. Ensure **Always use RGB32** is **Unchecked** *(prevents CPU color space conversion stalls)*.
 
 ---
 

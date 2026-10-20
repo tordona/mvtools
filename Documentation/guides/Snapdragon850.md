@@ -63,10 +63,11 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds massive me
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** $\to$ **Colorspaces**.
-2. Ensure the output format priority is set to planar YUV:
+2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
+3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
+4. In the format list, ensure the output format priority is set to planar YUV:
    - **`NV12`**
    - **`YV12`**
-3. Verify that **Always use RGB32** is **Unchecked**.
 
 ---
 

@@ -45,10 +45,14 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 ---
 
 ### Step 3: Colorspace Pass-Through (Zero CPU YUV Conversion)
-1. In **Preferences (`F5`)**, navigate to **Video** $\to$ **Colorspaces**.
-2. Set the default output format to **`NV12`** (native hardware format) or **`YV12`**.
-3. Uncheck software color space conversions to avoid wasting Gold core CPU cycles.
-4. Click **Apply**.
+1. In **Preferences (`F5`)**, navigate to:  
+   **Video** $\to$ **Colorspaces**.
+2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, ensure **Output color space** is set to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
+3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked** *(prevents software color space conversion overhead on Gold cores)*.
+4. In the format list, ensure native planar YUV formats are prioritized:
+   - **`NV12`**
+   - **`YV12`**
+5. Click **Apply**.
 
 ---
 
