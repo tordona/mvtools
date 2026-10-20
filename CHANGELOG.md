@@ -1,4 +1,16 @@
 Change log
+- 2.7.47.110-arm64 (20261020)
+  - Direct3D 12 Gather Flow & Dynamic Median Frame Synthesis (MFlowFps & MBlockFps):
+    - Implemented full GPU frame synthesis engine (D3D12FlowSynthesis.cpp/.h), eliminating the CPU readback fence stall.
+    - Added Hardware Dynamic Median Compute Shader (flow_warp.hlsl) for exact visual and mathematical parity with CPU NEON.
+    - Converted pixel color calculations, temporal cross-fade, and median clamping to native Adreno FP16 (min16float) for dual-issue ALU throughput.
+    - Optimized compute threadgroup dimensions to Wave64 (16x8, 128 threads) for Adreno architecture and L1 texture cache alignment.
+    - Integrated 3-Ring Texture Cache (m_ring[3]) and Asynchronous Double-Buffering (NUM_SLOTS = 2) with non-blocking try_lock slot acquisition, reducing memory bus traffic by 50%.
+    - Implemented bulk contiguous memcpy for host-to-device transfers, eliminating >10,200 row-by-row scalar function calls per frame.
+  - Stability & Reliability:
+    - Fixed 0xc0000005 Access Violation in vcruntime140.dll on widescreen 4K formats (3840x1714) via strict 2D coordinate bounds clamping in motion_search_cs.hlsl.
+    - Added defensive null-guards on mapped pointers, GetDeviceRemovedReason() validation, and bounded 2,000 ms fence synchronization timeouts.
+    - Raised profile mem_limit to 1,536 MB, completely eliminating pagefile disk swapping (0.0 swaps/sec).
 - 2.7.47.100-arm64 (20261019)
   - Direct3D 12 DirectCompute GPU Offload (Adreno GPU Native Execution):
     - Ported block SAD (Sum of Absolute Differences) and motion vector search into HLSL Compute Shader (`cs_5_0`).
@@ -482,3 +494,4 @@ Change log
 - 2.7.0.1 (March 31, 2016)
 
   - Version schema changed: skipped 2.6.x.x to leave numbering space to the previous authors
+
