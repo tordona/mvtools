@@ -48,13 +48,13 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 ## Step 2: Video Renderer Configuration (Adreno X1 Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to:  
-   **Video**.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
-3. **Scaling Algorithm:**
-   - Under **Resizer**, select **`Bicubic`** or **`Lanczos`**.  
+3. **GPU Scaling Algorithm:**
+   - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
+   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for balanced performance)* or **`Shader(2-Pass) Lanczos 2`** *(Max Quality)*.  
    *(The Adreno X1 GPU executes scaling and display shaders with negligible power consumption).*
 4. Click **Apply**.
 

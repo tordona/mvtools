@@ -37,10 +37,13 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 ---
 
 ### Step 2: Video Renderer (Direct3D 11 Pipeline)
-1. In **Preferences (`F5`)**, navigate to **Video**.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
-3. Under **Resizer**, select **`Bilinear`** or **`Bicubic (Fast)`**.
+3. **GPU Scaling Algorithm:**
+   - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
+   - Select **`Shader Bilinear`** *(lowest GPU power / battery saver)* or **`Shader Bicubic(A = -0.6)`** *(crisp 1080p presentation)*.  
+   *(GPU shader units execute scaling operations without consuming CPU cycles).*
 4. Click **Apply**.
 
 ---

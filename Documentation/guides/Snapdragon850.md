@@ -46,13 +46,13 @@ To achieve sustained, smooth 60fps playback without thermal throttling:
 
 ## Step 2: Video Renderer Configuration (Adreno 630 Direct3D Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to:  
-   **Video**.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
-3. **Scaling Algorithm:**
-   - Under **Resizer**, select **`Bilinear`** or **`Bicubic (Fast)`**.  
+3. **GPU Scaling Algorithm:**
+   - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
+   - Select **`Shader Bilinear`** *(lowest GPU power / battery saver)* or **`Shader Bicubic(A = -0.6)`** *(crisp 1080p presentation)*.  
    *(GPU shader units execute scaling operations without touching the CPU).*
 4. Click **Apply**.
 

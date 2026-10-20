@@ -47,13 +47,13 @@ To ensure continuous, rock-solid 60fps playback without dropped frames:
 
 ## Step 2: Video Renderer Configuration (Adreno 680 Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to:  
-   **Video**.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
-3. **Scaling Algorithm:**
-   - Under **Resizer**, select **`Bicubic`** or **`Bilinear`**.  
+3. **GPU Scaling Algorithm:**
+   - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
+   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for crisp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
    *(Scaling and color presentation shaders are executed directly on the Adreno 680 shader cores without consuming CPU cycles).*
 4. Click **Apply**.
 

@@ -47,11 +47,13 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 ## Step 2: Video Renderer Configuration (Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to:  
-   **Video**.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
-3. Under **Resizer**, select **`Bicubic`** or **`Bilinear`**.
+3. **GPU Scaling Algorithm:**
+   - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
+   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for crisp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
+   *(GPU shader units execute scaling operations without touching the CPU).*
 4. Click **Apply**.
 
 ---
