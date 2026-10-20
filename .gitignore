@@ -302,10 +302,12 @@ __pycache__/
 # Intel PresentMon is open-source (MIT License); accompanied by Benchmarks/LICENSE-PresentMon.txt.
 # ------------------------------------------------------------------------------
 Benchmarks/PotPlayer/
+Benchmarks/AviSynth/
 Benchmarks/*.7z
 Benchmarks/*.zip
 Benchmarks/*.exe
 !Benchmarks/PresentMon-arm64.exe
+Benchmarks/*.dll
 Benchmarks/*.mov
 Benchmarks/*.mp4
 Benchmarks/*.mkv
