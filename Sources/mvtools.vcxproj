@@ -1743,10 +1743,12 @@
     <ClCompile Include="Variance.cpp" />
     <ClCompile Include="yuy2planes.cpp" />
     <ClCompile Include="D3D12MotionSearch.cpp" />
+    <ClCompile Include="D3D12FlowSynthesis.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AllocAlign.h" />
     <ClInclude Include="D3D12MotionSearch.h" />
+    <ClInclude Include="D3D12FlowSynthesis.h" />
     <ClInclude Include="shaders\motion_search_cso.h" />
     <None Include="shaders\motion_search_cs.hlsl" />
     <ClInclude Include="shaders\flow_warp_cso.h" />

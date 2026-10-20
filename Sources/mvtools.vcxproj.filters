@@ -141,9 +141,15 @@
     <ClCompile Include="D3D12MotionSearch.cpp">
       <Filter>Filters</Filter>
     </ClCompile>
+    <ClCompile Include="D3D12FlowSynthesis.cpp">
+      <Filter>Filters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D12MotionSearch.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12FlowSynthesis.h">
       <Filter>Filters</Filter>
     </ClInclude>
     <ClInclude Include="shaders\motion_search_cso.h">
