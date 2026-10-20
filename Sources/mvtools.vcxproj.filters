@@ -152,6 +152,18 @@
     <None Include="shaders\motion_search_cs.hlsl">
       <Filter>Filters</Filter>
     </None>
+    <ClInclude Include="shaders\flow_warp_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_unpack_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_blend_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <None Include="shaders\flow_warp.hlsl">
+      <Filter>Filters</Filter>
+    </None>
     <ClInclude Include="MDegrainN.h">
       <Filter>Filters</Filter>
     </ClInclude>
