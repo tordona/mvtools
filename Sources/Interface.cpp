@@ -55,16 +55,19 @@
 #include <avisynth.h>
 #include <stdint.h>
 #include "D3D12MotionSearch.h"
+#include "D3D12FlowSynthesis.h"
 
 AVSValue __cdecl Create_MIsGPUAvailable(AVSValue args, void*, IScriptEnvironment* env)
 {
-  return D3D12MotionSearch::GetInstance().IsAvailable();
+  return D3D12MotionSearch::GetInstance().IsAvailable() && D3D12FlowSynthesis::GetInstance().IsAvailable();
 }
 
 AVSValue __cdecl Create_MEnableGPU(AVSValue args, void*, IScriptEnvironment* env)
 {
   bool prev = D3D12MotionSearch::GetInstance().IsEnabled();
-  D3D12MotionSearch::GetInstance().SetEnabled(args[0].AsBool(true));
+  bool enable = args[0].AsBool(true);
+  D3D12MotionSearch::GetInstance().SetEnabled(enable);
+  D3D12FlowSynthesis::GetInstance().SetEnabled(enable);
   return prev;
 }
 

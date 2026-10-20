@@ -25,6 +25,7 @@
 #include "profile.h"
 #include "SuperParams64Bits.h"
 #include "info.h"
+#include "D3D12FlowSynthesis.h"
 
 
 MVFlowFps::MVFlowFps(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, unsigned int _num, unsigned int _den, int _maskmode, double _ml,
@@ -497,6 +498,44 @@ PVideoFrame __stdcall MVFlowFps::GetFrame(int n, IScriptEnvironment* env)
 
     int nOffsetY = nRefPitches[0] * nVPadding*nPel + nHPadding*nPel*pixelsize_super;
     int nOffsetUV = nRefPitches[1] * nVPaddingUV*nPel + nHPaddingUV*nPel*pixelsize_super;
+
+    // Direct3D 12 GPU Gather-Based Frame Synthesis Offload
+    if (pixelsize_super == 1 && D3D12FlowSynthesis::GetInstance().IsAvailable())
+    {
+      const uint8_t* pGpuSrc[3] = { pSrc[0] + nOffsetY, pSrc[1] + nOffsetUV, pSrc[2] + nOffsetUV };
+      const uint8_t* pGpuRef[3] = { pRef[0] + nOffsetY, pRef[1] + nOffsetUV, pRef[2] + nOffsetUV };
+      uint8_t* pGpuDst[3] = { pDst[0], pDst[1], pDst[2] };
+
+      bool gpuSuccess = D3D12FlowSynthesis::GetInstance().SynthesizeFrame(
+        pGpuSrc, nSrcPitches,
+        pGpuRef, nRefPitches,
+        pGpuDst, nDstPitches,
+        nWidth, nHeight,
+        nWidthUV, nHeightUV,
+        planecount,
+        time256,
+        nPel,
+        nBlkX, nBlkY,
+        mvClipB, mvClipF,
+        maskmode
+      );
+
+      if (gpuSuccess)
+      {
+        if (!planar && ((pixelType & VideoInfo::CS_YUY2) == VideoInfo::CS_YUY2))
+        {
+          YUY2FromPlanes(pDstYUY2, nDstPitchYUY2, nWidth, nHeight,
+            pDst[0], nDstPitches[0], pDst[1], pDst[2], nDstPitches[1], cpuFlags);
+        }
+        if (optDebug > 0) {
+          char buf[128];
+          snprintf(buf, sizeof(buf), "D3D12 GPU FlowInter time256=%d mode=%d", time256, maskmode);
+          DrawString(dst, vi, 0, 6, buf);
+        }
+        reentrancy_check = false;
+        return dst;
+      }
+    }
 
     if (nright != nrightLast)
     {
