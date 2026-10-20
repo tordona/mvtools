@@ -2093,9 +2093,6 @@ function Get-SystemPlatformRecommendation {
     } elseif ($combined -match '(?i)7c') {
         $platform = "Snapdragon-7cGen2"
         $platformLabel = "Snapdragon 7c Gen 2 (Kryo 468, Adreno 618)"
-    } elseif ($combined -match '(?i)155H|Ultra\s*7\s*155H') {
-        $platform = "Intel-Ultra-7-155H"
-        $platformLabel = "Intel Core Ultra 7 155H (6P+8E+2LPE, Intel Arc Xe-LPG)"
     } else {
         # Dynamic discovery for new or unlisted hardware profiles
         # Match against profile platform names or embedded '# Hardware:' docstrings
