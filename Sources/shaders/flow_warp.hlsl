@@ -12,16 +12,22 @@ cbuffer FlowParams : register(b0)
     uint   height;         // Plane height in pixels
     float  time;           // Normalized interpolation time t in [0.0, 1.0]
     float  nPel;           // Pel accuracy (1.0 = integer, 2.0 = half-pel)
+
     float  mvScaleX;       // Motion vector scale X (1.0 for Y, 0.5 for chroma)
     float  mvScaleY;       // Motion vector scale Y (1.0 for Y, 0.5 for chroma)
-    uint   maskMode;       // 0 = simple cross-fade, 1 = occlusion-aware, 2 = advanced consistency
-    float  occlusionNorm;  // Occlusion threshold / normalization factor
+    uint   maskMode;       // 0 = MC blend, 1 = static median, 2 = dynamic median
+    uint   nBlkSizeX;      // Block size X for current plane
+
+    uint   nBlkSizeY;      // Block size Y for current plane
+    uint   nBlkX;          // Horizontal block count
+    uint   nBlkY;          // Vertical block count
+    uint   flowMode;       // 0 = block-based (MBlockFps), 1 = continuous (MFlowFps)
 };
 
 cbuffer UnpackParams : register(b0)
 {
-    uint nBlkX;            // Block count horizontally
-    uint nBlkY;            // Block count vertically
+    uint unpackBlkX;       // Block count horizontally
+    uint unpackBlkY;       // Block count vertically
     uint unpackPad0;
     uint unpackPad1;
 };
@@ -74,61 +80,66 @@ void FlowWarpCS(uint3 DTid : SV_DispatchThreadID)
     if (DTid.x >= width || DTid.y >= height)
         return;
 
-    // Normalized UV coordinate of current pixel center in output frame
-    float2 normCoord = (float2(DTid.xy) + 0.5f) / float2(width, height);
+    // 1. Fetch raw motion vectors for current pixel
+    float2 rawMvF;
+    float2 rawMvB;
 
-    // Hardware bilinear fetch of coarse motion vector field at pixel location
-    float2 rawMvF = g_MotionVectorsF.SampleLevel(g_LinearClamp, normCoord, 0);
-    float2 rawMvB = g_MotionVectorsB.SampleLevel(g_LinearClamp, normCoord, 0);
+    if (flowMode == 0)
+    {
+        // Block-based discrete vector mapping (MBlockFps exact match)
+        uint bx = min(DTid.x / nBlkSizeX, nBlkX - 1);
+        uint by = min(DTid.y / nBlkSizeY, nBlkY - 1);
+        rawMvF = g_MotionVectorsF.Load(int3(bx, by, 0));
+        rawMvB = g_MotionVectorsB.Load(int3(bx, by, 0));
+    }
+    else
+    {
+        // Continuous flow interpolation (MFlowFps)
+        float2 normCoord = (float2(DTid.xy) + 0.5f) / float2(width, height);
+        rawMvF = g_MotionVectorsF.SampleLevel(g_LinearClamp, normCoord, 0);
+        rawMvB = g_MotionVectorsB.SampleLevel(g_LinearClamp, normCoord, 0);
+    }
 
     // Convert motion vectors from nPel units to plane pixel displacement
     // mvScale accounts for chroma subsampling (e.g. 0.5 for YUV420 chroma)
     float2 dispF = (rawMvF / nPel) * float2(mvScaleX, mvScaleY);
     float2 dispB = (rawMvB / nPel) * float2(mvScaleX, mvScaleY);
 
-    // Warped sampling coordinates in Frame N and Frame N+1
-    // Forward displacement moves along vector proportional to time t
-    // Backward displacement moves along vector proportional to (1 - t)
+    // Warped sampling coordinates in Frame N (Src) and Frame N+1 (Ref)
+    // Forward displacement in src (Frame 0) moves along vector proportional to time t
+    // Backward displacement in ref (Frame 1) moves along vector proportional to (1 - t)
     float2 warpedCoordF = (float2(DTid.xy) + 0.5f + dispF * time) / float2(width, height);
     float2 warpedCoordB = (float2(DTid.xy) + 0.5f + dispB * (1.0f - time)) / float2(width, height);
 
-    // Hardware subpixel bilinear sampling of source and reference planes
-    float sampleF = g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
-    float sampleB = g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
+    // Subpixel bilinear motion-compensated samples
+    float pMCF = g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
+    float pMCB = g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
+
+    // Uncompensated static samples at current pixel (x, y)
+    float staticF = g_SrcPlane.Load(int3(DTid.xy, 0));
+    float staticB = g_RefPlane.Load(int3(DTid.xy, 0));
+
+    // Static temporal cross-fade between Frame 0 and Frame 1
+    float avg = lerp(staticF, staticB, time);
 
     float finalVal;
 
-    [branch]
     if (maskMode == 0)
     {
-        // Simple fast motion-compensated linear cross-fade
-        finalVal = lerp(sampleF, sampleB, time);
+        // Mode 0: Pure motion-compensated blend
+        finalVal = lerp(pMCF, pMCB, time);
+    }
+    else if (maskMode == 1)
+    {
+        // Mode 1: Static Median
+        float mca = lerp(pMCF, pMCB, time);
+        finalVal = clamp(mca, min(staticF, staticB), max(staticF, staticB));
     }
     else
     {
-        // Bidirectional consistency and occlusion detection
-        // Sample opposing vector at the warped locations
-        float2 mvB_at_F = g_MotionVectorsB.SampleLevel(g_LinearClamp, warpedCoordF, 0);
-        float2 dispB_at_F = (mvB_at_F / nPel) * float2(mvScaleX, mvScaleY);
-        float errF = length(dispF + dispB_at_F);
-
-        float2 mvF_at_B = g_MotionVectorsF.SampleLevel(g_LinearClamp, warpedCoordB, 0);
-        float2 dispF_at_B = (mvF_at_B / nPel) * float2(mvScaleX, mvScaleY);
-        float errB = length(dispB + dispF_at_B);
-
-        // Photometric difference between predictions
-        float photoErr = abs(sampleF - sampleB);
-
-        // Combined occlusion metrics
-        float occF = saturate(errF * occlusionNorm + photoErr * 0.5f);
-        float occB = saturate(errB * occlusionNorm + photoErr * 0.5f);
-
-        // When forward motion is occluded (occF -> 1), fall back to backward prediction
-        // When backward motion is occluded (occB -> 1), fall back to forward prediction
-        float contribF = lerp(sampleF, sampleB, occF);
-        float contribB = lerp(sampleB, sampleF, occB);
-
-        finalVal = lerp(contribF, contribB, time);
+        // Mode 2: Dynamic Median (Exact parity with CPU NEON MBlockFps)
+        // dyn = MEDIAN(avg, pMCB, pMCF)
+        finalVal = clamp(avg, min(pMCB, pMCF), max(pMCB, pMCF));
     }
 
     g_OutPlane[DTid.xy] = saturate(finalVal);
@@ -142,10 +153,10 @@ void FlowWarpCS(uint3 DTid : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void UnpackMotionVectorsCS(uint3 DTid : SV_DispatchThreadID)
 {
-    if (DTid.x >= nBlkX || DTid.y >= nBlkY)
+    if (DTid.x >= unpackBlkX || DTid.y >= unpackBlkY)
         return;
 
-    uint blockIdx = DTid.y * nBlkX + DTid.x;
+    uint blockIdx = DTid.y * unpackBlkX + DTid.x;
     uint byteOffset = blockIdx * 12;
 
     int vx = asint(g_RawBlockResults.Load(byteOffset));

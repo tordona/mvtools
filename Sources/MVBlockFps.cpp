@@ -722,7 +722,9 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
         nPel,
         nBlkX, nBlkY,
         mvClipB, mvClipF,
-        mode
+        mode,
+        nBlkSizeX, nBlkSizeY,
+        0 // flowMode = 0 (MBlockFps block-based dynamic median)
       );
 
       if (gpuSuccess)

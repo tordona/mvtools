@@ -28,7 +28,10 @@ public:
         int nBlkX, int nBlkY,
         const MVClip& mvClipB,
         const MVClip& mvClipF,
-        int maskMode = 0
+        int maskMode = 2,
+        int blkSizeX = 16,
+        int blkSizeY = 16,
+        int flowMode = 0
     );
 
 private:

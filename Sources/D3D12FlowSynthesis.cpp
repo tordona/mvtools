@@ -48,10 +48,16 @@ namespace
         uint32_t height;
         float    time;
         float    nPel;
+
         float    mvScaleX;
         float    mvScaleY;
         uint32_t maskMode;
-        float    occlusionNorm;
+        uint32_t nBlkSizeX;
+
+        uint32_t nBlkSizeY;
+        uint32_t nBlkX;
+        uint32_t nBlkY;
+        uint32_t flowMode;
     };
 
     struct alignas(16) BlendParamsCB
@@ -737,7 +743,10 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     int nBlkX, int nBlkY,
     const MVClip& mvClipB,
     const MVClip& mvClipF,
-    int maskMode
+    int maskMode,
+    int blkSizeX,
+    int blkSizeY,
+    int flowMode
 )
 {
     if (!pSrc || !pRef || !pDst || width <= 0 || height <= 0 || nBlkX <= 0 || nBlkY <= 0)
@@ -858,7 +867,11 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         cbY.mvScaleX = 1.0f;
         cbY.mvScaleY = 1.0f;
         cbY.maskMode = (uint32_t)maskMode;
-        cbY.occlusionNorm = 0.05f;
+        cbY.nBlkSizeX = (uint32_t)blkSizeX;
+        cbY.nBlkSizeY = (uint32_t)blkSizeY;
+        cbY.nBlkX = (uint32_t)nBlkX;
+        cbY.nBlkY = (uint32_t)nBlkY;
+        cbY.flowMode = (uint32_t)flowMode;
 
         memcpy(pImpl->m_pConstMapped, &cbY, sizeof(cbY));
         pImpl->m_cmdList->SetComputeRootConstantBufferView(0, pImpl->m_constBuffer->GetGPUVirtualAddress());
@@ -875,6 +888,8 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             cbUV.height = (uint32_t)heightUV;
             cbUV.mvScaleX = (float)widthUV / (float)width;
             cbUV.mvScaleY = (float)heightUV / (float)height;
+            cbUV.nBlkSizeX = (uint32_t)std::max(1, blkSizeX * widthUV / width);
+            cbUV.nBlkSizeY = (uint32_t)std::max(1, blkSizeY * heightUV / height);
 
             uint8_t* pCbUVLoc = (uint8_t*)pImpl->m_pConstMapped + 256;
             memcpy(pCbUVLoc, &cbUV, sizeof(cbUV));
