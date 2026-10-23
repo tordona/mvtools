@@ -1,4 +1,10 @@
 Change log
+- 2.7.47.121-arm64 (20261023)
+  - Synthesis Memory & NEON Blend Refinements (merged from mvtools-pfmod):
+    - Elided unused full-frame/small occlusion mask allocations (MaskFull*, MaskOcc*, smallMask*, SimpleResize) and per-frame full-frame zeroing in MVBlockFps modes 0-2, saving ~17.2 MB working set at 1080p (~78-104 MB at 4K) under AviSynth+ MT and ~252 MB/s of dead memory writes at 1080p60.
+    - Enabled SIMD overlapped output conversion (Short2Bytes_sse2 for 8-bit, Short2Bytes_Int32toWord16_sse4 for 10-16-bit) in MVBlockFps with 16-byte pointer and pitch alignment guards.
+    - Vectorized frame and edge-border Blend<pixel_t> in MaskFun.cpp across uint8_t, uint16_t, and float planes using native ARM64 NEON intrinsics with an early-out for empty border strips.
+    - Further reduced sustained 1080p24 -> 60fps CPU-mode system load on Qualcomm Snapdragon X Plus (Balanced profile) from 8.24% down to 7.27% mean / 7.00% median / 10.70% peak (-55.1% cumulative reduction vs scalar baseline) with zero dropped frames.
 - 2.7.47.120-arm64 (20261023)
   - Native ARM64 NEON SIMD Vectorization & Full-Pipeline Dispatch (merged from mvtools-pfmod):
     - Vectorized MVBlockFps::ResultBlock (modes 0, 1, and 2: MC Average, Static Median, and Dynamic Median) using 128-bit ARM64 NEON intrinsics.
