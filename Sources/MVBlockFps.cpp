@@ -21,6 +21,7 @@
 
 #include "ClipFnc.h"
 #include "commonfunctions.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVBlockFps.h"
 #include "MVFrame.h"
@@ -51,7 +52,7 @@ MVBlockFps::MVBlockFps(
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse2 ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   numeratorOld = vi.fps_numerator;
   denominatorOld = vi.fps_denominator;

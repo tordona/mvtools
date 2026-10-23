@@ -19,6 +19,7 @@
 
 #include "ClipFnc.h"
 #include "CopyCode.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVFinest.h"
 #include "MVFrame.h"
@@ -35,7 +36,7 @@ GenericVideoFilter(_super)
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   // get parameters of prepared super clip - v2.0
   SuperParams64Bits params;

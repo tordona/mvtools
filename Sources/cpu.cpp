@@ -62,5 +62,16 @@ int conv_cpuf_flags_to_cpu(int avscpu)
   return acpu;
 }
 
+int get_simd_cpu_flags(int avscpu)
+{
+#if defined(_M_ARM64) || defined(__aarch64__)
+  // AviSynth+ on ARM64 returns CPUF_ARM_* flags rather than x86 CPUF_SSE* flags.
+  // Enable SSE2..SSE4.1 dispatch flags so sse2neon and native NEON paths are active.
+  return avscpu | CPUF_SSE2 | CPUF_SSE3 | CPUF_SSSE3 | CPUF_SSE4_1;
+#else
+  return avscpu;
+#endif
+}
+
 
 #undef uint32_t
