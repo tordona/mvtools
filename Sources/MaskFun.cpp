@@ -22,6 +22,9 @@
 #include "MaskFun.h"
 #include <emmintrin.h>
 #include <cassert>
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+#endif
 
 #if !defined(_M_X64)
 #define rax	eax
@@ -757,6 +760,120 @@ void Create_LUTV(int time256, short *LUTVB, short *LUTVF)
 template<typename pixel_t>
 void Blend(uint8_t * pdst8, const uint8_t * psrc8, const uint8_t * pref8, int height, int width, int dst_pitch, int src_pitch, int ref_pitch, int time256, int cpuFlags)
 {
+  if (height <= 0 || width <= 0)
+    return;
+
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+  if ((cpuFlags & CPUF_SSE2) != 0)
+  {
+    if constexpr (sizeof(pixel_t) == 1)
+    {
+      if (time256 == 0) {
+        BitBlt(pdst8, dst_pitch, psrc8, src_pitch, width, height);
+        return;
+      }
+      if (time256 == 256) {
+        BitBlt(pdst8, dst_pitch, pref8, ref_pitch, width, height);
+        return;
+      }
+      if (time256 > 0 && time256 < 256) {
+        const uint8x8_t vT = vdup_n_u8(static_cast<uint8_t>(time256));
+        const uint8x8_t vInvT = vdup_n_u8(static_cast<uint8_t>(256 - time256));
+        for (int h = 0; h < height; h++)
+        {
+          int w = 0;
+          for (; w + 16 <= width; w += 16)
+          {
+            uint8x16_t vSrc = vld1q_u8(psrc8 + w);
+            uint8x16_t vRef = vld1q_u8(pref8 + w);
+            uint16x8_t acc_lo = vmlal_u8(vmull_u8(vget_low_u8(vSrc), vInvT), vget_low_u8(vRef), vT);
+            uint16x8_t acc_hi = vmlal_u8(vmull_u8(vget_high_u8(vSrc), vInvT), vget_high_u8(vRef), vT);
+            vst1q_u8(pdst8 + w, vcombine_u8(vshrn_n_u16(acc_lo, 8), vshrn_n_u16(acc_hi, 8)));
+          }
+          if (w + 8 <= width)
+          {
+            uint8x8_t vSrc = vld1_u8(psrc8 + w);
+            uint8x8_t vRef = vld1_u8(pref8 + w);
+            uint16x8_t acc = vmlal_u8(vmull_u8(vSrc, vInvT), vRef, vT);
+            vst1_u8(pdst8 + w, vshrn_n_u16(acc, 8));
+            w += 8;
+          }
+          for (; w < width; w++)
+            pdst8[w] = static_cast<uint8_t>((psrc8[w] * (256 - time256) + pref8[w] * time256) >> 8);
+
+          pdst8 += dst_pitch;
+          psrc8 += src_pitch;
+          pref8 += ref_pitch;
+        }
+        return;
+      }
+    }
+    else if constexpr (sizeof(pixel_t) == 2)
+    {
+      if (time256 == 0) {
+        BitBlt(pdst8, dst_pitch, psrc8, src_pitch, width * 2, height);
+        return;
+      }
+      if (time256 == 256) {
+        BitBlt(pdst8, dst_pitch, pref8, ref_pitch, width * 2, height);
+        return;
+      }
+      if (time256 > 0 && time256 < 256) {
+        const uint16_t t16 = static_cast<uint16_t>(time256);
+        const uint16_t inv_t16 = static_cast<uint16_t>(256 - time256);
+        for (int h = 0; h < height; h++)
+        {
+          uint16_t *pdstRow = reinterpret_cast<uint16_t *>(pdst8);
+          const uint16_t *psrcRow = reinterpret_cast<const uint16_t *>(psrc8);
+          const uint16_t *prefRow = reinterpret_cast<const uint16_t *>(pref8);
+          int w = 0;
+          for (; w + 8 <= width; w += 8)
+          {
+            uint16x8_t vSrc = vld1q_u16(psrcRow + w);
+            uint16x8_t vRef = vld1q_u16(prefRow + w);
+            uint32x4_t acc_lo = vmlal_n_u16(vmull_n_u16(vget_low_u16(vSrc), inv_t16), vget_low_u16(vRef), t16);
+            uint32x4_t acc_hi = vmlal_n_u16(vmull_n_u16(vget_high_u16(vSrc), inv_t16), vget_high_u16(vRef), t16);
+            vst1q_u16(pdstRow + w, vcombine_u16(vshrn_n_u32(acc_lo, 8), vshrn_n_u32(acc_hi, 8)));
+          }
+          for (; w < width; w++)
+            pdstRow[w] = static_cast<uint16_t>((psrcRow[w] * (256 - time256) + prefRow[w] * time256) >> 8);
+
+          pdst8 += dst_pitch;
+          psrc8 += src_pitch;
+          pref8 += ref_pitch;
+        }
+        return;
+      }
+    }
+    else if constexpr (sizeof(pixel_t) == 4)
+    {
+      const float time_f = time256 / 256.0f;
+      const float32x4_t vT = vdupq_n_f32(time_f);
+      const float32x4_t vInvT = vdupq_n_f32(1.0f - time_f);
+      for (int h = 0; h < height; h++)
+      {
+        float *pdstRow = reinterpret_cast<float *>(pdst8);
+        const float *psrcRow = reinterpret_cast<const float *>(psrc8);
+        const float *prefRow = reinterpret_cast<const float *>(pref8);
+        int w = 0;
+        for (; w + 4 <= width; w += 4)
+        {
+          float32x4_t vSrc = vld1q_f32(psrcRow + w);
+          float32x4_t vRef = vld1q_f32(prefRow + w);
+          vst1q_f32(pdstRow + w, vaddq_f32(vmulq_f32(vSrc, vInvT), vmulq_f32(vRef, vT)));
+        }
+        for (; w < width; w++)
+          pdstRow[w] = psrcRow[w] * (1.0f - time_f) + prefRow[w] * time_f;
+
+        pdst8 += dst_pitch;
+        psrc8 += src_pitch;
+        pref8 += ref_pitch;
+      }
+      return;
+    }
+  }
+#endif
+
   pixel_t *pdst = reinterpret_cast<pixel_t *>(pdst8);
   const pixel_t *psrc = reinterpret_cast<const pixel_t *>(psrc8);
   const pixel_t *pref = reinterpret_cast<const pixel_t *>(pref8);
