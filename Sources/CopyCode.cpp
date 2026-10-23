@@ -99,15 +99,199 @@ void Copy_C (uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPitch)
     }
 }
 
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+template<int nBlkWidth, int nBlkHeight, typename pixel_t>
+void Copy_neon(uint8_t *pDst, int nDstPitch, const uint8_t *pSrc, int nSrcPitch)
+{
+    constexpr int rowBytes = nBlkWidth * (int)sizeof(pixel_t);
+
+    if constexpr (rowBytes == 16)
+    {
+        int y = 0;
+        if constexpr (nBlkHeight >= 4)
+        {
+            for (; y + 4 <= nBlkHeight; y += 4)
+            {
+                uint8x16_t r0 = vld1q_u8(pSrc);
+                uint8x16_t r1 = vld1q_u8(pSrc + nSrcPitch);
+                uint8x16_t r2 = vld1q_u8(pSrc + nSrcPitch * 2);
+                uint8x16_t r3 = vld1q_u8(pSrc + nSrcPitch * 3);
+                vst1q_u8(pDst, r0);
+                vst1q_u8(pDst + nDstPitch, r1);
+                vst1q_u8(pDst + nDstPitch * 2, r2);
+                vst1q_u8(pDst + nDstPitch * 3, r3);
+                pSrc += nSrcPitch * 4;
+                pDst += nDstPitch * 4;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            vst1q_u8(pDst, vld1q_u8(pSrc));
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+    else if constexpr (rowBytes == 8)
+    {
+        int y = 0;
+        if constexpr (nBlkHeight >= 4)
+        {
+            for (; y + 4 <= nBlkHeight; y += 4)
+            {
+                uint8x8_t r0 = vld1_u8(pSrc);
+                uint8x8_t r1 = vld1_u8(pSrc + nSrcPitch);
+                uint8x8_t r2 = vld1_u8(pSrc + nSrcPitch * 2);
+                uint8x8_t r3 = vld1_u8(pSrc + nSrcPitch * 3);
+                vst1_u8(pDst, r0);
+                vst1_u8(pDst + nDstPitch, r1);
+                vst1_u8(pDst + nDstPitch * 2, r2);
+                vst1_u8(pDst + nDstPitch * 3, r3);
+                pSrc += nSrcPitch * 4;
+                pDst += nDstPitch * 4;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            vst1_u8(pDst, vld1_u8(pSrc));
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+    else if constexpr (rowBytes == 32)
+    {
+        int y = 0;
+        if constexpr (nBlkHeight >= 2)
+        {
+            for (; y + 2 <= nBlkHeight; y += 2)
+            {
+                uint8x16_t r00 = vld1q_u8(pSrc);
+                uint8x16_t r01 = vld1q_u8(pSrc + 16);
+                uint8x16_t r10 = vld1q_u8(pSrc + nSrcPitch);
+                uint8x16_t r11 = vld1q_u8(pSrc + nSrcPitch + 16);
+                vst1q_u8(pDst, r00);
+                vst1q_u8(pDst + 16, r01);
+                vst1q_u8(pDst + nDstPitch, r10);
+                vst1q_u8(pDst + nDstPitch + 16, r11);
+                pSrc += nSrcPitch * 2;
+                pDst += nDstPitch * 2;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            uint8x16_t r0 = vld1q_u8(pSrc);
+            uint8x16_t r1 = vld1q_u8(pSrc + 16);
+            vst1q_u8(pDst, r0);
+            vst1q_u8(pDst + 16, r1);
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+    else if constexpr (rowBytes == 64)
+    {
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t r0 = vld1q_u8(pSrc);
+            uint8x16_t r1 = vld1q_u8(pSrc + 16);
+            uint8x16_t r2 = vld1q_u8(pSrc + 32);
+            uint8x16_t r3 = vld1q_u8(pSrc + 48);
+            vst1q_u8(pDst, r0);
+            vst1q_u8(pDst + 16, r1);
+            vst1q_u8(pDst + 32, r2);
+            vst1q_u8(pDst + 48, r3);
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+    else if constexpr (rowBytes == 4)
+    {
+        int y = 0;
+        if constexpr (nBlkHeight >= 4)
+        {
+            for (; y + 4 <= nBlkHeight; y += 4)
+            {
+                uint32_t r0, r1, r2, r3;
+                memcpy(&r0, pSrc, 4);
+                memcpy(&r1, pSrc + nSrcPitch, 4);
+                memcpy(&r2, pSrc + nSrcPitch * 2, 4);
+                memcpy(&r3, pSrc + nSrcPitch * 3, 4);
+                memcpy(pDst, &r0, 4);
+                memcpy(pDst + nDstPitch, &r1, 4);
+                memcpy(pDst + nDstPitch * 2, &r2, 4);
+                memcpy(pDst + nDstPitch * 3, &r3, 4);
+                pSrc += nSrcPitch * 4;
+                pDst += nDstPitch * 4;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            uint32_t r0;
+            memcpy(&r0, pSrc, 4);
+            memcpy(pDst, &r0, 4);
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+    else
+    {
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            int x = 0;
+            if constexpr (rowBytes >= 16)
+            {
+                for (; x + 16 <= rowBytes; x += 16)
+                    vst1q_u8(pDst + x, vld1q_u8(pSrc + x));
+            }
+            if constexpr ((rowBytes % 16) >= 8)
+            {
+                vst1_u8(pDst + x, vld1_u8(pSrc + x));
+                x += 8;
+            }
+            if constexpr ((rowBytes % 8) >= 4)
+            {
+                uint32_t r4;
+                memcpy(&r4, pSrc + x, 4);
+                memcpy(pDst + x, &r4, 4);
+                x += 4;
+            }
+            if constexpr ((rowBytes % 4) >= 2)
+            {
+                uint16_t r2;
+                memcpy(&r2, pSrc + x, 2);
+                memcpy(pDst + x, &r2, 2);
+                x += 2;
+            }
+            if constexpr ((rowBytes % 2) == 1)
+            {
+                pDst[x] = pSrc[x];
+            }
+            pSrc += nSrcPitch;
+            pDst += nDstPitch;
+        }
+    }
+}
+#endif
+
 
 COPYFunction* get_copy_function(int BlockX, int BlockY, int pixelsize, arch_t arch)
 {
     // BlkSizeX, BlkSizeY, pixelsize, arch_t
     std::map<std::tuple<int, int, int, arch_t>, COPYFunction*> func_copy;
     using std::make_tuple;
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#define MAKE_COPY_FN(x, y) \
+func_copy[make_tuple(x, y, 1, NO_SIMD)] = Copy_C<x, y, uint8_t>; \
+func_copy[make_tuple(x, y, 2, NO_SIMD)] = Copy_C<x, y, uint16_t>; \
+func_copy[make_tuple(x, y, 4, NO_SIMD)] = Copy_C<x, y, float>; \
+func_copy[make_tuple(x, y, 1, USE_SSE2)] = Copy_neon<x, y, uint8_t>; \
+func_copy[make_tuple(x, y, 2, USE_SSE2)] = Copy_neon<x, y, uint16_t>; \
+func_copy[make_tuple(x, y, 4, USE_SSE2)] = Copy_neon<x, y, float>;
+#else
 #define MAKE_COPY_FN(x, y) func_copy[make_tuple(x, y, 1, NO_SIMD)] = Copy_C<x, y, uint8_t>; \
 func_copy[make_tuple(x, y, 2, NO_SIMD)] = Copy_C<x, y, uint16_t>; \
 func_copy[make_tuple(x, y, 4, NO_SIMD)] = Copy_C<x, y, float>;
+#endif
     // same list as in overlap.cpp SadFunction.cpp, Sad_C selector
     MAKE_COPY_FN(64, 64)
       MAKE_COPY_FN(64, 48)
