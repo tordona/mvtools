@@ -20,6 +20,7 @@
 
 #include "ClipFnc.h"
 #include "CopyCode.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVClip.h"
 #include "MVFilter.h"
@@ -42,7 +43,7 @@ MVMask::MVMask(
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   fMaskNormFactor = 1.0f / ml; // Fizick
   fMaskNormFactor2 = fMaskNormFactor*fMaskNormFactor;

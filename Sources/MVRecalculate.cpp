@@ -57,7 +57,7 @@ MVRecalculate::MVRecalculate(
 
   _srd_arr.resize(_nbr_srd);
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   pixelsize = vi.ComponentSize();
   bits_per_pixel = vi.BitsPerComponent();

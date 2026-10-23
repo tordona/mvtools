@@ -21,6 +21,7 @@
 
 #include "info.h"
 #include "ClipFnc.h"
+#include "cpu.h"
 #include "MVShow.h"
 #include	"SuperParams64Bits.h"
 
@@ -40,7 +41,7 @@ mvClip(vectors, nSCD1, nSCD2, env, 1, 0)
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   nScale = _scale;
   if ( nScale < 1 )
       nScale = 1;

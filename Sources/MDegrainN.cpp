@@ -2,6 +2,7 @@
 
 #include "ClipFnc.h"
 #include "CopyCode.h"
+#include "cpu.h"
 #include	"def.h"
 #include	"MDegrainN.h"
 #include	"MVDegrain3.h"
@@ -632,7 +633,7 @@ MDegrainN::MDegrainN(
   pixelsize_super = vi_super.ComponentSize(); // of MVFilter
   bits_per_pixel_super = vi_super.BitsPerComponent();
 
-  _cpuFlags = isse_flag ? env_ptr->GetCPUFlags() : 0;
+  _cpuFlags = isse_flag ? get_simd_cpu_flags(env_ptr->GetCPUFlags()) : 0;
 
 // get parameters of prepared super clip - v2.0
   SuperParams64Bits params;

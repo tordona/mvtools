@@ -19,6 +19,7 @@
 
 #include "ClipFnc.h"
 #include "commonfunctions.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVFinest.h"
 #include "MVFlowFps.h"
@@ -79,7 +80,7 @@ MVFlowFps::MVFlowFps(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, unsign
   maskmode = _maskmode; // speed mode
   ml = _ml;
 //   nIdx = _nIdx;
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   planar = _planar;
   blend = _blend;
 
