@@ -18,6 +18,7 @@
 // http://www.gnu.org/copyleft/gpl.html .
 
 #include "ClipFnc.h"
+#include "cpu.h"
 #include "Interpolation.h"
 #include "MVDegrain3.h"
 #include "MVDegrain3_avx2.h"
@@ -322,7 +323,7 @@ MVDegrainX::MVDegrainX(
   YUVplanes = _YUVplanes;
   nLimit = _nLimit;
   nLimitC = _nLimitC;
-  cpuFlags = _isse2 ? env_ptr->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env_ptr->GetCPUFlags()) : 0;
   planar = _planar;
 
   CheckSimilarity(*mvClipB[0], "mvbw", env_ptr);

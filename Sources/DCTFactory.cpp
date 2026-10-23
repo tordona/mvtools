@@ -25,6 +25,7 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 /*\\\ INCLUDE FILES \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\*/
 #include "def.h"
 #include	"avisynth.h"
+#include "cpu.h"
 
 #include	"DCTFactory.h"
 #include	"DCTFFTW.h"
@@ -62,7 +63,7 @@ DCTFactory::DCTFactory(int dctmode, bool isse, int blksizex, int blksizey, int p
     throw AvisynthError(e.what());
   }
 
-  cpuflags = env.GetCPUFlags();
+  cpuflags = _isse ? get_simd_cpu_flags(env.GetCPUFlags()) : 0;
 
   int avisynth_if_ver = 6;
   try {

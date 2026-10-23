@@ -21,6 +21,7 @@
 
 #include "ClipFnc.h"
 #include "commonfunctions.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVBlockFps.h"
 #include "MVFrame.h"
@@ -52,7 +53,7 @@ MVBlockFps::MVBlockFps(
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse2 ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   numeratorOld = vi.fps_numerator;
   denominatorOld = vi.fps_denominator;
@@ -395,11 +396,228 @@ inline pixel_t MEDIAN(pixel_t a, pixel_t b, pixel_t c)
   return m;
 }
 
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+static MV_FORCEINLINE void ResultBlock_Mode0_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+            vst1q_u8(pDst + w, vMca);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+
+            vst1_u8(pDst + w, vmovn_u16(mca_w));
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            pDst[w] = (uint8_t)((pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode1_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+
+            uint8x16_t min_rs = vminq_u8(vRef, vSrc);
+            uint8x16_t max_rs = vmaxq_u8(vRef, vSrc);
+            uint8x16_t vSta   = vminq_u8(vmaxq_u8(vMca, min_rs), max_rs);
+
+            vst1q_u8(pDst + w, vSta);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+            uint8x8_t vMca   = vmovn_u16(mca_w);
+
+            uint8x8_t min_rs = vmin_u8(vRef, vSrc);
+            uint8x8_t max_rs = vmax_u8(vRef, vSrc);
+            uint8x8_t vSta   = vmin_u8(vmax_u8(vMca, min_rs), max_rs);
+
+            vst1_u8(pDst + w, vSta);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int mca = (pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8;
+            int sta = MEDIAN<uint8_t>((uint8_t)pRef[w], pSrc[w], (uint8_t)mca);
+            pDst[w] = (uint8_t)sta;
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode2_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t ref_lo = vmovl_u8(vget_low_u8(vRef));
+            uint16x8_t src_lo = vmovl_u8(vget_low_u8(vSrc));
+            uint16x8_t avg_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_lo, t), src_lo, inv_t), 8);
+
+            uint16x8_t ref_hi = vmovl_u8(vget_high_u8(vRef));
+            uint16x8_t src_hi = vmovl_u8(vget_high_u8(vSrc));
+            uint16x8_t avg_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_hi, t), src_hi, inv_t), 8);
+
+            uint8x16_t vAvg = vcombine_u8(vmovn_u16(avg_lo), vmovn_u16(avg_hi));
+
+            uint8x16_t min_bf = vminq_u8(vMCB, vMCF);
+            uint8x16_t max_bf = vmaxq_u8(vMCB, vMCF);
+            uint8x16_t vDyn   = vminq_u8(vmaxq_u8(vAvg, min_bf), max_bf);
+
+            vst1q_u8(pDst + w, vDyn);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t ref_w = vmovl_u8(vRef);
+            uint16x8_t src_w = vmovl_u8(vSrc);
+            uint16x8_t avg_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_w, t), src_w, inv_t), 8);
+            uint8x8_t vAvg   = vmovn_u16(avg_w);
+
+            uint8x8_t min_bf = vmin_u8(vMCB, vMCF);
+            uint8x8_t max_bf = vmax_u8(vMCB, vMCF);
+            uint8x8_t vDyn   = vmin_u8(vmax_u8(vAvg, min_bf), max_bf);
+
+            vst1_u8(pDst + w, vDyn);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int avg = (pRef[w] * time256 + pSrc[w] * (256 - time256)) >> 8;
+            int dyn = MEDIAN<uint8_t>((uint8_t)avg, pMCB[w], pMCF[w]);
+            pDst[w] = (uint8_t)dyn;
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+#endif
+
 template<typename pixel_t>
 void MVBlockFps::ResultBlock(BYTE *pDst8, int dst_pitch, const BYTE * pMCB8, int MCB_pitch, const BYTE * pMCF8, int MCF_pitch,
   const BYTE * pRef8, int ref_pitch, const BYTE * pSrc8, int src_pitch, BYTE *maskB, int mask_pitch, BYTE *maskF,
   BYTE *pOcc, int nBlkSizeX, int nBlkSizeY, int time256, int mode, int bits_per_pixel)
 {
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+  if constexpr (sizeof(pixel_t) == 1)
+  {
+    if (mode == 2)
+    {
+      ResultBlock_Mode2_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 1)
+    {
+      ResultBlock_Mode1_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 0)
+    {
+      ResultBlock_Mode0_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+  }
+#endif
   pixel_t *pDst = reinterpret_cast<pixel_t *>(pDst8);
   const pixel_t *pMCB = reinterpret_cast<const pixel_t *>(pMCB8);
   const pixel_t *pMCF = reinterpret_cast<const pixel_t *>(pMCF8);

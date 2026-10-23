@@ -977,7 +977,7 @@ function Get-MvToolsLatestReleaseAsset {
     }
 
     # Fallback to direct asset download redirect URL if API unavailable or release not yet indexed
-    $fallbackVer = "2.7.47.110-arm64"
+    $fallbackVer = "2.7.47.120-arm64"
     $baseSearch = if ($PSScriptRoot) { $PSScriptRoot } elseif ($ScriptDir) { $ScriptDir } else { (Get-Location).Path }
     $versionH = Join-Path $baseSearch "..\Sources\version.h"
     if (Test-Path $versionH) {

@@ -16,6 +16,7 @@
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA, or visit
 // http://www.gnu.org/copyleft/gpl.html .
 
+#include "cpu.h"
 #include "Padding.h"
 #include <algorithm>
 #include <stdint.h>
@@ -48,7 +49,7 @@ Padding::Padding(PClip _child, int hPad, int vPad, bool _planar, IScriptEnvironm
 
   horizontalPadding = hPad;
   verticalPadding = vPad;
-  cpuFlags = env->GetCPUFlags();
+  cpuFlags = get_simd_cpu_flags(env->GetCPUFlags());
   width = vi.width;
   height = vi.height;
   planar = _planar;

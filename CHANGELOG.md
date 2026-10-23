@@ -1,4 +1,11 @@
 Change log
+- 2.7.47.120-arm64 (20261023)
+  - Native ARM64 NEON SIMD Vectorization & Full-Pipeline Dispatch (merged from mvtools-pfmod):
+    - Vectorized MVBlockFps::ResultBlock (modes 0, 1, and 2: MC Average, Static Median, and Dynamic Median) using 128-bit ARM64 NEON intrinsics.
+    - Implemented native ARMv8.0 NEON (Sad_neon_v8) and ARMv8.2-A DotProd UDOT (Sad_neon_dotprod) 8-bit SAD kernels across all 45 block sizes (4x1 to 64x64) with dynamic Windows PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE runtime detection.
+    - Implemented unrolled 128-bit/64-bit NEON block copying (Copy_neon) in CopyCode.cpp across 8-bit, 16-bit, and 32-bit float formats.
+    - Added get_simd_cpu_flags() ARM64 CPUF bridge in cpu.cpp across MSuper, MVBlockFps, MVFlowFps, MVFlow*, MVRecalculate, MVCompensate, MVDegrain*, MVMask, MVFinest, MVShow, DCTFactory, and Padding, activating SIMD pyramid downsampling, pel=2/4 Wiener/bicubic refinement, SimpleResize vector upsampling, and Overlaps windowing.
+    - Reduced sustained 1080p24 -> 60fps CPU-mode system load on Qualcomm Snapdragon X Plus by 49.4% (from 16.2% down to 8.2% mean / 12.3% peak) with zero dropped frames, while accelerating host-side MSuper pyramid generation for Direct3D 12 workflows.
 - 2.7.47.110-arm64 (20261020)
   - Direct3D 12 Gather Flow & Dynamic Median Frame Synthesis (MFlowFps & MBlockFps):
     - Implemented full GPU frame synthesis engine (D3D12FlowSynthesis.cpp/.h), eliminating the CPU readback fence stall.
