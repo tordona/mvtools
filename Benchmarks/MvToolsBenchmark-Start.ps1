@@ -631,8 +631,15 @@ function Confirm-DownloadPermission {
         [string]$TargetDir = "",
 
         [Parameter(Mandatory = $false)]
-        [string]$SizeDesc = ""
+        [string]$SizeDesc = "",
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Bypass
     )
+
+    if ($Bypass -or $script:AutoDownloadMvTools) {
+        return $true
+    }
 
     Write-Host "`n========================================================" -ForegroundColor Yellow
     Write-Host " PERMISSION REQUIRED: EXTERNAL FILE DOWNLOAD" -ForegroundColor Yellow
@@ -1974,9 +1981,13 @@ function Get-AvailableAviSynthProfiles {
         $candidateDirs += (Join-Path $ScriptDir "..\AviSynth")
         $candidateDirs += (Join-Path $ScriptDir "..\Release\AviSynth")
     }
-    $candidateDirs += @(".\AviSynth", "..\AviSynth", "..\Release\AviSynth")
-    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
-        $candidateDirs += (Join-Path $env:ProgramFiles "DAUM\PotPlayer\AviSynth")
+    if (-not [string]::IsNullOrWhiteSpace($ScriptDir) -and $ScriptDir -ne $RepoRoot) {
+        $candidateDirs += (Join-Path $ScriptDir "AviSynth")
+        $candidateDirs += (Join-Path $ScriptDir "..\AviSynth")
+        $candidateDirs += (Join-Path $ScriptDir "..\Release\AviSynth")
+    }
+    if ($candidateDirs.Count -eq 0) {
+        $candidateDirs += @(".\AviSynth", "..\AviSynth", "..\Release\AviSynth")
     }
 
     $seenNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -1989,12 +2000,18 @@ function Get-AvailableAviSynthProfiles {
                 foreach ($f in $checkFiles) {
                     if ($seenNames.Add($f.Name)) {
                         $content = Get-Content $f.FullName -Raw
-                        $supportGpu = $content -match '(?i)USE_GPU'
                         $tier = if ($f.Name -match '(?i)Eco') { "Eco" }
                                 elseif ($f.Name -match '(?i)MaxQuality|Quality') { "MaxQuality" }
                                 elseif ($f.Name -match '(?i)Balanced') { "Balanced" }
                                 else { "Custom" }
 
+                        # Filter out stock/non-benchmark AviSynth scripts (e.g. ColorBars, TrueMotion stock samples)
+                        $isBenchmarkProfile = ($tier -in @("Eco", "Balanced", "MaxQuality")) -or ($content -match '(?i)MAnalyse|MRecalculate|MBlockFPS|USE_GPU|#\s*Hardware:')
+                        if (-not $isBenchmarkProfile) {
+                            continue
+                        }
+
+                        $supportGpu = $content -match '(?i)USE_GPU'
                         $platform = $f.Name -replace '(?i)[-_](Balanced|Eco|MaxQuality|Custom)\.avs$', ''
                         if ($platform -ieq $f.Name) {
                             $platform = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
@@ -2018,7 +2035,7 @@ function Get-AvailableAviSynthProfiles {
             }
         }
     }
-    return ($profiles | Sort-Object Name)
+    return ,($profiles | Sort-Object Name)
 }
 
 # ---------------------------------------------------------
@@ -2073,7 +2090,7 @@ function Install-AviSynthProfilesFromRepo {
     }
 
     $count = $fileItems.Count
-    if (-not (Confirm-DownloadPermission -ItemName "AviSynth Benchmark Profiles ($count profiles from $RepoSlug)" -SourceUrl "https://github.com/$RepoSlug/tree/$Branch/AviSynth" -TargetDir $TargetDir -SizeDesc "~100 KB")) {
+    if (-not (Confirm-DownloadPermission -ItemName "AviSynth Benchmark Profiles ($count profiles from $RepoSlug)" -SourceUrl "https://github.com/$RepoSlug/tree/$Branch/AviSynth" -TargetDir $TargetDir -SizeDesc "~100 KB" -Bypass:$script:AutoDownloadMvTools)) {
         return 0
     }
 
@@ -2109,15 +2126,31 @@ function Ensure-AviSynthProfiles {
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
         [string]$MvToolsRepo = "tordona/mvtools",
-        [string]$ProfileBranch = "mvtools_d3d12"
+        [string]$ProfileBranch = "mvtools_d3d12",
+        [string]$TargetPotPlayerDir = ""
     )
 
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
     $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
-    if ($profiles -and $profiles.Count -gt 0) {
+
+    # Check if benchmark profiles suitable for the target architecture are present
+    $hasArchProfiles = if ($targetArch -eq "x64") {
+        @($profiles | Where-Object { $_.Platform -like "Generic-x64*" -or ($_.Platform -notlike "Snapdragon*" -and $_.Tier -in @("Eco", "Balanced", "MaxQuality")) }).Count -gt 0
+    } else {
+        @($profiles | Where-Object { $_.Platform -like "Snapdragon*" -or ($_.Platform -notlike "Generic-x64*" -and $_.Tier -in @("Eco", "Balanced", "MaxQuality")) }).Count -gt 0
+    }
+
+    if ($profiles -and $profiles.Count -gt 0 -and $hasArchProfiles) {
         return $profiles
     }
 
-    Write-Host "`n[MISSING COMPONENT] No .avs profiles found in AviSynth directory!" -ForegroundColor Yellow
+    $reason = if (-not $profiles -or $profiles.Count -eq 0) {
+        "No .avs profiles found in AviSynth directory!"
+    } else {
+        "No $targetArch benchmark profiles (e.g. Generic-x64) found in AviSynth directory!"
+    }
+
+    Write-Host "`n[MISSING COMPONENT] $reason" -ForegroundColor Yellow
     Write-Host "AviSynth benchmark profiles are required for hardware detection and test execution." -ForegroundColor Gray
     Write-Host "Downloading latest profiles directly from GitHub (tordona/mvtools/tree/$ProfileBranch/AviSynth)..." -ForegroundColor Cyan
 
@@ -2142,11 +2175,11 @@ function Ensure-AviSynthProfiles {
         }
     }
 
-    $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
+    $profiles = @(Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir)
     if (-not $profiles -or $profiles.Count -eq 0) {
         Write-Warning "No .avs profiles found in AviSynth directory after download attempt!"
     }
-    return $profiles
+    return ,$profiles
 }
 
 # ---------------------------------------------------------
@@ -2413,10 +2446,17 @@ function Install-MvToolsToPotPlayer {
         }
     }
 
-    # If no local profiles found, acquire official profiles from GitHub release
-    if ($avsCount -eq 0) {
-        Write-Host "  -> No .avs profiles found in local directories. Ensuring profiles via release download..." -ForegroundColor Cyan
-        $null = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
+    $targetPotArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    $hasArchDeployed = if ($targetPotArch -eq "x64") {
+        @($deployedProfiles | Where-Object { $_ -match '(?i)Generic-x64' }).Count -gt 0
+    } else {
+        @($deployedProfiles | Where-Object { $_ -match '(?i)Snapdragon' }).Count -gt 0
+    }
+
+    # If no local profiles found or target architecture profiles missing, ensure profiles via download
+    if ($avsCount -eq 0 -or -not $hasArchDeployed) {
+        Write-Host "  -> Suitable AviSynth benchmark profiles not found in local directories. Ensuring profiles via repository download..." -ForegroundColor Cyan
+        $null = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -TargetPotPlayerDir $TargetPotPlayerDir
         foreach ($avsSrc in ($avsSourceDirs | Select-Object -Unique)) {
             if (Test-Path $avsSrc) {
                 $profiles = Get-ChildItem -Path $avsSrc -Filter "*.avs" -ErrorAction SilentlyContinue
@@ -2468,7 +2508,7 @@ function Get-SystemPlatformRecommendation {
     } catch {}
 
     $combined = "$cpuName $gpuName"
-    $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
+    $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -TargetPotPlayerDir $TargetPotPlayerDir
 
     if ($targetArch -eq "x64") {
         # Dynamic discovery for specific x64 hardware profiles (RyzenAI, Intel, etc.)

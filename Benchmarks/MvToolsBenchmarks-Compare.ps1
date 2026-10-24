@@ -386,7 +386,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
     $CanonicalTiers = @("Eco", "Balanced", "MaxQuality", "Custom")
     $TiersPresent = @()
     foreach ($t in $CanonicalTiers) {
-        if (($Entries | Where-Object { $_.Tier -eq $t }).Count -gt 0) {
+        if (@($Entries | Where-Object { $_.Tier -eq $t }).Count -gt 0) {
             $TiersPresent += $t
         }
     }
@@ -486,7 +486,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **$platformName**. **$($lowestCpu.Tier)** minimized CPU compute load ($($lowestCpu.AvgCpuPct.ToString('N1'))%), while **$($bestPacing.Tier)** delivered the smoothest frame consistency ($($bestPacing.Low1PctFps.ToString('N2')) FPS 1% low)."
     }
 
-    $hasBothEngines = ($Entries | Where-Object { $_.ModeShort -like "CPU*" }).Count -gt 0 -and ($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
+    $hasBothEngines = @($Entries | Where-Object { $_.ModeShort -like "CPU*" }).Count -gt 0 -and @($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
     if ($hasBothEngines) {
         $Lines += "- **Compute Engine Trade-Off:** ARM64 CPU NEON remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the Adreno GPU compute shaders, freeing CPU headroom for background multi-tasking."
     }
@@ -581,7 +581,7 @@ foreach ($pk in $PlatformGroups.Keys) {
     $platformDisplayName = if ($SortedEntries[0].Platform) { $SortedEntries[0].Platform } else { $pk }
     $potVersionsEvaluated = ($SortedEntries | Select-Object -ExpandProperty PotPlayerVersion -Unique | Where-Object { $_ -and $_ -ne "N/A" -and $_ -ne "Unknown" }) -join "; "
     if (-not $potVersionsEvaluated) { $potVersionsEvaluated = "Unknown / Legacy Report" }
-    $hasConstrained = ($SortedEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
+    $hasConstrained = @($SortedEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
     $memTag = if ($hasConstrained) { " | Memory: Constrained (<= 4GB / Low Headroom)" } else { "" }
     Write-Host "`n==========================================================================================" -ForegroundColor Cyan
     Write-Host " MVTOOLS COMPARATIVE BENCHMARK MATRIX (v$Script:CompareVersion): $platformDisplayName" -ForegroundColor Cyan
@@ -732,7 +732,7 @@ if ($PlatformGroups.Count -gt 1) {
     foreach ($pk in $AllExportedPlatforms.Keys) {
         $pEntries = $AllExportedPlatforms[$pk]
         $platName = if ($pEntries[0].Platform) { $pEntries[0].Platform } else { $pk }
-        $isPlatConstrained = ($pEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
+        $isPlatConstrained = @($pEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
         $platDisplay = if ($isPlatConstrained) { "$platName *(Memory-Constrained)*" } else { $platName }
         $balCpu = $pEntries | Where-Object { $_.Tier -eq "Balanced" -and $_.ModeShort -like "CPU*" } | Select-Object -First 1
         $balGpu = $pEntries | Where-Object { $_.Tier -eq "Balanced" -and $_.ModeShort -eq "D3D12 GPU" } | Select-Object -First 1
