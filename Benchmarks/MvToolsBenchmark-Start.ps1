@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Portable, Automated Reproducible Benchmark Harness for PotPlayer + MVTools ARM64.
+    Portable, Automated Reproducible Benchmark Harness for PotPlayer + MVTools (ARM64 and x64).
 .DESCRIPTION
     Fully portable benchmark harness with zero hardcoded paths:
     1. Detects system-installed PotPlayer ('%ProgramFiles%\DAUM\PotPlayer') or local sibling 'PotPlayer'.
-    2. Supports automated official PotPlayer ARM64 download and silent installation from Kakao CDN (-AutoInstallPotPlayer).
+    2. Supports automated official native PotPlayer download (ARM64 or x64) and silent installation from Kakao CDN (-AutoInstallPotPlayer).
     3. Audits mvtools2.dll and mvtools2_d3d12.dll version, SHA-256, and PE header linker compile timestamp.
     4. Automatically acquires AviSynth.dll from GitHub releases (AviSynth/AviSynthPlus) when not found locally.
     5. Injects deterministic PotPlayer configuration (D3D11 DXVA, AviSynth profile, subtitler off, audio pitch off, MultipleRunning=0).
@@ -19,14 +19,14 @@
     Skips terminating background noisy applications (browsers, discord, slack, etc.)
     prior to system idle stabilization.
 .PARAMETER AutoInstallPotPlayer
-    Automatically downloads and silently installs official native PotPlayer ARM64 from Kakao CDN
+    Automatically downloads and silently installs official native PotPlayer (ARM64 or x64) from Kakao CDN
     if PotPlayer is not detected on the system. Uses active live progress bar and background spinner.
 .PARAMETER AutoDownloadMvTools
-    Automatically downloads and extracts the latest official MVTools ARM64 release archive
-    (mvtools2.dll, mvtools2_d3d12.dll) from GitHub releases (tordona/mvtools). Version-agnostic
-    asset discovery with live streaming progress and 7-Zip/bsdtar decompression.
+    Automatically downloads and extracts official MVTools release archives (ARM64 and x64)
+    (mvtools2.dll, mvtools2_d3d12.dll) from GitHub releases (pinterf/mvtools on x64, tordona/mvtools on ARM64).
+    Version-agnostic asset discovery with live streaming progress and 7-Zip/bsdtar decompression.
 .PARAMETER MvToolsRepo
-    GitHub repository slug for downloading release packages (default: "tordona/mvtools").
+    GitHub repository slug for downloading release packages (default: dynamic - "pinterf/mvtools" on x64, "tordona/mvtools" on ARM64).
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
@@ -130,7 +130,7 @@ param(
     [switch]$AutoDownloadMvTools,
 
     [Parameter(Mandatory = $false)]
-    [string]$MvToolsRepo = "tordona/mvtools",
+    [string]$MvToolsRepo = "",
 
     [Parameter(Mandatory = $false)]
     [string]$AviSynthRepo = "AviSynth/AviSynthPlus",
@@ -184,11 +184,7 @@ function Resolve-MvToolsSearchDirectory {
         (Join-Path $TargetPotPlayerDir "plugins"),
         (Join-Path $TargetPotPlayerDir "AviSynth"),
         $CurrentScriptDir,
-        (Join-Path $CurrentScriptDir "plugins"),
-        (Join-Path $CurrentRepoRoot "Release\ARM64"),
-        (Join-Path $CurrentRepoRoot "out\ARM64\MSVC"),
-        (Join-Path $CurrentRepoRoot "ARM64\Release"),
-        (Join-Path $CurrentRepoRoot "ARM64\Debug")
+        (Join-Path $CurrentScriptDir "plugins")
     )
     foreach ($cand in $searchCandidates) {
         if (-not [string]::IsNullOrWhiteSpace($cand) -and (Test-Path (Join-Path $cand "mvtools2.dll"))) {
@@ -512,18 +508,35 @@ function Confirm-StorageMediaSuitability {
 # HELPER: Find PresentMon Executable
 # ---------------------------------------------------------
 function Find-PresentMonExecutable {
-    $PossiblePaths = @(
-        (Join-Path $ScriptDir "PresentMon.exe"),
-        (Join-Path $ScriptDir "PresentMon-arm64.exe"),
-        (Join-Path $ScriptDir "PresentMon-x64.exe"),
-        (Get-Command "PresentMon.exe" -ErrorAction SilentlyContinue).Source,
-        (Get-Command "PresentMon-arm64.exe" -ErrorAction SilentlyContinue).Source,
-        (Get-Command "PresentMon-x64.exe" -ErrorAction SilentlyContinue).Source,
-        (Join-Path ${env:ProgramFiles} "PresentMon\PresentMon.exe")
-    )
-    foreach ($p in $PossiblePaths) {
+    param([string]$TargetPotPlayerDir = "")
+
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    $isArm64 = ($targetArch -eq "arm64")
+
+    # Strict architecture pinning: x64 machines must only use PresentMon-x64.exe, ARM64 only PresentMon-arm64.exe
+    $candidateList = if ($isArm64) {
+        @(
+            (Join-Path $ScriptDir "PresentMon-arm64.exe"),
+            (Join-Path $ScriptDir "PresentMon.exe"),
+            (Get-Command "PresentMon-arm64.exe" -ErrorAction SilentlyContinue).Source,
+            (Get-Command "PresentMon.exe" -ErrorAction SilentlyContinue).Source,
+            (Join-Path ${env:ProgramFiles} "PresentMon\PresentMon.exe")
+        )
+    } else {
+        @(
+            (Join-Path $ScriptDir "PresentMon-x64.exe"),
+            (Join-Path $ScriptDir "PresentMon.exe"),
+            (Get-Command "PresentMon-x64.exe" -ErrorAction SilentlyContinue).Source,
+            (Get-Command "PresentMon.exe" -ErrorAction SilentlyContinue).Source,
+            (Join-Path ${env:ProgramFiles} "PresentMon\PresentMon.exe")
+        )
+    }
+
+    foreach ($p in $candidateList) {
         if (-not [string]::IsNullOrWhiteSpace($p) -and (Test-Path $p)) {
-            return $p
+            $machine = Get-PeMachine -FilePath $p
+            if ($isArm64 -and ($machine -eq 0xAA64 -or $machine -eq 0)) { return $p }
+            if (-not $isArm64 -and ($machine -eq 0x8664 -or $machine -eq 0)) { return $p }
         }
     }
     return $null
@@ -599,7 +612,7 @@ function Get-TargetBinaryArchitecture {
         return "x64"
     }
 
-    # Default to ARM64 for MVTools ARM64 harness
+    # Default to ARM64 if not otherwise detected
     return "arm64"
 }
 
@@ -658,9 +671,9 @@ function Confirm-DownloadPermission {
 }
 
 # ---------------------------------------------------------
-# HELPER: Automated Acquisition & Silent Installation of PotPlayer ARM64
+# HELPER: Automated Acquisition & Silent Installation of PotPlayer
 # ---------------------------------------------------------
-function Install-PotPlayerARM64 {
+function Install-PotPlayer {
     param(
         [string]$TargetDir = "",
         [bool]$Elevated = $false
@@ -674,22 +687,26 @@ function Install-PotPlayerARM64 {
         Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
     } catch {}
 
-    $Url = "https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe"
-    $TempInstaller = Join-Path $env:TEMP ("PotPlayerSetupARM64_{0}.exe" -f [System.Guid]::NewGuid().ToString("N"))
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetDir
+    $isArm64 = ($targetArch -eq "arm64")
+    $installerName = if ($isArm64) { "PotPlayerSetupARM64.exe" } else { "PotPlayerSetup64.exe" }
+    $Url = "https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/$installerName"
+    $TempInstaller = Join-Path $env:TEMP ("{0}_{1}.exe" -f [System.IO.Path]::GetFileNameWithoutExtension($installerName), [System.Guid]::NewGuid().ToString("N"))
 
     Write-Host "`n========================================================" -ForegroundColor Cyan
-    Write-Host " AUTOMATED POTPLAYER ARM64 ACQUISITION & SETUP" -ForegroundColor Cyan
+    Write-Host (" AUTOMATED POTPLAYER {0} ACQUISITION & SETUP" -f ($targetArch.ToUpper())) -ForegroundColor Cyan
     Write-Host " Source: Kakao Corp Official CDN ($Url)" -ForegroundColor Gray
-    Write-Host " Architecture: Native Windows on ARM64" -ForegroundColor Gray
+    Write-Host (" Architecture: Native Windows on {0}" -f ($targetArch.ToUpper())) -ForegroundColor Gray
     Write-Host "========================================================`n" -ForegroundColor Cyan
 
+    $archLabel = $targetArch.ToUpper()
     # Prompt user permission before downloading
-    if (-not (Confirm-DownloadPermission -ItemName "PotPlayer ARM64 Official Installer" -SourceUrl $Url -TargetDir $TempInstaller -SizeDesc "~35 MB")) {
+    if (-not (Confirm-DownloadPermission -ItemName "PotPlayer $archLabel Official Installer" -SourceUrl $Url -TargetDir $TempInstaller -SizeDesc "~35 MB")) {
         return $null
     }
 
     # Phase 1: Download with live stream progress
-    Write-Host "[1/2] Downloading Official PotPlayer ARM64 Installer..." -ForegroundColor Cyan
+    Write-Host "[1/2] Downloading Official PotPlayer $archLabel Installer..." -ForegroundColor Cyan
 
     $Client = $null
     $FileStream = $null
@@ -812,7 +829,7 @@ function Install-PotPlayerARM64 {
         while (-not $Process.HasExited) {
             $Char = $Spinner[$SpinIndex % $Spinner.Length]
             $ElapsedSec = [math]::Round($InstallWatch.Elapsed.TotalSeconds)
-            Write-Host -NoNewline "`r  [$Char] Unpacking and registering ARM64 components... (${ElapsedSec}s elapsed)   " -ForegroundColor Yellow
+            Write-Host -NoNewline "`r  [$Char] Unpacking and registering $archLabel components... (${ElapsedSec}s elapsed)   " -ForegroundColor Yellow
             Start-Sleep -Milliseconds 250
             $SpinIndex++
 
@@ -909,14 +926,24 @@ function Install-PotPlayerARM64 {
     return $null
 }
 
+Set-Alias -Name Install-PotPlayerARM64 -Value Install-PotPlayer -ErrorAction SilentlyContinue
+
 # ---------------------------------------------------------
-# HELPER: Discover Latest MVTools ARM64 Release Asset from GitHub
+# HELPER: Discover Latest MVTools Release Asset from GitHub
 # ---------------------------------------------------------
 function Get-MvToolsLatestReleaseAsset {
     param(
-        [string]$RepoSlug = "tordona/mvtools",
-        [string]$ReleaseTag = "latest"
+        [string]$RepoSlug = "",
+        [string]$ReleaseTag = ""
     )
+
+    $targetArch = Get-TargetBinaryArchitecture
+    if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
+        $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
+    if ([string]::IsNullOrWhiteSpace($ReleaseTag) -or ($ReleaseTag -eq "latest" -and $targetArch -eq "x64" -and $RepoSlug -eq "pinterf/mvtools")) {
+        $ReleaseTag = if ($targetArch -eq "x64") { "2.7.47" } else { "latest" }
+    }
 
     $ReleaseInfo = [ordered]@{
         TagName     = ""
@@ -942,27 +969,34 @@ function Get-MvToolsLatestReleaseAsset {
         if ($release -and $release.assets -and $release.assets.Count -gt 0) {
             $ReleaseInfo.TagName = if ($release.tag_name) { $release.tag_name } else { $ReleaseTag }
 
-            # Priority 1: Match *arm64*.7z (most specific)
-            $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
-
-            # Priority 2: Match *mvtools*.7z
-            if (-not $asset) {
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
-            }
-
-            # Priority 3: Match any .7z
-            if (-not $asset) {
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
-            }
-
-            # Priority 4: Match *arm64*.zip
-            if (-not $asset) {
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.zip$' } | Select-Object -First 1
-            }
-
-            # Priority 5: Match any .zip
-            if (-not $asset) {
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+            $targetArch = Get-TargetBinaryArchitecture
+            if ($targetArch -eq "x64") {
+                # x64: match mvtools-*.7z or mvtools-*.zip
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools-.*\.7z$' } | Select-Object -First 1
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1
+                }
+            } else {
+                # ARM64: match arm64 release archives
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.zip$' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+                }
             }
 
             if ($asset) {
@@ -977,7 +1011,7 @@ function Get-MvToolsLatestReleaseAsset {
     }
 
     # Fallback to direct asset download redirect URL if API unavailable or release not yet indexed
-    $fallbackVer = "2.7.47.120-arm64"
+    $fallbackVer = if ($targetArch -eq "x64") { "2.7.47" } else { "2.7.47.110-arm64" }
     $baseSearch = if ($PSScriptRoot) { $PSScriptRoot } elseif ($ScriptDir) { $ScriptDir } else { (Get-Location).Path }
     $versionH = Join-Path $baseSearch "..\Sources\version.h"
     if (Test-Path $versionH) {
@@ -986,17 +1020,17 @@ function Get-MvToolsLatestReleaseAsset {
             $fallbackVer = $matches[1]
         }
     }
-    $fallbackFileName = "mvtools-$fallbackVer.7z"
-    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest") { $ReleaseTag } else { "latest" }
+    $fallbackFileName = if ($targetArch -eq "x64") { "mvtools-2.7.47-with-depans20260424.7z" } else { "mvtools-$fallbackVer.7z" }
+    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest" -and -not [string]::IsNullOrWhiteSpace($ReleaseTag)) { $ReleaseTag } else { if ($targetArch -eq "x64") { "2.7.47" } else { "latest" } }
     $ReleaseInfo.FileName = $fallbackFileName
-    $ReleaseInfo.DownloadUrl = "https://github.com/$RepoSlug/releases/latest/download/$fallbackFileName"
+    $ReleaseInfo.DownloadUrl = if ($targetArch -eq "x64") { "https://github.com/$RepoSlug/releases/download/2.7.47/$fallbackFileName" } else { "https://github.com/$RepoSlug/releases/latest/download/$fallbackFileName" }
     $ReleaseInfo.Source = "DirectDownloadFallback"
 
     return $ReleaseInfo
 }
 
 # ---------------------------------------------------------
-# HELPER: Automated Acquisition & Extraction of MVTools ARM64 Release
+# HELPER: Automated Acquisition & Extraction of MVTools Release
 # ---------------------------------------------------------
 function Install-MvToolsRelease {
     [CmdletBinding()]
@@ -1005,10 +1039,10 @@ function Install-MvToolsRelease {
         [string]$TargetDir = "",
 
         [Parameter(Mandatory = $false)]
-        [string]$RepoSlug = "tordona/mvtools",
+        [string]$RepoSlug = "",
 
         [Parameter(Mandatory = $false)]
-        [string]$ReleaseTag = "latest"
+        [string]$ReleaseTag = ""
     )
 
     # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
@@ -1019,13 +1053,22 @@ function Install-MvToolsRelease {
         Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
     } catch {}
 
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetDir
+    if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
+        $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
+    if ([string]::IsNullOrWhiteSpace($ReleaseTag) -or ($ReleaseTag -eq "latest" -and $targetArch -eq "x64" -and $RepoSlug -eq "pinterf/mvtools")) {
+        $ReleaseTag = if ($targetArch -eq "x64") { "2.7.47" } else { "latest" }
+    }
+    $archLabel = $targetArch.ToUpper()
+
     Write-Host "`n========================================================" -ForegroundColor Cyan
-    Write-Host " AUTOMATED MVTOOLS ARM64 ACQUISITION & SETUP" -ForegroundColor Cyan
+    Write-Host " AUTOMATED MVTOOLS $archLabel ACQUISITION & SETUP" -ForegroundColor Cyan
     Write-Host " Repository: https://github.com/$RepoSlug" -ForegroundColor Gray
-    Write-Host " Target Architecture: Windows on ARM64" -ForegroundColor Gray
+    Write-Host " Target Architecture: Windows on $archLabel" -ForegroundColor Gray
     Write-Host "========================================================`n" -ForegroundColor Cyan
 
-    Write-Host "[1/3] Resolving latest MVTools ARM64 release package..." -ForegroundColor Cyan
+    Write-Host ("[1/3] Resolving latest MVTools {0} release package..." -f $archLabel) -ForegroundColor Cyan
     $assetInfo = Get-MvToolsLatestReleaseAsset -RepoSlug $RepoSlug -ReleaseTag $ReleaseTag
     Write-Host "  -> Release Tag: $($assetInfo.TagName)" -ForegroundColor White
     Write-Host "  -> Asset Name:  $($assetInfo.FileName)" -ForegroundColor White
@@ -1035,7 +1078,7 @@ function Install-MvToolsRelease {
     # Prompt user permission before downloading
     $sizeDesc = if ($assetInfo.Size -gt 0) { ("{0:N1} MB" -f ($assetInfo.Size / 1MB)) } else { "" }
     $tempArchive = Join-Path $env:TEMP ("mvtools_dl_{0}_{1}" -f [System.Guid]::NewGuid().ToString("N"), $assetInfo.FileName)
-    if (-not (Confirm-DownloadPermission -ItemName "MVTools ARM64 Release ($($assetInfo.FileName))" -SourceUrl $assetInfo.DownloadUrl -TargetDir $tempArchive -SizeDesc $sizeDesc)) {
+    if (-not (Confirm-DownloadPermission -ItemName "MVTools $archLabel Release ($($assetInfo.FileName))" -SourceUrl $assetInfo.DownloadUrl -TargetDir $tempArchive -SizeDesc $sizeDesc)) {
         return $null
     }
 
@@ -1137,8 +1180,8 @@ function Install-MvToolsRelease {
         return $null
     }
 
-    # Phase 3: Extraction and ARM64 binary placement
-    Write-Host "`n[3/3] Extracting ARM64 binaries..." -ForegroundColor Cyan
+    # Phase 3: Extraction and binary placement
+    Write-Host ("`n[3/3] Extracting {0} binaries..." -f $archLabel) -ForegroundColor Cyan
 
     $tempExtractDir = Join-Path $env:TEMP ("mvtools_extract_{0}" -f [System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tempExtractDir -Force | Out-Null
@@ -1188,19 +1231,31 @@ function Install-MvToolsRelease {
             throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
         }
 
-        # Locate ARM64 binaries
         $allExtracted = Get-ChildItem -Path $tempExtractDir -Recurse -File
+        $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetDir
 
-        # Priority 1: Binaries located under an 'ARM64' directory
-        $arm64Pool = $allExtracted | Where-Object { $_.DirectoryName -match '(?i)ARM64' }
-        if (-not $arm64Pool) {
-            $arm64Pool = $allExtracted
+        if ($targetArch -eq "x64") {
+            # Priority 1: Binaries under \x64\msvc\ (official upstream pinterf/mvtools layout)
+            $archPool = $allExtracted | Where-Object { $_.DirectoryName -match '(?i)[\\/]x64[\\/]msvc([\\/]|$)' }
+            if (-not $archPool) {
+                # Priority 2: Binaries under \x64\
+                $archPool = $allExtracted | Where-Object { $_.DirectoryName -match '(?i)[\\/]x64([\\/]|$)' -and $_.DirectoryName -notmatch '(?i)[\\/]x86([\\/]|$)' }
+            }
+            if (-not $archPool) {
+                $archPool = $allExtracted
+            }
+        } else {
+            # ARM64: Binaries located under an 'ARM64' directory
+            $archPool = $allExtracted | Where-Object { $_.DirectoryName -match '(?i)ARM64' }
+            if (-not $archPool) {
+                $archPool = $allExtracted
+            }
         }
 
-        $cpuDll = $arm64Pool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
-        $gpuDll = $arm64Pool | Where-Object { $_.Name -ieq "mvtools2_d3d12.dll" } | Select-Object -First 1
-        $depanDll = $arm64Pool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
-        $depanEstDll = $arm64Pool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
+        $cpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
+        $gpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2_d3d12.dll" } | Select-Object -First 1
+        $depanDll = $archPool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
+        $depanEstDll = $archPool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
 
         if (-not $cpuDll) {
             throw "Could not locate 'mvtools2.dll' inside the downloaded release archive!"
@@ -1213,7 +1268,7 @@ function Install-MvToolsRelease {
         }
 
         Copy-Item -Path $cpuDll.FullName -Destination (Join-Path $deployDir "mvtools2.dll") -Force
-        Write-Host "  -> Deployed mvtools2.dll (ARM64 CPU NEON) to: $deployDir" -ForegroundColor Green
+        Write-Host ("  -> Deployed mvtools2.dll ({0} CPU SIMD) to: {1}" -f $archLabel, $deployDir) -ForegroundColor Green
 
         if ($gpuDll) {
             Copy-Item -Path $gpuDll.FullName -Destination (Join-Path $deployDir "mvtools2_d3d12.dll") -Force
@@ -1263,7 +1318,7 @@ function Install-MvToolsRelease {
             }
         }
 
-        Write-Host "`n  [OK] MVTools ARM64 binaries deployed successfully to: $deployDir`n" -ForegroundColor Green
+        Write-Host ("`n  [OK] MVTools {0} binaries deployed successfully to: {1}`n" -f $archLabel, $deployDir) -ForegroundColor Green
         return $deployDir
     }
     catch {
@@ -1560,14 +1615,22 @@ function Install-AviSynthPlusRelease {
             throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
         }
 
-        # Locate AviSynth.dll under the requested architecture directory (e.g. arm64/bin/AviSynth.dll)
+        # Locate AviSynth.dll under the requested architecture directory (arm64\bin\AviSynth.dll for ARM64, x64\AviSynth.dll for x64)
         $allExtracted = Get-ChildItem -Path $tempExtractDir -Recurse -File
 
-        # Priority 1: Match target arch directory and bin directory (e.g., \arm64\bin\AviSynth.dll)
-        $targetDll = $allExtracted | Where-Object { 
-            $_.Name -ieq "AviSynth.dll" -and 
-            $_.DirectoryName -match "(?i)[\\/]$([regex]::Escape($targetArch))[\\/]bin" 
-        } | Select-Object -First 1
+        # Priority 1: Exact architecture directory match (e.g., \x64\AviSynth.dll or \arm64\bin\AviSynth.dll)
+        if ($targetArch -eq "x64") {
+            $targetDll = $allExtracted | Where-Object { 
+                $_.Name -ieq "AviSynth.dll" -and 
+                $_.DirectoryName -match '(?i)[\\/]x64([\\/]|$)' -and
+                $_.DirectoryName -notmatch '(?i)[\\/]x86([\\/]|$)'
+            } | Select-Object -First 1
+        } else {
+            $targetDll = $allExtracted | Where-Object { 
+                $_.Name -ieq "AviSynth.dll" -and 
+                $_.DirectoryName -match "(?i)[\\/]$([regex]::Escape($targetArch))[\\/]bin" 
+            } | Select-Object -First 1
+        }
 
         # Priority 2: Match target arch directory anywhere in directory path
         if (-not $targetDll) {
@@ -1728,8 +1791,13 @@ function Ensure-AviSynthProfiles {
     param(
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = "tordona/mvtools"
+        [string]$MvToolsRepo = ""
     )
+
+    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+        $targetArch = Get-TargetBinaryArchitecture
+        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
 
     $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
     if ($profiles -and $profiles.Count -gt 0) {
@@ -1751,7 +1819,7 @@ function Ensure-AviSynthProfiles {
 }
 
 # ---------------------------------------------------------
-# HELPER: Deploy MVTools ARM64 Binaries, AviSynth.dll, & Profiles to PotPlayer
+# HELPER: Deploy MVTools Binaries, AviSynth.dll, & Profiles to PotPlayer
 # ---------------------------------------------------------
 function Install-MvToolsToPotPlayer {
     [CmdletBinding()]
@@ -1761,7 +1829,7 @@ function Install-MvToolsToPotPlayer {
         [string]$MvToolsSourceDir = "",
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = "tordona/mvtools",
+        [string]$MvToolsRepo = "",
         [string]$AviSynthRepo = "AviSynth/AviSynthPlus"
     )
 
@@ -1769,25 +1837,18 @@ function Install-MvToolsToPotPlayer {
         return $false
     }
 
+    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+        $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
+
     Write-Host "`n[SETUP] Deploying MVTools & AviSynth components to PotPlayer: $TargetPotPlayerDir" -ForegroundColor Cyan
 
-    # 1. Resolve source of MVTools ARM64 binaries
+    # 1. Resolve source of MVTools binaries (deployed directory or local ScriptDir)
     $candidateDirs = @()
     if (-not [string]::IsNullOrWhiteSpace($MvToolsSourceDir)) { $candidateDirs += $MvToolsSourceDir }
-    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
-        $candidateDirs += @(
-            (Join-Path $RepoRoot "Release\ARM64"),
-            (Join-Path $RepoRoot "out\ARM64\MSVC\Release"),
-            (Join-Path $RepoRoot "out\ARM64\MSVC"),
-            (Join-Path $RepoRoot "Release")
-        )
-    }
-    if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) {
-        $candidateDirs += @(
-            $ScriptDir,
-            (Join-Path $ScriptDir "..\Release\ARM64")
-        )
-    }
+    if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) { $candidateDirs += $ScriptDir }
+    if (-not [string]::IsNullOrWhiteSpace($TargetPotPlayerDir)) { $candidateDirs += $TargetPotPlayerDir }
 
     $resolvedSourceDir = $null
     foreach ($cand in ($candidateDirs | Select-Object -Unique)) {
@@ -1799,7 +1860,7 @@ function Install-MvToolsToPotPlayer {
 
     # If MVTools binaries are not found locally, attempt automated acquisition from GitHub
     if (-not $resolvedSourceDir -and -not (Test-Path (Join-Path $TargetPotPlayerDir "mvtools2.dll"))) {
-        Write-Host "  -> MVTools ARM64 binaries not found locally. Initiating automated acquisition from GitHub ($MvToolsRepo)..." -ForegroundColor Cyan
+        $hostArch = (Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir).ToUpper(); Write-Host "  -> MVTools $hostArch binaries not found locally. Initiating automated acquisition from GitHub ($MvToolsRepo)..." -ForegroundColor Cyan
         $dlDir = Install-MvToolsRelease -TargetDir $TargetPotPlayerDir -RepoSlug $MvToolsRepo
         if ($dlDir -and (Test-Path (Join-Path $TargetPotPlayerDir "mvtools2.dll"))) {
             $resolvedSourceDir = $TargetPotPlayerDir
@@ -2050,8 +2111,13 @@ function Get-SystemPlatformRecommendation {
     param(
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = "tordona/mvtools"
+        [string]$MvToolsRepo = ""
     )
+
+    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+        $targetArch = Get-TargetBinaryArchitecture
+        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
     $cpuName = ""
     $gpuName = ""
     try {
@@ -2112,7 +2178,14 @@ function Get-SystemPlatformRecommendation {
             $platform = $matchedProfile.Platform
             $platformLabel = if ($matchedProfile.HardwareDesc) { $matchedProfile.HardwareDesc } else { "$($matchedProfile.Platform) ($cpuName)" }
         } else {
-            $platformLabel = "Generic Hardware ($cpuName $gpuName)"
+            $hostArch = Get-TargetBinaryArchitecture
+            if ($hostArch -eq "x64") {
+                $platform = "Generic-x64"
+                $platformLabel = "Generic x86-64 ($cpuName, $gpuName)"
+            } else {
+                $platform = "Snapdragon-X-Plus"
+                $platformLabel = "Generic ARM64 ($cpuName $gpuName)"
+            }
         }
     }
 
@@ -2149,8 +2222,13 @@ function Resolve-AviSynthProfilePath {
         [string]$RecommendedName = "",
         [string]$PlatformKey = "",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = "tordona/mvtools"
+        [string]$MvToolsRepo = ""
     )
+
+    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+        $targetArch = Get-TargetBinaryArchitecture
+        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
 
     $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
 
@@ -2202,8 +2280,13 @@ function Select-ProfileAndModeInteractive {
         [string]$CurrentProfile,
         [string]$CurrentGpuMode,
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = "tordona/mvtools"
+        [string]$MvToolsRepo = ""
     )
+
+    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+        $targetArch = Get-TargetBinaryArchitecture
+        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    }
 
     $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
     if (-not $profiles -or $profiles.Count -eq 0) {
@@ -2256,7 +2339,7 @@ function Select-ProfileAndModeInteractive {
     $selectedGpuMode = $CurrentGpuMode
     if ($selectedProfile.SupportsGpu) {
         Write-Host "`nSelect Motion Vector Acceleration Engine:" -ForegroundColor Yellow
-        Write-Host "  [1] ARM64 CPU NEON (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, rock-solid pacing]" -ForegroundColor Green
+        $cpuEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host ("  [1] {0} (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, rock-solid pacing]" -f $cpuEngineName) -ForegroundColor Green
         Write-Host "  [2] Direct3D 12 GPU (mvtools2_d3d12.dll)  [EXPERIMENTAL PREVIEW: CPU offload, performance/quality not guaranteed]" -ForegroundColor Cyan
         Write-Host "Select Acceleration Mode [1-2] (Press Enter for default [1]): " -NoNewline -ForegroundColor Cyan
         $modeChoice = Read-Host
@@ -2265,11 +2348,11 @@ function Select-ProfileAndModeInteractive {
             Write-Host "  Selected Acceleration: Direct3D 12 GPU Compute" -ForegroundColor Cyan
         } else {
             $selectedGpuMode = "CPU"
-            Write-Host "  Selected Acceleration: ARM64 CPU NEON" -ForegroundColor Green
+            Write-Host ("  Selected Acceleration: {0}" -f $cpuEngineName) -ForegroundColor Green
         }
     } else {
         $selectedGpuMode = "CPU"
-        Write-Host "  Note: Profile '$($selectedProfile.Name)' is CPU-specialized (running on ARM64 CPU NEON)." -ForegroundColor Gray
+        $hostEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host "  Note: Profile '$($selectedProfile.Name)' is CPU-specialized (running on $hostEngineName)." -ForegroundColor Gray
     }
 
     return @{
@@ -2956,10 +3039,11 @@ function Set-PotPlayerSettings {
         $activeGpu = $true
     }
 
+    $engineLabel = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON (mvtools2.dll)" } else { "x64 CPU SIMD (mvtools2.dll)" }
     $script:ActiveMotionEngine = if ($activeGpu) {
         "Direct3D 12 GPU (mvtools2_d3d12.dll)"
     } else {
-        "ARM64 CPU NEON (mvtools2.dll)"
+        $engineLabel
     }
 
     # Substitute relative DLL paths with verified absolute paths
@@ -3200,6 +3284,12 @@ function Restore-PotPlayerSettings {
 # MAIN EXECUTION FLOW
 # =========================================================
 
+# Resolve dynamic default for MvToolsRepo if not explicitly specified
+if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+    $scriptArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
+    $MvToolsRepo = if ($scriptArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+}
+
 Write-Host "`n========================================================" -ForegroundColor Cyan
 Write-Host " PORTABLE POTPLAYER & MVTOOLS BENCHMARK HARNESS (v$Script:HarnessVersion)" -ForegroundColor Cyan
 Write-Host "========================================================`n" -ForegroundColor Cyan
@@ -3238,7 +3328,7 @@ if (-not (Test-Path $PotExe)) {
     Write-Host "`n[1/7] PotPlayer Instance Not Detected at: $PotPlayerDir" -ForegroundColor Yellow
 
     $TargetInstallDir = if ($PotPlayerDir -ne (Join-Path $ScriptDir "PotPlayer")) { $PotPlayerDir } else { "" }
-    $InstalledPath = Install-PotPlayerARM64 -TargetDir $TargetInstallDir -Elevated $IsAdmin
+    $InstalledPath = Install-PotPlayer -TargetDir $TargetInstallDir -Elevated $IsAdmin
         if ($InstalledPath -is [array]) {
             $InstalledPath = ($InstalledPath | Where-Object { $_ -is [string] -and -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last 1)
         }
@@ -3260,10 +3350,12 @@ if (-not (Test-Path $PotExe)) {
         Write-Host "PotPlayer is proprietary freeware developed by Kakao Corp. Its license prohibits redistribution." -ForegroundColor White
         Write-Host "Users must obtain PotPlayer directly from official channels:" -ForegroundColor White
         Write-Host "  Official Portal: https://potplayer.tv" -ForegroundColor Cyan
-        Write-Host "  Official Direct ARM64 Installer: https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe" -ForegroundColor Cyan
+        $detectArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
+        $officialDlUrl = if ($detectArch -eq "arm64") { "https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe" } else { "https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe" }
+        Write-Host ("  Official Direct {0} Installer: {1}" -f $detectArch.ToUpper(), $officialDlUrl) -ForegroundColor Cyan
         $progFilesDisplay = if ($env:ProgramFiles) { (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer") } else { "%ProgramFiles%\DAUM\PotPlayer" }
         Write-Host "Setup options:" -ForegroundColor Yellow
-        Write-Host "  1. Run with -AutoInstallPotPlayer to automatically download and silently install ARM64 release, OR" -ForegroundColor White
+        Write-Host ("  1. Run with -AutoInstallPotPlayer to automatically download and silently install {0} release, OR" -f $detectArch.ToUpper()) -ForegroundColor White
         Write-Host "  2. Install PotPlayer to default directory ('$progFilesDisplay'), OR" -ForegroundColor White
         Write-Host "  3. Copy your official portable PotPlayer folder into '$PotPlayerDir', OR" -ForegroundColor White
         Write-Host "  4. Specify your custom path via -PotPlayerDir '<path>'.`n" -ForegroundColor White
