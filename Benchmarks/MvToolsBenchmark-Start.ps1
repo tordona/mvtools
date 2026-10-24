@@ -718,9 +718,64 @@ function Ensure-7ZipExtractor {
     Write-Host "  Windows built-in 'tar.exe' does not support LZMA/LZMA2 decompression in .7z packages." -ForegroundColor Yellow
 
     $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
-    # 7-Zip official releases: 64-bit MSI for x64, 32-bit x86 MSI for ARM64/x86 (runs everywhere under emulation)
-    $msiName = if ($targetArch -eq "x64") { "7z2605-x64.msi" } else { "7z2605.msi" }
-    $msiUrl = "https://github.com/ip7z/7zip/releases/download/26.05/$msiName"
+    # Dynamically resolve official 7-Zip MSI release package from GitHub (zero hardcoded versions/filenames)
+    $msiUrl = $null
+    $msiName = $null
+    try {
+        $headers = @{
+            "User-Agent" = "MvToolsBenchmarkHarness/2.3.0"
+            "Accept"     = "application/vnd.github.v3+json"
+        }
+        $zipRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ip7z/7zip/releases/latest" -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        if ($zipRelease -and $zipRelease.assets) {
+            $msiAsset = if ($targetArch -eq "x64") {
+                $zipRelease.assets | Where-Object { $_.name -match '(?i)7z.*-x64\.msi$' } | Select-Object -First 1
+            } else {
+                $zipRelease.assets | Where-Object { $_.name -match '(?i)7z[^\-]*\.msi$' } | Select-Object -First 1
+            }
+            if ($msiAsset) {
+                $msiUrl = $msiAsset.browser_download_url
+                $msiName = $msiAsset.name
+            }
+        }
+    } catch {
+        # Web release redirect fallback
+        try {
+            $req = [System.Net.HttpWebRequest]::Create("https://github.com/ip7z/7zip/releases/latest")
+            $req.AllowAutoRedirect = $true
+            $req.UserAgent = "MvToolsBenchmarkHarness/2.3.0"
+            $req.Timeout = 10000
+            $resp = $req.GetResponse()
+            $finalUrl = $resp.ResponseUri.AbsoluteUri
+            $resp.Close()
+
+            $resolvedTag = Split-Path $finalUrl -Leaf
+            if ($resolvedTag) {
+                $assetsUrl = "https://github.com/ip7z/7zip/releases/expanded_assets/$resolvedTag"
+                $assetsReq = [System.Net.HttpWebRequest]::Create($assetsUrl)
+                $assetsReq.UserAgent = "MvToolsBenchmarkHarness/2.3.0"
+                $assetsReq.Timeout = 10000
+                $assetsResp = $assetsReq.GetResponse()
+                $stream = $assetsResp.GetResponseStream()
+                $reader = [System.IO.StreamReader]::new($stream)
+                $html = $reader.ReadToEnd()
+                $reader.Close()
+                $assetsResp.Close()
+
+                $pattern = if ($targetArch -eq "x64") { 'href="([^"]+/releases/download/[^"]+7z[^\-"]*-x64\.msi)"' } else { 'href="([^"]+/releases/download/[^"]+7z[^\-"]*\.msi)"' }
+                if ($html -match $pattern) {
+                    $rel = $Matches[1]
+                    $msiUrl = if ($rel -notmatch '^https:') { "https://github.com$rel" } else { $rel }
+                    $msiName = [System.IO.Path]::GetFileName($msiUrl)
+                }
+            }
+        } catch {}
+    }
+
+    if (-not $msiUrl) {
+        Write-Host "  [WARNING] Could not resolve official 7-Zip MSI package dynamically from GitHub." -ForegroundColor Yellow
+        return $null
+    }
 
     $localToolsDir = Join-Path $env:LOCALAPPDATA "7-Zip"
     if (-not (Test-Path $localToolsDir)) {
@@ -1043,8 +1098,8 @@ function Get-MvToolsLatestReleaseAsset {
     if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
         $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
     }
-    if ([string]::IsNullOrWhiteSpace($ReleaseTag) -or ($ReleaseTag -eq "latest" -and $targetArch -eq "x64" -and $RepoSlug -eq "pinterf/mvtools")) {
-        $ReleaseTag = if ($targetArch -eq "x64") { "2.7.47" } else { "latest" }
+    if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
+        $ReleaseTag = "latest"
     }
 
     $ReleaseInfo = [ordered]@{
@@ -1112,23 +1167,69 @@ function Get-MvToolsLatestReleaseAsset {
         Write-Host "  -> GitHub API notice: $($_.Exception.Message)" -ForegroundColor Gray
     }
 
-    # Fallback to direct asset download redirect URL if API unavailable or release not yet indexed
-    $fallbackVer = if ($targetArch -eq "x64") { "2.7.47" } else { "2.7.47.110-arm64" }
-    $baseSearch = if ($PSScriptRoot) { $PSScriptRoot } elseif ($ScriptDir) { $ScriptDir } else { (Get-Location).Path }
-    $versionH = Join-Path $baseSearch "..\Sources\version.h"
-    if (Test-Path $versionH) {
-        $verContent = Get-Content $versionH -Raw -ErrorAction SilentlyContinue
-        if ($verContent -match 'FILEVERSION_STR\s*"([^"]+)"') {
-            $fallbackVer = $matches[1]
+    # Dynamic web release discovery fallback (zero hardcoded versions/filenames)
+    try {
+        $webTargetUrl = if ($ReleaseTag -eq "latest") {
+            "https://github.com/$RepoSlug/releases/latest"
+        } else {
+            "https://github.com/$RepoSlug/releases/tag/$ReleaseTag"
         }
-    }
-    $fallbackFileName = if ($targetArch -eq "x64") { "mvtools-2.7.47-with-depans20260424.7z" } else { "mvtools-$fallbackVer.7z" }
-    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest" -and -not [string]::IsNullOrWhiteSpace($ReleaseTag)) { $ReleaseTag } else { if ($targetArch -eq "x64") { "2.7.47" } else { "latest" } }
-    $ReleaseInfo.FileName = $fallbackFileName
-    $ReleaseInfo.DownloadUrl = if ($targetArch -eq "x64") { "https://github.com/$RepoSlug/releases/download/2.7.47/$fallbackFileName" } else { "https://github.com/$RepoSlug/releases/latest/download/$fallbackFileName" }
-    $ReleaseInfo.Source = "DirectDownloadFallback"
+        $req = [System.Net.HttpWebRequest]::Create($webTargetUrl)
+        $req.AllowAutoRedirect = $true
+        $req.UserAgent = "MvToolsBenchmarkHarness/$uaVersion"
+        $req.Timeout = 10000
+        $resp = $req.GetResponse()
+        $finalUrl = $resp.ResponseUri.AbsoluteUri
+        $resp.Close()
 
-    return $ReleaseInfo
+        $resolvedTag = Split-Path $finalUrl -Leaf
+        if (-not [string]::IsNullOrWhiteSpace($resolvedTag)) {
+            $ReleaseInfo.TagName = $resolvedTag
+            $ReleaseInfo.Source = "GitHubWebDiscovery"
+
+            $assetsUrl = "https://github.com/$RepoSlug/releases/expanded_assets/$resolvedTag"
+            $assetsReq = [System.Net.HttpWebRequest]::Create($assetsUrl)
+            $assetsReq.UserAgent = "MvToolsBenchmarkHarness/$uaVersion"
+            $assetsReq.Timeout = 10000
+            $assetsResp = $assetsReq.GetResponse()
+            $stream = $assetsResp.GetResponseStream()
+            $reader = [System.IO.StreamReader]::new($stream)
+            $html = $reader.ReadToEnd()
+            $reader.Close()
+            $assetsResp.Close()
+
+            $matches = [regex]::Matches($html, 'href="([^"]+/releases/download/[^"]+)"')
+            $foundUrls = @()
+            foreach ($m in $matches) {
+                $rel = $m.Groups[1].Value
+                if ($rel -notmatch '^https:') { $rel = "https://github.com$rel" }
+                $foundUrls += $rel
+            }
+            $foundUrls = $foundUrls | Select-Object -Unique
+
+            $selectedUrl = $null
+            if ($targetArch -eq "x64") {
+                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1 }
+            } else {
+                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.zip$' } | Select-Object -First 1 }
+            }
+
+            if ($selectedUrl) {
+                $ReleaseInfo.DownloadUrl = $selectedUrl
+                $ReleaseInfo.FileName = [System.IO.Path]::GetFileName($selectedUrl)
+                return $ReleaseInfo
+            }
+        }
+    } catch {
+        Write-Host "  -> GitHub web discovery notice: $($_.Exception.Message)" -ForegroundColor Gray
+    }
+
+    return $null
 }
 
 # ---------------------------------------------------------
@@ -1159,8 +1260,8 @@ function Install-MvToolsRelease {
     if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
         $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
     }
-    if ([string]::IsNullOrWhiteSpace($ReleaseTag) -or ($ReleaseTag -eq "latest" -and $targetArch -eq "x64" -and $RepoSlug -eq "pinterf/mvtools")) {
-        $ReleaseTag = if ($targetArch -eq "x64") { "2.7.47" } else { "latest" }
+    if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
+        $ReleaseTag = "latest"
     }
     $archLabel = $targetArch.ToUpper()
 
@@ -1172,6 +1273,10 @@ function Install-MvToolsRelease {
 
     Write-Host ("[1/3] Resolving latest MVTools {0} release package..." -f $archLabel) -ForegroundColor Cyan
     $assetInfo = Get-MvToolsLatestReleaseAsset -RepoSlug $RepoSlug -ReleaseTag $ReleaseTag
+    if (-not $assetInfo -or [string]::IsNullOrWhiteSpace($assetInfo.DownloadUrl)) {
+        Write-Host "  [ERROR] Could not resolve MVTools $archLabel release asset from $RepoSlug!" -ForegroundColor Red
+        return $null
+    }
     Write-Host "  -> Release Tag: $($assetInfo.TagName)" -ForegroundColor White
     Write-Host "  -> Asset Name:  $($assetInfo.FileName)" -ForegroundColor White
     Write-Host "  -> Source:      $($assetInfo.Source)" -ForegroundColor Gray
@@ -1481,14 +1586,73 @@ function Get-AviSynthPlusLatestReleaseAsset {
         Write-Host "  -> AviSynth+ GitHub API notice: $($_.Exception.Message)" -ForegroundColor Gray
     }
 
-    # Fallback to direct download URL if API is rate-limited or unavailable
-    $fallbackFileName = "AviSynthPlus_3.7.5_20250420-filesonly.7z"
-    $ReleaseInfo.TagName = if ($ReleaseTag -ne "latest") { $ReleaseTag } else { "v3.7.5" }
-    $ReleaseInfo.FileName = $fallbackFileName
-    $ReleaseInfo.DownloadUrl = "https://github.com/$RepoSlug/releases/download/$($ReleaseInfo.TagName)/$fallbackFileName"
-    $ReleaseInfo.Source = "DirectDownloadFallback"
+    # Dynamic web release discovery fallback (zero hardcoded versions/filenames)
+    try {
+        $webTargetUrl = if ($ReleaseTag -eq "latest") {
+            "https://github.com/$RepoSlug/releases/latest"
+        } else {
+            "https://github.com/$RepoSlug/releases/tag/$ReleaseTag"
+        }
+        $req = [System.Net.HttpWebRequest]::Create($webTargetUrl)
+        $req.AllowAutoRedirect = $true
+        $req.UserAgent = "MvToolsBenchmarkHarness/$uaVersion"
+        $req.Timeout = 10000
+        $resp = $req.GetResponse()
+        $finalUrl = $resp.ResponseUri.AbsoluteUri
+        $resp.Close()
 
-    return $ReleaseInfo
+        $resolvedTag = Split-Path $finalUrl -Leaf
+        if (-not [string]::IsNullOrWhiteSpace($resolvedTag)) {
+            $ReleaseInfo.TagName = $resolvedTag
+            $ReleaseInfo.Source = "GitHubWebDiscovery"
+
+            $assetsUrl = "https://github.com/$RepoSlug/releases/expanded_assets/$resolvedTag"
+            $assetsReq = [System.Net.HttpWebRequest]::Create($assetsUrl)
+            $assetsReq.UserAgent = "MvToolsBenchmarkHarness/$uaVersion"
+            $assetsReq.Timeout = 10000
+            $assetsResp = $assetsReq.GetResponse()
+            $stream = $assetsResp.GetResponseStream()
+            $reader = [System.IO.StreamReader]::new($stream)
+            $html = $reader.ReadToEnd()
+            $reader.Close()
+            $assetsResp.Close()
+
+            $matches = [regex]::Matches($html, 'href="([^"]+/releases/download/[^"]+)"')
+            $foundUrls = @()
+            foreach ($m in $matches) {
+                $rel = $m.Groups[1].Value
+                if ($rel -notmatch '^https:') { $rel = "https://github.com$rel" }
+                $foundUrls += $rel
+            }
+            $foundUrls = $foundUrls | Select-Object -Unique
+
+            $selectedUrl = $foundUrls | Where-Object { 
+                $_ -match '(?i)filesonly.*\.7z$' -and $_ -notmatch '(?i)macOS' 
+            } | Select-Object -First 1
+
+            if (-not $selectedUrl) {
+                $selectedUrl = $foundUrls | Where-Object { 
+                    $_ -match '(?i)filesonly' -and $_ -notmatch '(?i)macOS' 
+                } | Select-Object -First 1
+            }
+
+            if (-not $selectedUrl) {
+                $selectedUrl = $foundUrls | Where-Object { 
+                    $_ -match '(?i)\.7z$' -and $_ -notmatch '(?i)macOS' 
+                } | Select-Object -First 1
+            }
+
+            if ($selectedUrl) {
+                $ReleaseInfo.DownloadUrl = $selectedUrl
+                $ReleaseInfo.FileName = [System.IO.Path]::GetFileName($selectedUrl)
+                return $ReleaseInfo
+            }
+        }
+    } catch {
+        Write-Host "  -> AviSynth+ web discovery notice: $($_.Exception.Message)" -ForegroundColor Gray
+    }
+
+    return $null
 }
 
 # ---------------------------------------------------------
