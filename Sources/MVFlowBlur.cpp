@@ -18,6 +18,7 @@
 // http://www.gnu.org/copyleft/gpl.html .
 
 #include "ClipFnc.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVFinest.h"
 #include "MVFlowBlur.h"
@@ -38,7 +39,7 @@ MVFlowBlur::MVFlowBlur(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, int 
 
   blur256 = _blur256;
   prec = _prec;
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   planar = _planar;
 
   CheckSimilarity(mvClipB, "mvbw", env);

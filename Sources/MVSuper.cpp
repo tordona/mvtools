@@ -21,6 +21,7 @@
 // http://www.gnu.org/copyleft/gpl.html .
 
 #include	"debugprintf.h"
+#include "cpu.h"
 #include "MVFrame.h"
 #include "MVGroupOfFrames.h"
 #include "MVPlane.h"
@@ -75,7 +76,7 @@ MVSuper::MVSuper(
   nVPad = _vPad;
   rfilter = _rfilter;
   sharp = _sharp; // pel2 interpolation type
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   chroma = _chroma;
   if (vi.IsRGB())

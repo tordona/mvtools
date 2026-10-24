@@ -27,12 +27,30 @@
 #include "debugprintf.h"
 #include "string.h"
 #include <avisynth.h>
+#if (defined(_M_ARM64) || defined(__aarch64__)) && defined(_WIN32)
+#include "avs/win.h"
+#ifndef PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE
+#define PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE 43
+#endif
+#endif
 
 #define uint32_t unsigned int
 
 int conv_cpuf_flags_to_cpu(int avscpu)
 {
   int acpu = 0;
+#if defined(_M_ARM64) || defined(__aarch64__)
+  // On ARM64, 128-bit NEON SIMD is architectural and guaranteed on all processors.
+  // Map baseline ARMv8.0 NEON to CPU_SSE2, and ARMv8.2-A DotProd (UDOT) to CPU_SSE4.
+  acpu |= CPU_SSE2;
+#if defined(_WIN32)
+  if ((avscpu & CPUF_ARM_DOTPROD) || IsProcessorFeaturePresent(PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE))
+    acpu |= CPU_SSE4;
+#else
+  if (avscpu & CPUF_ARM_DOTPROD)
+    acpu |= CPU_SSE4;
+#endif
+#else
   if (avscpu & CPUF_SSE2) acpu |= CPU_SSE2;
   if (avscpu & CPUF_SSE3) acpu |= CPU_SSE3;
   if (avscpu & CPUF_SSSE3) acpu |= CPU_SSSE3;
@@ -40,7 +58,19 @@ int conv_cpuf_flags_to_cpu(int avscpu)
   if (avscpu & CPUF_SSE4_2) acpu |= CPU_SSE42;
   if (avscpu & CPUF_AVX) acpu |= CPU_AVX;
   if (avscpu & CPUF_AVX2) acpu |= CPU_AVX2;
+#endif
   return acpu;
+}
+
+int get_simd_cpu_flags(int avscpu)
+{
+#if defined(_M_ARM64) || defined(__aarch64__)
+  // AviSynth+ on ARM64 returns CPUF_ARM_* flags rather than x86 CPUF_SSE* flags.
+  // Enable SSE2..SSE4.1 dispatch flags so sse2neon and native NEON paths are active.
+  return avscpu | CPUF_SSE2 | CPUF_SSE3 | CPUF_SSSE3 | CPUF_SSE4_1;
+#else
+  return avscpu;
+#endif
 }
 
 

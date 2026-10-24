@@ -35,6 +35,436 @@
 #include "emmintrin.h"
 
 #ifndef USE_SAD_ASM
+
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+// Baseline ARMv8.0-A NEON SAD: vertical 16-bit column accumulation (uabal / uabal2)
+// with a single horizontal reduction (uaddlv) at block completion.
+// Guaranteed safe on all ARM64 processors (including early Cortex-A75/A55 without DotProd).
+template<int nBlkWidth, int nBlkHeight>
+static MV_FORCEINLINE unsigned int Sad_neon_v8(const uint8_t* pSrc, int nSrcPitch, const uint8_t* pRef, int nRefPitch)
+{
+    if constexpr (nBlkWidth == 64)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        uint16x8_t acc2 = vdupq_n_u16(0);
+        uint16x8_t acc3 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t s0 = vld1q_u8(pSrc);
+            uint8x16_t r0 = vld1q_u8(pRef);
+            acc0 = vabal_u8(acc0, vget_low_u8(s0), vget_low_u8(r0));
+            acc1 = vabal_high_u8(acc1, s0, r0);
+
+            uint8x16_t s1 = vld1q_u8(pSrc + 16);
+            uint8x16_t r1 = vld1q_u8(pRef + 16);
+            acc2 = vabal_u8(acc2, vget_low_u8(s1), vget_low_u8(r1));
+            acc3 = vabal_high_u8(acc3, s1, r1);
+
+            uint8x16_t s2 = vld1q_u8(pSrc + 32);
+            uint8x16_t r2 = vld1q_u8(pRef + 32);
+            acc0 = vabal_u8(acc0, vget_low_u8(s2), vget_low_u8(r2));
+            acc1 = vabal_high_u8(acc1, s2, r2);
+
+            uint8x16_t s3 = vld1q_u8(pSrc + 48);
+            uint8x16_t r3 = vld1q_u8(pRef + 48);
+            acc2 = vabal_u8(acc2, vget_low_u8(s3), vget_low_u8(r3));
+            acc3 = vabal_high_u8(acc3, s3, r3);
+
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1) + vaddlvq_u16(acc2) + vaddlvq_u16(acc3);
+    }
+    else if constexpr (nBlkWidth == 48)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        uint16x8_t acc2 = vdupq_n_u16(0);
+        uint16x8_t acc3 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t s0 = vld1q_u8(pSrc);
+            uint8x16_t r0 = vld1q_u8(pRef);
+            acc0 = vabal_u8(acc0, vget_low_u8(s0), vget_low_u8(r0));
+            acc1 = vabal_high_u8(acc1, s0, r0);
+
+            uint8x16_t s1 = vld1q_u8(pSrc + 16);
+            uint8x16_t r1 = vld1q_u8(pRef + 16);
+            acc2 = vabal_u8(acc2, vget_low_u8(s1), vget_low_u8(r1));
+            acc3 = vabal_high_u8(acc3, s1, r1);
+
+            uint8x16_t s2 = vld1q_u8(pSrc + 32);
+            uint8x16_t r2 = vld1q_u8(pRef + 32);
+            acc0 = vabal_u8(acc0, vget_low_u8(s2), vget_low_u8(r2));
+            acc1 = vabal_high_u8(acc1, s2, r2);
+
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1) + vaddlvq_u16(acc2) + vaddlvq_u16(acc3);
+    }
+    else if constexpr (nBlkWidth == 32)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        uint16x8_t acc2 = vdupq_n_u16(0);
+        uint16x8_t acc3 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t s0 = vld1q_u8(pSrc);
+            uint8x16_t r0 = vld1q_u8(pRef);
+            acc0 = vabal_u8(acc0, vget_low_u8(s0), vget_low_u8(r0));
+            acc1 = vabal_high_u8(acc1, s0, r0);
+
+            uint8x16_t s1 = vld1q_u8(pSrc + 16);
+            uint8x16_t r1 = vld1q_u8(pRef + 16);
+            acc2 = vabal_u8(acc2, vget_low_u8(s1), vget_low_u8(r1));
+            acc3 = vabal_high_u8(acc3, s1, r1);
+
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1) + vaddlvq_u16(acc2) + vaddlvq_u16(acc3);
+    }
+    else if constexpr (nBlkWidth == 24)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        uint16x8_t acc2 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t s0 = vld1q_u8(pSrc);
+            uint8x16_t r0 = vld1q_u8(pRef);
+            acc0 = vabal_u8(acc0, vget_low_u8(s0), vget_low_u8(r0));
+            acc1 = vabal_high_u8(acc1, s0, r0);
+            acc2 = vabal_u8(acc2, vld1_u8(pSrc + 16), vld1_u8(pRef + 16));
+
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1) + vaddlvq_u16(acc2);
+    }
+    else if constexpr (nBlkWidth == 16)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x16_t s = vld1q_u8(pSrc);
+            uint8x16_t r = vld1q_u8(pRef);
+            acc0 = vabal_u8(acc0, vget_low_u8(s), vget_low_u8(r));
+            acc1 = vabal_high_u8(acc1, s, r);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1);
+    }
+    else if constexpr (nBlkWidth == 12)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc0 = vabal_u8(acc0, vld1_u8(pSrc), vld1_u8(pRef));
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc + 8);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef + 8);
+            uint8x8_t s4v = vreinterpret_u8_u32(vset_lane_u32(s4, vdup_n_u32(0), 0));
+            uint8x8_t r4v = vreinterpret_u8_u32(vset_lane_u32(r4, vdup_n_u32(0), 0));
+            acc1 = vabal_u8(acc1, s4v, r4v);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1);
+    }
+    else if constexpr (nBlkWidth == 8)
+    {
+        uint16x8_t acc0 = vdupq_n_u16(0);
+        uint16x8_t acc1 = vdupq_n_u16(0);
+        int y = 0;
+        if constexpr (nBlkHeight >= 2)
+        {
+            for (; y + 2 <= nBlkHeight; y += 2)
+            {
+                acc0 = vabal_u8(acc0, vld1_u8(pSrc), vld1_u8(pRef));
+                acc1 = vabal_u8(acc1, vld1_u8(pSrc + nSrcPitch), vld1_u8(pRef + nRefPitch));
+                pSrc += nSrcPitch * 2;
+                pRef += nRefPitch * 2;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            acc0 = vabal_u8(acc0, vld1_u8(pSrc), vld1_u8(pRef));
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc0) + vaddlvq_u16(acc1);
+    }
+    else if constexpr (nBlkWidth == 6)
+    {
+        uint16x8_t acc = vdupq_n_u16(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc);
+            uint16_t s2 = *reinterpret_cast<const uint16_t*>(pSrc + 4);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef);
+            uint16_t r2 = *reinterpret_cast<const uint16_t*>(pRef + 4);
+            uint64_t s64 = (uint64_t)s4 | ((uint64_t)s2 << 32);
+            uint64_t r64 = (uint64_t)r4 | ((uint64_t)r2 << 32);
+            uint8x8_t s8 = vreinterpret_u8_u64(vset_lane_u64(s64, vdup_n_u64(0), 0));
+            uint8x8_t r8 = vreinterpret_u8_u64(vset_lane_u64(r64, vdup_n_u64(0), 0));
+            acc = vabal_u8(acc, s8, r8);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc);
+    }
+    else if constexpr (nBlkWidth == 4)
+    {
+        uint16x8_t acc = vdupq_n_u16(0);
+        int y = 0;
+        if constexpr (nBlkHeight >= 2)
+        {
+            for (; y + 2 <= nBlkHeight; y += 2)
+            {
+                uint64_t s64 = (uint64_t)(*reinterpret_cast<const uint32_t*>(pSrc)) |
+                               ((uint64_t)(*reinterpret_cast<const uint32_t*>(pSrc + nSrcPitch)) << 32);
+                uint64_t r64 = (uint64_t)(*reinterpret_cast<const uint32_t*>(pRef)) |
+                               ((uint64_t)(*reinterpret_cast<const uint32_t*>(pRef + nRefPitch)) << 32);
+                uint8x8_t s8 = vreinterpret_u8_u64(vset_lane_u64(s64, vdup_n_u64(0), 0));
+                uint8x8_t r8 = vreinterpret_u8_u64(vset_lane_u64(r64, vdup_n_u64(0), 0));
+                acc = vabal_u8(acc, s8, r8);
+                pSrc += nSrcPitch * 2;
+                pRef += nRefPitch * 2;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef);
+            uint8x8_t s8 = vreinterpret_u8_u32(vset_lane_u32(s4, vdup_n_u32(0), 0));
+            uint8x8_t r8 = vreinterpret_u8_u32(vset_lane_u32(r4, vdup_n_u32(0), 0));
+            acc = vabal_u8(acc, s8, r8);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddlvq_u16(acc);
+    }
+    else
+    {
+        unsigned int sum = 0;
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            for (int x = 0; x < nBlkWidth; ++x)
+            {
+                int diff = (int)pSrc[x] - (int)pRef[x];
+                sum += (diff < 0) ? -diff : diff;
+            }
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return sum;
+    }
+}
+
+// ARMv8.2-A+ DotProd NEON SAD: 16-byte absolute difference + UDOT accumulation (vdotq_u32)
+// with multi-accumulator ILP unrolling and single horizontal reduction (vaddvq_u32).
+template<int nBlkWidth, int nBlkHeight>
+unsigned int Sad_neon_dotprod(const uint8_t* pSrc, int nSrcPitch, const uint8_t* pRef, int nRefPitch)
+{
+    const uint8x16_t vOnes = vdupq_n_u8(1);
+
+    if constexpr (nBlkWidth == 64)
+    {
+        uint32x4_t acc0 = vdupq_n_u32(0);
+        uint32x4_t acc1 = vdupq_n_u32(0);
+        uint32x4_t acc2 = vdupq_n_u32(0);
+        uint32x4_t acc3 = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc0 = vdotq_u32(acc0, vabdq_u8(vld1q_u8(pSrc), vld1q_u8(pRef)), vOnes);
+            acc1 = vdotq_u32(acc1, vabdq_u8(vld1q_u8(pSrc + 16), vld1q_u8(pRef + 16)), vOnes);
+            acc2 = vdotq_u32(acc2, vabdq_u8(vld1q_u8(pSrc + 32), vld1q_u8(pRef + 32)), vOnes);
+            acc3 = vdotq_u32(acc3, vabdq_u8(vld1q_u8(pSrc + 48), vld1q_u8(pRef + 48)), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(vaddq_u32(vaddq_u32(acc0, acc1), vaddq_u32(acc2, acc3)));
+    }
+    else if constexpr (nBlkWidth == 48)
+    {
+        uint32x4_t acc0 = vdupq_n_u32(0);
+        uint32x4_t acc1 = vdupq_n_u32(0);
+        uint32x4_t acc2 = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc0 = vdotq_u32(acc0, vabdq_u8(vld1q_u8(pSrc), vld1q_u8(pRef)), vOnes);
+            acc1 = vdotq_u32(acc1, vabdq_u8(vld1q_u8(pSrc + 16), vld1q_u8(pRef + 16)), vOnes);
+            acc2 = vdotq_u32(acc2, vabdq_u8(vld1q_u8(pSrc + 32), vld1q_u8(pRef + 32)), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(vaddq_u32(acc0, vaddq_u32(acc1, acc2)));
+    }
+    else if constexpr (nBlkWidth == 32)
+    {
+        uint32x4_t acc0 = vdupq_n_u32(0);
+        uint32x4_t acc1 = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc0 = vdotq_u32(acc0, vabdq_u8(vld1q_u8(pSrc), vld1q_u8(pRef)), vOnes);
+            acc1 = vdotq_u32(acc1, vabdq_u8(vld1q_u8(pSrc + 16), vld1q_u8(pRef + 16)), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(vaddq_u32(acc0, acc1));
+    }
+    else if constexpr (nBlkWidth == 24)
+    {
+        uint32x4_t acc0 = vdupq_n_u32(0);
+        uint32x4_t acc1 = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc0 = vdotq_u32(acc0, vabdq_u8(vld1q_u8(pSrc), vld1q_u8(pRef)), vOnes);
+            uint8x8_t s8 = vld1_u8(pSrc + 16);
+            uint8x8_t r8 = vld1_u8(pRef + 16);
+            acc1 = vdotq_u32(acc1, vabdq_u8(vcombine_u8(s8, vdup_n_u8(0)), vcombine_u8(r8, vdup_n_u8(0))), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(vaddq_u32(acc0, acc1));
+    }
+    else if constexpr (nBlkWidth == 16)
+    {
+        uint32x4_t acc = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            acc = vdotq_u32(acc, vabdq_u8(vld1q_u8(pSrc), vld1q_u8(pRef)), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(acc);
+    }
+    else if constexpr (nBlkWidth == 12)
+    {
+        uint32x4_t acc = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint8x8_t s8 = vld1_u8(pSrc);
+            uint8x8_t r8 = vld1_u8(pRef);
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc + 8);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef + 8);
+            uint8x8_t s4v = vreinterpret_u8_u32(vset_lane_u32(s4, vdup_n_u32(0), 0));
+            uint8x8_t r4v = vreinterpret_u8_u32(vset_lane_u32(r4, vdup_n_u32(0), 0));
+            acc = vdotq_u32(acc, vabdq_u8(vcombine_u8(s8, s4v), vcombine_u8(r8, r4v)), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(acc);
+    }
+    else if constexpr (nBlkWidth == 8)
+    {
+        uint32x4_t acc = vdupq_n_u32(0);
+        int y = 0;
+        if constexpr (nBlkHeight >= 2)
+        {
+            for (; y + 2 <= nBlkHeight; y += 2)
+            {
+                uint8x8_t s0 = vld1_u8(pSrc);
+                uint8x8_t s1 = vld1_u8(pSrc + nSrcPitch);
+                uint8x8_t r0 = vld1_u8(pRef);
+                uint8x8_t r1 = vld1_u8(pRef + nRefPitch);
+                acc = vdotq_u32(acc, vabdq_u8(vcombine_u8(s0, s1), vcombine_u8(r0, r1)), vOnes);
+                pSrc += nSrcPitch * 2;
+                pRef += nRefPitch * 2;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            uint8x8_t s8 = vld1_u8(pSrc);
+            uint8x8_t r8 = vld1_u8(pRef);
+            acc = vdotq_u32(acc, vabdq_u8(vcombine_u8(s8, vdup_n_u8(0)), vcombine_u8(r8, vdup_n_u8(0))), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(acc);
+    }
+    else if constexpr (nBlkWidth == 6)
+    {
+        uint32x4_t acc = vdupq_n_u32(0);
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc);
+            uint16_t s2 = *reinterpret_cast<const uint16_t*>(pSrc + 4);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef);
+            uint16_t r2 = *reinterpret_cast<const uint16_t*>(pRef + 4);
+            uint64_t s64 = (uint64_t)s4 | ((uint64_t)s2 << 32);
+            uint64_t r64 = (uint64_t)r4 | ((uint64_t)r2 << 32);
+            uint8x8_t s8 = vreinterpret_u8_u64(vset_lane_u64(s64, vdup_n_u64(0), 0));
+            uint8x8_t r8 = vreinterpret_u8_u64(vset_lane_u64(r64, vdup_n_u64(0), 0));
+            acc = vdotq_u32(acc, vabdq_u8(vcombine_u8(s8, vdup_n_u8(0)), vcombine_u8(r8, vdup_n_u8(0))), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(acc);
+    }
+    else if constexpr (nBlkWidth == 4)
+    {
+        uint32x4_t acc = vdupq_n_u32(0);
+        int y = 0;
+        if constexpr (nBlkHeight >= 4)
+        {
+            for (; y + 4 <= nBlkHeight; y += 4)
+            {
+                uint32_t s0 = *reinterpret_cast<const uint32_t*>(pSrc);
+                uint32_t s1 = *reinterpret_cast<const uint32_t*>(pSrc + nSrcPitch);
+                uint32_t s2 = *reinterpret_cast<const uint32_t*>(pSrc + nSrcPitch * 2);
+                uint32_t s3 = *reinterpret_cast<const uint32_t*>(pSrc + nSrcPitch * 3);
+                uint32x4_t sv = vsetq_lane_u32(s3, vsetq_lane_u32(s2, vsetq_lane_u32(s1, vsetq_lane_u32(s0, vdupq_n_u32(0), 0), 1), 2), 3);
+
+                uint32_t r0 = *reinterpret_cast<const uint32_t*>(pRef);
+                uint32_t r1 = *reinterpret_cast<const uint32_t*>(pRef + nRefPitch);
+                uint32_t r2 = *reinterpret_cast<const uint32_t*>(pRef + nRefPitch * 2);
+                uint32_t r3 = *reinterpret_cast<const uint32_t*>(pRef + nRefPitch * 3);
+                uint32x4_t rv = vsetq_lane_u32(r3, vsetq_lane_u32(r2, vsetq_lane_u32(r1, vsetq_lane_u32(r0, vdupq_n_u32(0), 0), 1), 2), 3);
+
+                acc = vdotq_u32(acc, vabdq_u8(vreinterpretq_u8_u32(sv), vreinterpretq_u8_u32(rv)), vOnes);
+                pSrc += nSrcPitch * 4;
+                pRef += nRefPitch * 4;
+            }
+        }
+        for (; y < nBlkHeight; ++y)
+        {
+            uint32_t s4 = *reinterpret_cast<const uint32_t*>(pSrc);
+            uint32_t r4 = *reinterpret_cast<const uint32_t*>(pRef);
+            uint8x8_t s8 = vreinterpret_u8_u32(vset_lane_u32(s4, vdup_n_u32(0), 0));
+            uint8x8_t r8 = vreinterpret_u8_u32(vset_lane_u32(r4, vdup_n_u32(0), 0));
+            acc = vdotq_u32(acc, vabdq_u8(vcombine_u8(s8, vdup_n_u8(0)), vcombine_u8(r8, vdup_n_u8(0))), vOnes);
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return vaddvq_u32(acc);
+    }
+    else
+    {
+        unsigned int sum = 0;
+        for (int y = 0; y < nBlkHeight; ++y)
+        {
+            for (int x = 0; x < nBlkWidth; ++x)
+            {
+                int diff = (int)pSrc[x] - (int)pRef[x];
+                sum += (diff < 0) ? -diff : diff;
+            }
+            pSrc += nSrcPitch;
+            pRef += nRefPitch;
+        }
+        return sum;
+    }
+}
+#endif
+
 // alternative to the external asm sad function. is slower a bit
 template<int nBlkWidth, int nBlkHeight>
 #if defined(GCC) || defined(CLANG)
@@ -42,6 +472,9 @@ __attribute__((__target__("sse2")))
 #endif 
 unsigned int Sad_sse2(const uint8_t* pSrc, int nSrcPitch8, const uint8_t* pRef, int nRefPitch8)
 {
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+  return Sad_neon_v8<nBlkWidth, nBlkHeight>(pSrc, nSrcPitch8, pRef, nRefPitch8);
+#else
   __m128i zero = _mm_setzero_si128();
 
   const int nSrcPitch = nSrcPitch8;
@@ -166,6 +599,7 @@ unsigned int Sad_sse2(const uint8_t* pSrc, int nSrcPitch8, const uint8_t* pRef, 
   acc = _mm_add_epi32(acc, upper);
   auto result = _mm_cvtsi128_si32(acc);
   return result;
+#endif
 }
 #endif
 

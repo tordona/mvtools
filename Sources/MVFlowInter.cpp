@@ -19,6 +19,7 @@
 // http://www.gnu.org/copyleft/gpl.html .
 
 #include "ClipFnc.h"
+#include "cpu.h"
 #include "MVFlowInter.h"
 #include "MaskFun.h"
 #include "MVFinest.h"
@@ -40,7 +41,7 @@ MVFlowInter::MVFlowInter(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, in
 
   time256 = _time256;
   ml = _ml;
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   planar = _planar;
   blend = _blend;
 

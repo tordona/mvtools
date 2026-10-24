@@ -21,6 +21,7 @@
 
 #include "ClipFnc.h"
 #include "commonfunctions.h"
+#include "cpu.h"
 #include "MaskFun.h"
 #include "MVBlockFps.h"
 #include "MVFrame.h"
@@ -52,7 +53,7 @@ MVBlockFps::MVBlockFps(
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse2 ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   numeratorOld = vi.fps_numerator;
   denominatorOld = vi.fps_denominator;
@@ -200,33 +201,46 @@ MVBlockFps::MVBlockFps(
   nPitchY = AlignNumber(nWidthP, 16);
   nPitchUV = AlignNumber(nWidthPUV, 16);
 
-  // PF remark: masks are 8 bits
-  MaskFullYB = new BYTE[nHeightP*nPitchY];
-  MaskFullYF = new BYTE[nHeightP*nPitchY];
-  if (!isGrey) {
-    MaskFullUVB = new BYTE[nHeightPUV*nPitchUV];
-    MaskFullUVF = new BYTE[nHeightPUV*nPitchUV];
-  }
+  // PF remark: masks are 8 bits (only required for modes 3..8)
+  MaskFullYB = nullptr;
+  MaskFullYF = nullptr;
+  MaskFullUVB = nullptr;
+  MaskFullUVF = nullptr;
+  MaskOccY = nullptr;
+  MaskOccUV = nullptr;
+  smallMaskF = nullptr;
+  smallMaskB = nullptr;
+  smallMaskO = nullptr;
+  upsizer = nullptr;
+  upsizerUV = nullptr;
 
-  MaskOccY = new BYTE[nHeightP*nPitchY];
-  if (!isGrey) {
-    MaskOccUV = new BYTE[nHeightPUV*nPitchUV];
-  }
+  if (mode >= 3 && mode <= 8) {
+    MaskFullYB = new BYTE[nHeightP*nPitchY];
+    MaskFullYF = new BYTE[nHeightP*nPitchY];
+    if (!isGrey) {
+      MaskFullUVB = new BYTE[nHeightPUV*nPitchUV];
+      MaskFullUVF = new BYTE[nHeightPUV*nPitchUV];
+    }
+    smallMaskF = new BYTE[nBlkXP*nBlkYP];
+    smallMaskB = new BYTE[nBlkXP*nBlkYP];
 
-  smallMaskF = new BYTE[nBlkXP*nBlkYP];
-  smallMaskB = new BYTE[nBlkXP*nBlkYP];
-  smallMaskO = new BYTE[nBlkXP*nBlkYP];
+    if (mode == 4 || mode == 5 || mode == 7 || mode == 8) {
+      MaskOccY = new BYTE[nHeightP*nPitchY];
+      if (!isGrey) {
+        MaskOccUV = new BYTE[nHeightPUV*nPitchUV];
+      }
+      smallMaskO = new BYTE[nBlkXP*nBlkYP];
+    }
+
+    upsizer = new SimpleResize(nWidthP, nHeightP, nBlkXP, nBlkYP, cpuFlags);
+    if (!isGrey)
+      upsizerUV = new SimpleResize(nWidthPUV, nHeightPUV, nBlkXP, nBlkYP, cpuFlags);
+  }
 
   const int tmpBlkAlign = 16;
 
   nBlkPitch = AlignNumber(nBlkSizeX, tmpBlkAlign); // padded to 16 , 2.5.11.22
   TmpBlock = (BYTE *)_aligned_malloc(nBlkPitch*nBlkSizeY*pixelsize_super, tmpBlkAlign); // new BYTE[nBlkPitch*nBlkSizeY*pixelsize_super]; // may be more padding?
-
-  int CPUF_Resize = env->GetCPUFlags();
-
-  upsizer = new SimpleResize(nWidthP, nHeightP, nBlkXP, nBlkYP, cpuFlags);
-  if (!isGrey)
-    upsizerUV = new SimpleResize(nWidthPUV, nHeightPUV, nBlkXP, nBlkYP, cpuFlags);
 
   if ((pixelType & VideoInfo::CS_YUY2) == VideoInfo::CS_YUY2 && !planar)
   {
@@ -395,11 +409,228 @@ inline pixel_t MEDIAN(pixel_t a, pixel_t b, pixel_t c)
   return m;
 }
 
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+static MV_FORCEINLINE void ResultBlock_Mode0_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+            vst1q_u8(pDst + w, vMca);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+
+            vst1_u8(pDst + w, vmovn_u16(mca_w));
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            pDst[w] = (uint8_t)((pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode1_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+
+            uint8x16_t min_rs = vminq_u8(vRef, vSrc);
+            uint8x16_t max_rs = vmaxq_u8(vRef, vSrc);
+            uint8x16_t vSta   = vminq_u8(vmaxq_u8(vMca, min_rs), max_rs);
+
+            vst1q_u8(pDst + w, vSta);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+            uint8x8_t vMca   = vmovn_u16(mca_w);
+
+            uint8x8_t min_rs = vmin_u8(vRef, vSrc);
+            uint8x8_t max_rs = vmax_u8(vRef, vSrc);
+            uint8x8_t vSta   = vmin_u8(vmax_u8(vMca, min_rs), max_rs);
+
+            vst1_u8(pDst + w, vSta);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int mca = (pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8;
+            int sta = MEDIAN<uint8_t>((uint8_t)pRef[w], pSrc[w], (uint8_t)mca);
+            pDst[w] = (uint8_t)sta;
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode2_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t ref_lo = vmovl_u8(vget_low_u8(vRef));
+            uint16x8_t src_lo = vmovl_u8(vget_low_u8(vSrc));
+            uint16x8_t avg_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_lo, t), src_lo, inv_t), 8);
+
+            uint16x8_t ref_hi = vmovl_u8(vget_high_u8(vRef));
+            uint16x8_t src_hi = vmovl_u8(vget_high_u8(vSrc));
+            uint16x8_t avg_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_hi, t), src_hi, inv_t), 8);
+
+            uint8x16_t vAvg = vcombine_u8(vmovn_u16(avg_lo), vmovn_u16(avg_hi));
+
+            uint8x16_t min_bf = vminq_u8(vMCB, vMCF);
+            uint8x16_t max_bf = vmaxq_u8(vMCB, vMCF);
+            uint8x16_t vDyn   = vminq_u8(vmaxq_u8(vAvg, min_bf), max_bf);
+
+            vst1q_u8(pDst + w, vDyn);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t ref_w = vmovl_u8(vRef);
+            uint16x8_t src_w = vmovl_u8(vSrc);
+            uint16x8_t avg_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_w, t), src_w, inv_t), 8);
+            uint8x8_t vAvg   = vmovn_u16(avg_w);
+
+            uint8x8_t min_bf = vmin_u8(vMCB, vMCF);
+            uint8x8_t max_bf = vmax_u8(vMCB, vMCF);
+            uint8x8_t vDyn   = vmin_u8(vmax_u8(vAvg, min_bf), max_bf);
+
+            vst1_u8(pDst + w, vDyn);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int avg = (pRef[w] * time256 + pSrc[w] * (256 - time256)) >> 8;
+            int dyn = MEDIAN<uint8_t>((uint8_t)avg, pMCB[w], pMCF[w]);
+            pDst[w] = (uint8_t)dyn;
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+#endif
+
 template<typename pixel_t>
 void MVBlockFps::ResultBlock(BYTE *pDst8, int dst_pitch, const BYTE * pMCB8, int MCB_pitch, const BYTE * pMCF8, int MCF_pitch,
   const BYTE * pRef8, int ref_pitch, const BYTE * pSrc8, int src_pitch, BYTE *maskB, int mask_pitch, BYTE *maskF,
   BYTE *pOcc, int nBlkSizeX, int nBlkSizeY, int time256, int mode, int bits_per_pixel)
 {
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+  if constexpr (sizeof(pixel_t) == 1)
+  {
+    if (mode == 2)
+    {
+      ResultBlock_Mode2_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 1)
+    {
+      ResultBlock_Mode1_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 0)
+    {
+      ResultBlock_Mode0_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+  }
+#endif
   pixel_t *pDst = reinterpret_cast<pixel_t *>(pDst8);
   const pixel_t *pMCB = reinterpret_cast<const pixel_t *>(pMCB8);
   const pixel_t *pMCF = reinterpret_cast<const pixel_t *>(pMCF8);
@@ -757,16 +988,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
     pPlanesF[1] = pRefFGOF->GetFrame(0)->GetPlane(UPLANE);
     pPlanesF[2] = pRefFGOF->GetFrame(0)->GetPlane(VPLANE);
 
-    // Masks are 8 bit
-    MemZoneSet(MaskFullYB, 0, nWidthP, nHeightP, 0, 0, nPitchY); // put zeros
-    MemZoneSet(MaskFullYF, 0, nWidthP, nHeightP, 0, 0, nPitchY);
-
     PROFILE_START(MOTION_PROFILE_COMPENSATION);
     int blocks = mvClipB.GetBlkCount();
 
     // int maxoffset = nPitchY*(nHeightP-nBlkSizeY)-nBlkSizeX; not used
 
     if (mode >= 3 && mode <= 8) {
+      // Masks are 8 bit
+      MemZoneSet(MaskFullYB, 0, nWidthP, nHeightP, 0, 0, nPitchY); // put zeros
+      MemZoneSet(MaskFullYF, 0, nWidthP, nHeightP, 0, 0, nPitchY);
 
       PROFILE_START(MOTION_PROFILE_MASK);
       if (mode <= 5)
@@ -920,13 +1150,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
           pSrc[1] += nBlkSizeX_UV * pixelsize_super;
           pSrc[2] += nBlkSizeX_UV * pixelsize_super;
         }
-        pMaskFullYB += nBlkSizeX;
-        pMaskFullYF += nBlkSizeX;
-        pMaskOccY += nBlkSizeX;
-        if (!isGrey) {
-          pMaskFullUVB += nBlkSizeX_UV;
-          pMaskFullUVF += nBlkSizeX_UV;
-          pMaskOccUV += nBlkSizeX_UV;
+        if (mode >= 3) {
+          pMaskFullYB += nBlkSizeX;
+          pMaskFullYF += nBlkSizeX;
+          if (pMaskOccY) pMaskOccY += nBlkSizeX;
+          if (!isGrey) {
+            pMaskFullUVB += nBlkSizeX_UV;
+            pMaskFullUVF += nBlkSizeX_UV;
+            if (pMaskOccUV) pMaskOccUV += nBlkSizeX_UV;
+          }
         }
 
         if (!((i + 1) % nBlkX))
@@ -964,13 +1196,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
             pSrc[1] += nBlkSizeY_UV * nSrcPitches[1] - nBlkSizeX_UV * nBlkX*pixelsize_super;
             pSrc[2] += nBlkSizeY_UV * nSrcPitches[2] - nBlkSizeX_UV * nBlkX*pixelsize_super;
           }
-          pMaskFullYB  += nBlkSizeY    * nPitchY  - nBlkSizeX    *nBlkX;
-          pMaskFullYF += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
-          pMaskOccY += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
-          if (!isGrey) {
-            pMaskFullUVB += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
-            pMaskFullUVF += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
-            pMaskOccUV += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+          if (mode >= 3) {
+            pMaskFullYB += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
+            pMaskFullYF += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
+            if (pMaskOccY) pMaskOccY += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
+            if (!isGrey) {
+              pMaskFullUVB += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+              pMaskFullUVF += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+              if (pMaskOccUV) pMaskOccUV += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+            }
           }
         }
       }
@@ -1112,6 +1346,8 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
             if (needProcessPlanes[p]) {
               int current_xx;
               if (p == 0) current_xx = xx; else current_xx = xxUV;
+              const int mask_xx = (mode >= 3) ? current_xx : 0;
+              const int occ_xx = (pMaskOccY != nullptr) ? current_xx : 0;
               if (pixelsize_super == 1) {
                 ResultBlock<uint8_t>(TmpBlock, nBlkPitch*pixelsize_super,
                   pPlanesB[p]->GetPointer(p == 0 ? refxB : refxB >> nLogxRatioUVs[1], p == 0 ? refyB : refyB >> nLogyRatioUVs[1]),
@@ -1120,10 +1356,10 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
                   pPlanesF[p]->GetPitch(),
                   pRef[p] + current_xx*pixelsize_super, nRefPitches[p],
                   pSrc[p] + current_xx*pixelsize_super, nSrcPitches[p],
-                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + current_xx,
+                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + mask_xx,
                   (p == 0 ? nPitchY : nPitchUV),
-                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + current_xx,
-                  (p == 0 ? pMaskOccY : pMaskOccUV) + current_xx,
+                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + mask_xx,
+                  (p == 0 ? pMaskOccY : pMaskOccUV) + occ_xx,
                   (p == 0 ? nBlkSizeX : nBlkSizeX_UV),
                   (p == 0 ? nBlkSizeY : nBlkSizeY_UV),
                   time256, mode, bits_per_pixel_super);
@@ -1142,10 +1378,10 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
                   pPlanesF[p]->GetPitch(),
                   pRef[p] + current_xx*pixelsize_super, nRefPitches[p],
                   pSrc[p] + current_xx*pixelsize_super, nSrcPitches[p],
-                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + current_xx,
+                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + mask_xx,
                   (p == 0 ? nPitchY : nPitchUV),
-                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + current_xx,
-                  (p == 0 ? pMaskOccY : pMaskOccUV) + current_xx,
+                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + mask_xx,
+                  (p == 0 ? pMaskOccY : pMaskOccUV) + occ_xx,
                   (p == 0 ? nBlkSizeX : nBlkSizeX_UV),
                   (p == 0 ? nBlkSizeY : nBlkSizeY_UV),
                   time256, mode, bits_per_pixel_super);
@@ -1164,10 +1400,10 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
                   pPlanesF[p]->GetPitch(),
                   pRef[p] + current_xx * pixelsize_super, nRefPitches[p],
                   pSrc[p] + current_xx * pixelsize_super, nSrcPitches[p],
-                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + current_xx,
+                  (p == 0 ? pMaskFullYB : pMaskFullUVB) + mask_xx,
                   (p == 0 ? nPitchY : nPitchUV),
-                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + current_xx,
-                  (p == 0 ? pMaskOccY : pMaskOccUV) + current_xx,
+                  (p == 0 ? pMaskFullYF : pMaskFullUVF) + mask_xx,
+                  (p == 0 ? pMaskOccY : pMaskOccUV) + occ_xx,
                   (p == 0 ? nBlkSizeX : nBlkSizeX_UV),
                   (p == 0 ? nBlkSizeY : nBlkSizeY_UV),
                   time256, mode, bits_per_pixel_super);
@@ -1202,30 +1438,51 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
           pSrc[1] += nSrcPitches[1] * nBlkSizeYOverlapDiff_UV;
           pSrc[2] += nSrcPitches[2] * nBlkSizeYOverlapDiff_UV;
         }
-        pMaskFullYB += nPitchY*nBlkSizeYOverlapDiff;
-        pMaskFullYF += nPitchY * nBlkSizeYOverlapDiff;
-        pMaskOccY += nPitchY * nBlkSizeYOverlapDiff;
-        if (!isGrey) {
-          pMaskFullUVB += nPitchUV * nBlkSizeYOverlapDiff_UV;
-          pMaskFullUVF += nPitchUV * nBlkSizeYOverlapDiff_UV;
-          pMaskOccUV += nPitchUV * nBlkSizeYOverlapDiff_UV;
+        if (mode >= 3) {
+          pMaskFullYB += nPitchY * nBlkSizeYOverlapDiff;
+          pMaskFullYF += nPitchY * nBlkSizeYOverlapDiff;
+          if (pMaskOccY) pMaskOccY += nPitchY * nBlkSizeYOverlapDiff;
+          if (!isGrey) {
+            pMaskFullUVB += nPitchUV * nBlkSizeYOverlapDiff_UV;
+            pMaskFullUVF += nPitchUV * nBlkSizeYOverlapDiff_UV;
+            if (pMaskOccUV) pMaskOccUV += nPitchUV * nBlkSizeYOverlapDiff_UV;
+          }
         }
       }  // for by
         // post 2.5.1.22 bug: the copy from internal 16 bit array to destination was missing for overlaps!
       if (pixelsize_super == 1) {
         // nWidth_B and nHeight_B, right and bottom was blended
-        Short2Bytes(pDstSave[0], nDstPitches[0], DstShort, dstShortPitch, nWidth_B, nHeight_B);
+        const bool use_sse2_y = (cpuFlags & CPUF_SSE2) != 0 && IsPtrAligned(pDstSave[0], 16) && (nDstPitches[0] % 16 == 0);
+        if (use_sse2_y)
+          Short2Bytes_sse2(pDstSave[0], nDstPitches[0], DstShort, dstShortPitch, nWidth_B, nHeight_B);
+        else
+          Short2Bytes(pDstSave[0], nDstPitches[0], DstShort, dstShortPitch, nWidth_B, nHeight_B);
         if (!isGrey) {
-          Short2Bytes(pDstSave[1], nDstPitches[1], DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
-          Short2Bytes(pDstSave[2], nDstPitches[2], DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
+          if ((cpuFlags & CPUF_SSE2) != 0 && IsPtrAligned(pDstSave[1], 16) && IsPtrAligned(pDstSave[2], 16) && (nDstPitches[1] % 16 == 0) && (nDstPitches[2] % 16 == 0)) {
+            Short2Bytes_sse2(pDstSave[1], nDstPitches[1], DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
+            Short2Bytes_sse2(pDstSave[2], nDstPitches[2], DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
+          }
+          else {
+            Short2Bytes(pDstSave[1], nDstPitches[1], DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
+            Short2Bytes(pDstSave[2], nDstPitches[2], DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV);
+          }
         }
       }
       else if (pixelsize_super == 2)
       {
-        Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[0]), nDstPitches[0], (int *)DstShort, dstShortPitch, nWidth_B, nHeight_B, bits_per_pixel_super);
+        if ((cpuFlags & CPUF_SSE4_1) != 0 && (nWidth_B % 8 == 0) && IsPtrAligned(pDstSave[0], 16) && (nDstPitches[0] % 16 == 0))
+          Short2Bytes_Int32toWord16_sse4((uint16_t *)(pDstSave[0]), nDstPitches[0], (int *)DstShort, dstShortPitch, nWidth_B, nHeight_B, bits_per_pixel_super);
+        else
+          Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[0]), nDstPitches[0], (int *)DstShort, dstShortPitch, nWidth_B, nHeight_B, bits_per_pixel_super);
         if (!isGrey) {
-          Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[1]), nDstPitches[1], (int *)DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
-          Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[2]), nDstPitches[2], (int *)DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
+          if ((cpuFlags & CPUF_SSE4_1) != 0 && (nWidth_B_UV % 8 == 0) && IsPtrAligned(pDstSave[1], 16) && IsPtrAligned(pDstSave[2], 16) && (nDstPitches[1] % 16 == 0) && (nDstPitches[2] % 16 == 0)) {
+            Short2Bytes_Int32toWord16_sse4((uint16_t *)(pDstSave[1]), nDstPitches[1], (int *)DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
+            Short2Bytes_Int32toWord16_sse4((uint16_t *)(pDstSave[2]), nDstPitches[2], (int *)DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
+          }
+          else {
+            Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[1]), nDstPitches[1], (int *)DstShortU, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
+            Short2Bytes_Int32toWord16((uint16_t *)(pDstSave[2]), nDstPitches[2], (int *)DstShortV, dstShortPitchUV, nWidth_B_UV, nHeight_B_UV, bits_per_pixel_super);
+          }
         }
       }
       else if (pixelsize_super == 4)

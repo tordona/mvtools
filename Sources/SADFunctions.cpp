@@ -828,6 +828,12 @@ MAKE_SAD_FN(4, 1)
 // define external asm routines for 8 bit later
 #define MAKE_SAD_FN(x, y) \
 func_sad[make_tuple(x, y, 16, USE_SSE2)] = Sad16_sse2_##x##xN<y>;
+#elif defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+// ARM64 native NEON: USE_SSE2 -> ARMv8.0 vertical uabal, USE_SSE41 -> ARMv8.2+ udot
+#define MAKE_SAD_FN(x, y) \
+func_sad[make_tuple(x, y, 16, USE_SSE2)] = Sad16_sse2_##x##xN<y>; \
+func_sad[make_tuple(x, y, 8, USE_SSE2)] = Sad_sse2<x,y>; \
+func_sad[make_tuple(x, y, 8, USE_SSE41)] = Sad_neon_dotprod<x,y>;
 #else
 // no external asm for 8 bit, sse2 implemented as intrinsics
 #define MAKE_SAD_FN(x, y) \
