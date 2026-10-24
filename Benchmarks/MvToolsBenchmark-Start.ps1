@@ -1857,19 +1857,95 @@ function Get-AvailableAviSynthProfiles {
 }
 
 # ---------------------------------------------------------
-# HELPER: Ensure AviSynth Profiles (Auto-downloads release if missing)
+# HELPER: Download AviSynth Profiles Directly from GitHub Repository Tree
+# ---------------------------------------------------------
+function Install-AviSynthProfilesFromRepo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetDir,
+        [string]$RepoSlug = "tordona/mvtools",
+        [string]$Branch = "mvtools_d3d12"
+    )
+
+    if (-not (Test-Path $TargetDir)) {
+        New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+    }
+
+    $apiUrl = "https://api.github.com/repos/$RepoSlug/contents/AviSynth?ref=$Branch"
+    $uaVersion = if ($Script:HarnessVersion) { $Script:HarnessVersion } else { "2.3.0" }
+    $headers = @{
+        "User-Agent" = "MvToolsBenchmarkHarness/$uaVersion"
+        "Accept"     = "application/vnd.github.v3+json"
+    }
+
+    $fileItems = @()
+    try {
+        $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        if ($response -is [array]) {
+            $fileItems = $response | Where-Object { $_.type -eq "file" -and $_.name -like "*.avs" }
+        }
+    } catch {
+        Write-Host "  -> GitHub API notice: $($_.Exception.Message). Falling back to direct raw file acquisition..." -ForegroundColor Gray
+    }
+
+    # If GitHub API was rate limited or empty, fallback to canonical profile manifest
+    if (-not $fileItems -or $fileItems.Count -eq 0) {
+        $canonicalProfiles = @(
+            "Generic-x64-Eco.avs", "Generic-x64-Balanced.avs", "Generic-x64-MaxQuality.avs",
+            "Snapdragon-X-Plus-Eco.avs", "Snapdragon-X-Plus-Balanced.avs", "Snapdragon-X-Plus-MaxQuality.avs",
+            "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
+            "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
+            "Snapdragon-8cxGen1-Eco.avs", "Snapdragon-8cxGen1-Balanced.avs", "Snapdragon-8cxGen1-MaxQuality.avs",
+            "Snapdragon-850-Eco.avs", "Snapdragon-850-Balanced.avs", "Snapdragon-850-MaxQuality.avs",
+            "Snapdragon-7cGen2-Eco.avs", "Snapdragon-7cGen2-Balanced.avs", "Snapdragon-7cGen2-MaxQuality.avs"
+        )
+        $fileItems = $canonicalProfiles | ForEach-Object {
+            [PSCustomObject]@{
+                name         = $_
+                download_url = "https://raw.githubusercontent.com/$RepoSlug/$Branch/AviSynth/$_"
+            }
+        }
+    }
+
+    $count = $fileItems.Count
+    if (-not (Confirm-DownloadPermission -ItemName "AviSynth Benchmark Profiles ($count profiles from $RepoSlug)" -SourceUrl "https://github.com/$RepoSlug/tree/$Branch/AviSynth" -TargetDir $TargetDir -SizeDesc "~100 KB")) {
+        return 0
+    }
+
+    Write-Host "  -> Downloading $count AviSynth profile(s) from $RepoSlug ($Branch)..." -ForegroundColor Cyan
+    $downloadSuccessCount = 0
+
+    $webClient = New-Object System.Net.WebClient
+    try {
+        foreach ($f in $fileItems) {
+            $destFile = Join-Path $TargetDir $f.name
+            $url = if ($f.download_url) { $f.download_url } else { "https://raw.githubusercontent.com/$RepoSlug/$Branch/AviSynth/$($f.name)" }
+            try {
+                $webClient.DownloadFile($url, $destFile)
+                if (Test-Path $destFile) {
+                    $downloadSuccessCount++
+                }
+            } catch {
+                Write-Host "     [WARNING] Failed to download $($f.name): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+    } finally {
+        $webClient.Dispose()
+    }
+
+    return $downloadSuccessCount
+}
+
+# ---------------------------------------------------------
+# HELPER: Ensure AviSynth Profiles (Directly downloads from tordona/mvtools AviSynth/ tree)
 # ---------------------------------------------------------
 function Ensure-AviSynthProfiles {
     param(
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = ""
+        [string]$MvToolsRepo = "tordona/mvtools",
+        [string]$ProfileBranch = "mvtools_d3d12"
     )
-
-    if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
-        $targetArch = Get-TargetBinaryArchitecture
-        $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
-    }
 
     $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
     if ($profiles -and $profiles.Count -gt 0) {
@@ -1878,10 +1954,28 @@ function Ensure-AviSynthProfiles {
 
     Write-Host "`n[MISSING COMPONENT] No .avs profiles found in AviSynth directory!" -ForegroundColor Yellow
     Write-Host "AviSynth benchmark profiles are required for hardware detection and test execution." -ForegroundColor Gray
-    Write-Host "Attempting automated acquisition of official release package from GitHub ($MvToolsRepo)..." -ForegroundColor Cyan
+    Write-Host "Downloading latest profiles directly from GitHub (tordona/mvtools/tree/$ProfileBranch/AviSynth)..." -ForegroundColor Cyan
 
-    $deployTarget = if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) { $ScriptDir } else { "." }
-    $null = Install-MvToolsRelease -TargetDir $deployTarget -RepoSlug $MvToolsRepo
+    $deployTarget = if (-not [string]::IsNullOrWhiteSpace($ScriptDir)) { 
+        Join-Path $ScriptDir "AviSynth"
+    } elseif (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        Join-Path $RepoRoot "AviSynth"
+    } else { 
+        ".\AviSynth" 
+    }
+
+    $downloaded = Install-AviSynthProfilesFromRepo -TargetDir $deployTarget -RepoSlug "tordona/mvtools" -Branch $ProfileBranch
+    if ($downloaded -gt 0) {
+        Write-Host "  -> Successfully deployed $downloaded AviSynth profile(s) to: $deployTarget" -ForegroundColor Green
+        # Mirror to RepoRoot\AviSynth if separate
+        if (-not [string]::IsNullOrWhiteSpace($RepoRoot) -and (Test-Path $RepoRoot)) {
+            $altTarget = Join-Path $RepoRoot "AviSynth"
+            if ($altTarget -ne $deployTarget) {
+                if (-not (Test-Path $altTarget)) { New-Item -ItemType Directory -Path $altTarget -Force | Out-Null }
+                Copy-Item -Path (Join-Path $deployTarget "*.avs") -Destination $altTarget -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 
     $profiles = Get-AvailableAviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir
     if (-not $profiles -or $profiles.Count -eq 0) {
