@@ -1811,49 +1811,50 @@ function Get-AvailableAviSynthProfiles {
         $candidateDirs += (Join-Path $ScriptDir "..\Release\AviSynth")
     }
     $candidateDirs += @(".\AviSynth", "..\AviSynth", "..\Release\AviSynth")
+    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+        $candidateDirs += (Join-Path $env:ProgramFiles "DAUM\PotPlayer\AviSynth")
+    }
 
-    $foundDir = $null
+    $seenNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $profiles = @()
+
     foreach ($d in ($candidateDirs | Select-Object -Unique)) {
         if (-not [string]::IsNullOrWhiteSpace($d) -and (Test-Path $d)) {
             $checkFiles = Get-ChildItem -Path $d -Filter "*.avs" -ErrorAction SilentlyContinue
-            if ($checkFiles -and $checkFiles.Count -gt 0) {
-                $foundDir = $d
-                break
+            if ($checkFiles) {
+                foreach ($f in $checkFiles) {
+                    if ($seenNames.Add($f.Name)) {
+                        $content = Get-Content $f.FullName -Raw
+                        $supportGpu = $content -match '(?i)USE_GPU'
+                        $tier = if ($f.Name -match '(?i)Eco') { "Eco" }
+                                elseif ($f.Name -match '(?i)MaxQuality|Quality') { "MaxQuality" }
+                                elseif ($f.Name -match '(?i)Balanced') { "Balanced" }
+                                else { "Custom" }
+
+                        $platform = $f.Name -replace '(?i)[-_](Balanced|Eco|MaxQuality|Custom)\.avs$', ''
+                        if ($platform -ieq $f.Name) {
+                            $platform = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+                        }
+
+                        $hwDesc = ""
+                        if ($content -match '(?m)^\s*#\s*Hardware:\s*(.+)$') {
+                            $hwDesc = $Matches[1].Trim()
+                        }
+
+                        $profiles += [PSCustomObject]@{
+                            Name         = $f.Name
+                            FullName     = $f.FullName
+                            Platform     = $platform
+                            Tier         = $tier
+                            SupportsGpu  = $supportGpu
+                            HardwareDesc = $hwDesc
+                        }
+                    }
+                }
             }
         }
     }
-    if (-not $foundDir) { return @() }
-
-    $files = Get-ChildItem -Path $foundDir -Filter "*.avs" | Sort-Object Name
-    $profiles = @()
-    foreach ($f in $files) {
-        $content = Get-Content $f.FullName -Raw
-        $supportGpu = $content -match '(?i)USE_GPU'
-        $tier = if ($f.Name -match '(?i)Eco') { "Eco" }
-                elseif ($f.Name -match '(?i)MaxQuality|Quality') { "MaxQuality" }
-                elseif ($f.Name -match '(?i)Balanced') { "Balanced" }
-                else { "Custom" }
-
-        $platform = $f.Name -replace '(?i)[-_](Balanced|Eco|MaxQuality|Custom)\.avs$', ''
-        if ($platform -ieq $f.Name) {
-            $platform = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-        }
-
-        $hwDesc = ""
-        if ($content -match '(?m)^\s*#\s*Hardware:\s*(.+)$') {
-            $hwDesc = $Matches[1].Trim()
-        }
-
-        $profiles += [PSCustomObject]@{
-            Name         = $f.Name
-            FullName     = $f.FullName
-            Platform     = $platform
-            Tier         = $tier
-            SupportsGpu  = $supportGpu
-            HardwareDesc = $hwDesc
-        }
-    }
-    return $profiles
+    return ($profiles | Sort-Object Name)
 }
 
 # ---------------------------------------------------------
@@ -2225,20 +2226,25 @@ function Install-MvToolsToPotPlayer {
     }
     $avsSourceDirs = @(
         (Join-Path $RepoRoot "AviSynth"),
-        (Join-Path $ScriptDir "AviSynth")
+        (Join-Path $ScriptDir "AviSynth"),
+        ".\AviSynth",
+        "..\AviSynth",
+        "..\Release\AviSynth"
     )
     $avsCount = 0
-    foreach ($avsSrc in $avsSourceDirs) {
+    $deployedProfiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($avsSrc in ($avsSourceDirs | Select-Object -Unique)) {
         if (Test-Path $avsSrc) {
             $profiles = Get-ChildItem -Path $avsSrc -Filter "*.avs" -ErrorAction SilentlyContinue
             if ($profiles -and $profiles.Count -gt 0) {
                 foreach ($p in $profiles) {
-                    try {
-                        Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
-                        $avsCount++
-                    } catch {}
+                    if ($deployedProfiles.Add($p.Name)) {
+                        try {
+                            Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
+                            $avsCount++
+                        } catch {}
+                    }
                 }
-                break
             }
         }
     }
@@ -2247,17 +2253,18 @@ function Install-MvToolsToPotPlayer {
     if ($avsCount -eq 0) {
         Write-Host "  -> No .avs profiles found in local directories. Ensuring profiles via release download..." -ForegroundColor Cyan
         $null = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
-        foreach ($avsSrc in $avsSourceDirs) {
+        foreach ($avsSrc in ($avsSourceDirs | Select-Object -Unique)) {
             if (Test-Path $avsSrc) {
                 $profiles = Get-ChildItem -Path $avsSrc -Filter "*.avs" -ErrorAction SilentlyContinue
                 if ($profiles -and $profiles.Count -gt 0) {
                     foreach ($p in $profiles) {
-                        try {
-                            Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
-                            $avsCount++
-                        } catch {}
+                        if ($deployedProfiles.Add($p.Name)) {
+                            try {
+                                Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force -ErrorAction Stop
+                                $avsCount++
+                            } catch {}
+                        }
                     }
-                    break
                 }
             }
         }
@@ -2277,11 +2284,12 @@ function Get-SystemPlatformRecommendation {
     param(
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
-        [string]$MvToolsRepo = ""
+        [string]$MvToolsRepo = "",
+        [string]$TargetPotPlayerDir = ""
     )
 
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
     if ([string]::IsNullOrWhiteSpace($MvToolsRepo)) {
-        $targetArch = Get-TargetBinaryArchitecture
         $MvToolsRepo = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
     }
     $cpuName = ""
@@ -2298,38 +2306,11 @@ function Get-SystemPlatformRecommendation {
     $combined = "$cpuName $gpuName"
     $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
 
-    # Baseline hardware detection rules
-    $platform = "Snapdragon-X-Plus"
-    $platformLabel = "Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)"
-
-    if ($combined -match '(?i)X\s*Plus|X1P') {
-        $platform = "Snapdragon-X-Plus"
-        $platformLabel = "Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)"
-    } elseif ($combined -match '(?i)X\s*Elite|X1E') {
-        # Dynamically check if dedicated X-Elite profiles exist in AviSynth/
-        $hasElite = $profiles | Where-Object { $_.Platform -match '(?i)X[-_]?Elite' } | Select-Object -First 1
-        $platform = if ($hasElite) { $hasElite.Platform } else { "Snapdragon-X-Plus" }
-        $platformLabel = "Snapdragon X Elite (Qualcomm Oryon CPU, Adreno X1 GPU)"
-    } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|8180X') {
-        $platform = "Snapdragon-8cxGen3"
-        $platformLabel = "Snapdragon 8cx Gen 3 (Kryo Cortex-X1/A78, Adreno 690)"
-    } elseif ($combined -match '(?i)8cx\s*Gen\s*2|SQ2') {
-        $platform = "Snapdragon-8cxGen2"
-        $platformLabel = "Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)"
-    } elseif ($combined -match '(?i)8cx|SQ1') {
-        $platform = "Snapdragon-8cxGen1"
-        $platformLabel = "Snapdragon 8cx Gen 1 / SQ1 (Kryo 495, Adreno 675)"
-    } elseif ($combined -match '(?i)850|SD850') {
-        $platform = "Snapdragon-850"
-        $platformLabel = "Snapdragon 850 (Kryo 385, Adreno 630)"
-    } elseif ($combined -match '(?i)7c') {
-        $platform = "Snapdragon-7cGen2"
-        $platformLabel = "Snapdragon 7c Gen 2 (Kryo 468, Adreno 618)"
-    } else {
-        # Dynamic discovery for new or unlisted hardware profiles
-        # Match against profile platform names or embedded '# Hardware:' docstrings
+    if ($targetArch -eq "x64") {
+        # Dynamic discovery for specific x64 hardware profiles (RyzenAI, Intel, etc.)
         $matchedProfile = $null
         foreach ($p in $profiles) {
+            if ($p.Platform -like "Generic-x64*" -or $p.Platform -like "Snapdragon*") { continue }
             $platToken = $p.Platform -replace '(?i)^Snapdragon[-_]?', ''
             if (-not [string]::IsNullOrWhiteSpace($platToken) -and $combined -match [regex]::Escape($platToken)) {
                 $matchedProfile = $p
@@ -2344,10 +2325,51 @@ function Get-SystemPlatformRecommendation {
             $platform = $matchedProfile.Platform
             $platformLabel = if ($matchedProfile.HardwareDesc) { $matchedProfile.HardwareDesc } else { "$($matchedProfile.Platform) ($cpuName)" }
         } else {
-            $hostArch = Get-TargetBinaryArchitecture
-            if ($hostArch -eq "x64") {
-                $platform = "Generic-x64"
-                $platformLabel = "Generic x86-64 ($cpuName, $gpuName)"
+            $platform = "Generic-x64"
+            $platformLabel = "Generic x86-64 ($cpuName, $gpuName)"
+        }
+    } else {
+        # Baseline ARM64 hardware detection rules
+        if ($combined -match '(?i)X\s*Plus|X1P') {
+            $platform = "Snapdragon-X-Plus"
+            $platformLabel = "Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)"
+        } elseif ($combined -match '(?i)X\s*Elite|X1E') {
+            # Dynamically check if dedicated X-Elite profiles exist in AviSynth/
+            $hasElite = $profiles | Where-Object { $_.Platform -match '(?i)X[-_]?Elite' } | Select-Object -First 1
+            $platform = if ($hasElite) { $hasElite.Platform } else { "Snapdragon-X-Plus" }
+            $platformLabel = "Snapdragon X Elite (Qualcomm Oryon CPU, Adreno X1 GPU)"
+        } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|8180X') {
+            $platform = "Snapdragon-8cxGen3"
+            $platformLabel = "Snapdragon 8cx Gen 3 (Kryo Cortex-X1/A78, Adreno 690)"
+        } elseif ($combined -match '(?i)8cx\s*Gen\s*2|SQ2') {
+            $platform = "Snapdragon-8cxGen2"
+            $platformLabel = "Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)"
+        } elseif ($combined -match '(?i)8cx|SQ1') {
+            $platform = "Snapdragon-8cxGen1"
+            $platformLabel = "Snapdragon 8cx Gen 1 / SQ1 (Kryo 495, Adreno 675)"
+        } elseif ($combined -match '(?i)850|SD850') {
+            $platform = "Snapdragon-850"
+            $platformLabel = "Snapdragon 850 (Kryo 385, Adreno 630)"
+        } elseif ($combined -match '(?i)\b7c\b') {
+            $platform = "Snapdragon-7cGen2"
+            $platformLabel = "Snapdragon 7c Gen 2 (Kryo 468, Adreno 618)"
+        } else {
+            # Dynamic discovery for new or unlisted ARM64 hardware profiles
+            $matchedProfile = $null
+            foreach ($p in $profiles) {
+                $platToken = $p.Platform -replace '(?i)^Snapdragon[-_]?', ''
+                if (-not [string]::IsNullOrWhiteSpace($platToken) -and $combined -match [regex]::Escape($platToken)) {
+                    $matchedProfile = $p
+                    break
+                }
+                if ($p.HardwareDesc -and ($combined -match [regex]::Escape($p.HardwareDesc) -or $p.HardwareDesc -match [regex]::Escape($cpuName))) {
+                    $matchedProfile = $p
+                    break
+                }
+            }
+            if ($matchedProfile) {
+                $platform = $matchedProfile.Platform
+                $platformLabel = if ($matchedProfile.HardwareDesc) { $matchedProfile.HardwareDesc } else { "$($matchedProfile.Platform) ($cpuName)" }
             } else {
                 $platform = "Snapdragon-X-Plus"
                 $platformLabel = "Generic ARM64 ($cpuName $gpuName)"
@@ -2419,7 +2441,11 @@ function Resolve-AviSynthProfilePath {
         $match = $profiles | Where-Object { $_.Name -ieq $InputProfile -or $_.Name -ieq "$InputProfile.avs" } | Select-Object -First 1
         if ($match) { return $match.FullName }
 
-        # 5. Partial name substring match
+        # 5. Partial name substring match (prioritizing current platform if available)
+        if (-not [string]::IsNullOrWhiteSpace($PlatformKey)) {
+            $match = $profiles | Where-Object { $_.Platform -ieq $PlatformKey -and $_.Name -like "*$InputProfile*" } | Select-Object -First 1
+            if ($match) { return $match.FullName }
+        }
         $match = $profiles | Where-Object { $_.Name -like "*$InputProfile*" } | Select-Object -First 1
         if ($match) { return $match.FullName }
     }
@@ -3565,7 +3591,7 @@ Confirm-StorageMediaSuitability -Paths @($VideoFullPath) -BypassPrompt:$IgnoreUs
 # ---------------------------------------------------------
 # HARDWARE DETECTION & PROFILE / GPU MODE SELECTION
 # ---------------------------------------------------------
-$PlatformRec = Get-SystemPlatformRecommendation -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo
+$PlatformRec = Get-SystemPlatformRecommendation -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -TargetPotPlayerDir $TargetPotPlayerDir
 
 $ChosenProfilePath = $null
 $ChosenGpuMode = $GpuMode

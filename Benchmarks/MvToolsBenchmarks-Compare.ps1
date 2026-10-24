@@ -50,6 +50,12 @@ param(
     [string]$FilterPlatform = "",
 
     [Parameter(Mandatory = $false)]
+    [string]$PotPlayerDir = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$MvToolsRepo = "",
+
+    [Parameter(Mandatory = $false)]
     [Alias("IgnoreMemoryWarning")]
     [switch]$IgnoreRamWarning,
 
@@ -121,10 +127,16 @@ if ($RunMatrix) {
             Write-Host " [$RunIndex/$TotalRuns] Running Permutation: Tier = $tier | Mode = $mode" -ForegroundColor Yellow
             Write-Host "--------------------------------------------------------" -ForegroundColor Yellow
 
+            $profileArg = if (-not [string]::IsNullOrWhiteSpace($FilterPlatform)) {
+                "$FilterPlatform-$tier"
+            } else {
+                "$tier"
+            }
+
             $ArgsList = @(
                 "-ExecutionPolicy", "Bypass",
                 "-File", "$BenchmarkScript",
-                "-Profile", "$tier",
+                "-Profile", "$profileArg",
                 "-GpuMode", "$mode",
                 "-TestDurationSeconds", "$DurationSeconds",
                 "-WarmupSeconds", "$WarmupSeconds",
@@ -155,6 +167,12 @@ if ($RunMatrix) {
             }
             if ($SkipVideoChecksum) {
                 $ArgsList += "-SkipVideoChecksum"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir)) {
+                $ArgsList += @("-PotPlayerDir", "$PotPlayerDir")
+            }
+            if (-not [string]::IsNullOrWhiteSpace($MvToolsRepo)) {
+                $ArgsList += @("-MvToolsRepo", "$MvToolsRepo")
             }
 
             $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
@@ -192,7 +210,13 @@ function Get-BenchmarkReportData([string]$FilePath) {
             else { "Custom" }
 
     # Parse Mode
-    $modeShort = if ($engine -match '(?i)GPU|D3D12') { "D3D12 GPU" } else { "CPU NEON" }
+    $modeShort = if ($engine -match '(?i)GPU|D3D12') {
+        "D3D12 GPU"
+    } elseif ($engine -match '(?i)x64|SIMD|AVX|SSE') {
+        "CPU SIMD"
+    } else {
+        "CPU NEON"
+    }
 
     # PresentMon Metrics
     $avgFps = if ($raw -match '(?m)^\s*-\s*Average Frame Rate:\s*([\d\.]+)\s*fps') { [double]$Matches[1] } else { 0.0 }
@@ -375,7 +399,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
     $TierIndex = 1
     foreach ($tier in $TiersPresent) {
         $tierRows = $Entries | Where-Object { $_.Tier -eq $tier }
-        $cpuRow = $tierRows | Where-Object { $_.ModeShort -eq "CPU NEON" } | Select-Object -First 1
+        $cpuRow = $tierRows | Where-Object { $_.ModeShort -like "CPU*" } | Select-Object -First 1
         $gpuRow = $tierRows | Where-Object { $_.ModeShort -eq "D3D12 GPU" } | Select-Object -First 1
         $sampleRow = if ($cpuRow) { $cpuRow } else { $gpuRow }
 
@@ -462,7 +486,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **$platformName**. **$($lowestCpu.Tier)** minimized CPU compute load ($($lowestCpu.AvgCpuPct.ToString('N1'))%), while **$($bestPacing.Tier)** delivered the smoothest frame consistency ($($bestPacing.Low1PctFps.ToString('N2')) FPS 1% low)."
     }
 
-    $hasBothEngines = ($Entries | Where-Object { $_.ModeShort -eq "CPU NEON" }).Count -gt 0 -and ($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
+    $hasBothEngines = ($Entries | Where-Object { $_.ModeShort -like "CPU*" }).Count -gt 0 -and ($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
     if ($hasBothEngines) {
         $Lines += "- **Compute Engine Trade-Off:** ARM64 CPU NEON remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the Adreno GPU compute shaders, freeing CPU headroom for background multi-tasking."
     }
@@ -530,7 +554,7 @@ foreach ($item in $AllData) {
 }
 
 $TierOrder = @{ "Eco" = 1; "Balanced" = 2; "MaxQuality" = 3; "Custom" = 4 }
-$ModeOrder = @{ "CPU NEON" = 1; "D3D12 GPU" = 2 }
+$ModeOrder = @{ "CPU NEON" = 1; "CPU SIMD" = 1; "D3D12 GPU" = 2 }
 
 $AllExportedPlatforms = [ordered]@{}
 
@@ -592,7 +616,7 @@ foreach ($pk in $PlatformGroups.Keys) {
                       elseif ($cleanTiers -and $cleanTiers.Count -gt 0) { $cleanTiers[0] }
                       elseif ($hasVsyncDriftGroup) { "Balanced" }
                       else { "Eco" }
-    $recRow = $SortedEntries | Where-Object { $_.Tier -eq $recConsoleTier -and $_.ModeShort -eq "CPU NEON" } | Select-Object -First 1
+    $recRow = $SortedEntries | Where-Object { $_.Tier -eq $recConsoleTier -and $_.ModeShort -like "CPU*" } | Select-Object -First 1
     if (-not $recRow) { $recRow = $SortedEntries | Where-Object { $_.Tier -eq $recConsoleTier } | Select-Object -First 1 }
 
     if ($recRow) {
@@ -710,7 +734,7 @@ if ($PlatformGroups.Count -gt 1) {
         $platName = if ($pEntries[0].Platform) { $pEntries[0].Platform } else { $pk }
         $isPlatConstrained = ($pEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
         $platDisplay = if ($isPlatConstrained) { "$platName *(Memory-Constrained)*" } else { $platName }
-        $balCpu = $pEntries | Where-Object { $_.Tier -eq "Balanced" -and $_.ModeShort -eq "CPU NEON" } | Select-Object -First 1
+        $balCpu = $pEntries | Where-Object { $_.Tier -eq "Balanced" -and $_.ModeShort -like "CPU*" } | Select-Object -First 1
         $balGpu = $pEntries | Where-Object { $_.Tier -eq "Balanced" -and $_.ModeShort -eq "D3D12 GPU" } | Select-Object -First 1
 
         if ($balCpu) {
