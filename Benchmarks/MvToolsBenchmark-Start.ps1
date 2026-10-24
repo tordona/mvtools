@@ -671,6 +671,108 @@ function Confirm-DownloadPermission {
 }
 
 # ---------------------------------------------------------
+# HELPER: Discover Existing 7-Zip CLI Extractor (7z.exe / 7za.exe)
+# ---------------------------------------------------------
+function Find-7ZipExtractor {
+    param([string]$TargetPotPlayerDir = "")
+
+    $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
+
+    $searchCandidates = @(
+        (Get-Command 7z -ErrorAction SilentlyContinue | Select-Object -First 1).Source,
+        (Get-Command 7za -ErrorAction SilentlyContinue | Select-Object -First 1).Source,
+        (Join-Path $ScriptDir "7z.exe"),
+        (Join-Path $ScriptDir "7za.exe"),
+        (Join-Path $ScriptDir "7-Zip\7z.exe"),
+        (Join-Path $env:LOCALAPPDATA "7-Zip\7z.exe"),
+        (Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"),
+        (Join-Path $winDir "7z.exe")
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($TargetPotPlayerDir)) {
+        $searchCandidates += (Join-Path $TargetPotPlayerDir "7z.exe")
+        $searchCandidates += (Join-Path $TargetPotPlayerDir "7-Zip\7z.exe")
+    }
+
+    foreach ($cand in $searchCandidates) {
+        if (-not [string]::IsNullOrWhiteSpace($cand) -and (Test-Path $cand)) {
+            return (Resolve-Path $cand).Path
+        }
+    }
+    return $null
+}
+
+# ---------------------------------------------------------
+# HELPER: Ensure 7-Zip CLI Extractor is Available (Portable Acquisition)
+# ---------------------------------------------------------
+function Ensure-7ZipExtractor {
+    param([string]$TargetPotPlayerDir = "")
+
+    $existing = Find-7ZipExtractor -TargetPotPlayerDir $TargetPotPlayerDir
+    if ($existing) {
+        return $existing
+    }
+
+    Write-Host "`n[TOOL ACQUISITION] 7-Zip CLI extractor (7z.exe) is required for .7z archive decompression." -ForegroundColor Cyan
+    Write-Host "  Windows built-in 'tar.exe' does not support LZMA/LZMA2 decompression in .7z packages." -ForegroundColor Yellow
+
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    # 7-Zip official releases: 64-bit MSI for x64, 32-bit x86 MSI for ARM64/x86 (runs everywhere under emulation)
+    $msiName = if ($targetArch -eq "x64") { "7z2605-x64.msi" } else { "7z2605.msi" }
+    $msiUrl = "https://github.com/ip7z/7zip/releases/download/26.05/$msiName"
+
+    $localToolsDir = Join-Path $env:LOCALAPPDATA "7-Zip"
+    if (-not (Test-Path $localToolsDir)) {
+        New-Item -ItemType Directory -Path $localToolsDir -Force | Out-Null
+    }
+
+    if (-not (Confirm-DownloadPermission -ItemName "Official 7-Zip Portable Extractor ($msiName)" -SourceUrl $msiUrl -TargetDir $localToolsDir -SizeDesc "~2.5 MB")) {
+        return $null
+    }
+
+    Write-Host "  -> Downloading 7-Zip portable package from GitHub ($msiUrl)..." -ForegroundColor Cyan
+    $tempMsi = Join-Path $env:TEMP ("7z_acq_{0}.msi" -f [System.Guid]::NewGuid().ToString("N"))
+    $tempUnpack = Join-Path $env:TEMP ("7z_unpack_{0}" -f [System.Guid]::NewGuid().ToString("N"))
+
+    try {
+        $webClient = New-Object System.Net.WebClient
+        $webClient.DownloadFile($msiUrl, $tempMsi)
+        $webClient.Dispose()
+
+        Write-Host "  -> Unpacking 7-Zip binaries via Windows Installer engine (user-mode)..." -ForegroundColor Cyan
+        $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/a `"$tempMsi`" /qn TARGETDIR=`"$tempUnpack`"" -PassThru -Wait
+        if ($proc.ExitCode -ne 0) {
+            throw "msiexec administrative unpack exited with code $($proc.ExitCode)"
+        }
+
+        # Locate extracted 7z.exe and 7z.dll
+        $extracted7z = Get-ChildItem -Path $tempUnpack -Recurse -File | Where-Object { $_.Name -ieq "7z.exe" } | Select-Object -First 1
+        if (-not $extracted7z) {
+            throw "Could not locate 7z.exe inside unpacked 7-Zip package!"
+        }
+
+        $sourceDir = $extracted7z.DirectoryName
+        Copy-Item -Path (Join-Path $sourceDir "*") -Destination $localToolsDir -Recurse -Force
+        $deployedExe = Join-Path $localToolsDir "7z.exe"
+        if (Test-Path $deployedExe) {
+            Write-Host "  -> 7-Zip CLI extractor ready at: $deployedExe`n" -ForegroundColor Green
+            return $deployedExe
+        }
+    }
+    catch {
+        Write-Host "  [WARNING] Automated 7-Zip acquisition failed: $_" -ForegroundColor Yellow
+        Write-Host "  Please install 7-Zip manually from https://7-zip.org or place 7z.exe in '$localToolsDir'.`n" -ForegroundColor Yellow
+    }
+    finally {
+        if (Test-Path $tempMsi) { Remove-Item $tempMsi -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $tempUnpack) { Remove-Item $tempUnpack -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    return $null
+}
+
+# ---------------------------------------------------------
 # HELPER: Automated Acquisition & Silent Installation of PotPlayer
 # ---------------------------------------------------------
 function Install-PotPlayer {
@@ -1187,27 +1289,12 @@ function Install-MvToolsRelease {
     New-Item -ItemType Directory -Path $tempExtractDir -Force | Out-Null
 
     try {
-        # Check extraction utilities: 7z or Windows bsdtar
-        $extractorExe = $null
-        $extractorType = $null
+        # Resolve extraction utility: 7-Zip (with automated portable acquisition) or Windows bsdtar for non-7z
+        $extractorExe = Ensure-7ZipExtractor -TargetPotPlayerDir $TargetDir
+        $extractorType = if ($extractorExe) { "7z" } else { $null }
 
-        $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
-        $cmd7z = Get-Command 7z -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($cmd7z) {
-            $extractorExe = $cmd7z.Source
-            $extractorType = "7z"
-        } elseif (Test-Path (Join-Path $winDir "7z.exe")) {
-            $extractorExe = Join-Path $winDir "7z.exe"
-            $extractorType = "7z"
-        } elseif ($env:ProgramFiles -and (Test-Path (Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"))) {
-            $extractorExe = Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"
-            $extractorType = "7z"
-        } elseif (${env:ProgramFiles(x86)} -and (Test-Path (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"))) {
-            $extractorExe = Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"
-            $extractorType = "7z"
-        }
-
-        if (-not $extractorExe) {
+        if (-not $extractorExe -and $assetInfo.FileName -notmatch '(?i)\.7z$') {
+            $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
             $cmdTar = Get-Command tar.exe -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($cmdTar) {
                 $extractorExe = $cmdTar.Source
@@ -1228,7 +1315,7 @@ function Install-MvToolsRelease {
             Write-Host "  -> Decompressing using PowerShell Expand-Archive..." -ForegroundColor Gray
             Expand-Archive -Path $tempArchive -DestinationPath $tempExtractDir -Force
         } else {
-            throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
+            throw "No suitable decompression utility found! .7z release archives require 7-Zip (Windows tar.exe does not support LZMA/LZMA2)."
         }
 
         $allExtracted = Get-ChildItem -Path $tempExtractDir -Recurse -File
@@ -1571,27 +1658,12 @@ function Install-AviSynthPlusRelease {
     New-Item -ItemType Directory -Path $tempExtractDir -Force | Out-Null
 
     try {
-        # Dynamically locate 7-Zip or Windows bsdtar without hardcoded drive paths
-        $extractorExe = $null
-        $extractorType = $null
+        # Resolve extraction utility: 7-Zip (with automated portable acquisition) or Windows bsdtar for non-7z
+        $extractorExe = Ensure-7ZipExtractor -TargetPotPlayerDir $TargetDir
+        $extractorType = if ($extractorExe) { "7z" } else { $null }
 
-        $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
-        $cmd7z = Get-Command 7z -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($cmd7z) {
-            $extractorExe = $cmd7z.Source
-            $extractorType = "7z"
-        } elseif (-not [string]::IsNullOrWhiteSpace($winDir) -and (Test-Path (Join-Path $winDir "7z.exe"))) {
-            $extractorExe = Join-Path $winDir "7z.exe"
-            $extractorType = "7z"
-        } elseif ($env:ProgramFiles -and (Test-Path (Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"))) {
-            $extractorExe = Join-Path ${env:ProgramFiles} "7-Zip\7z.exe"
-            $extractorType = "7z"
-        } elseif (${env:ProgramFiles(x86)} -and (Test-Path (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"))) {
-            $extractorExe = Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"
-            $extractorType = "7z"
-        }
-
-        if (-not $extractorExe) {
+        if (-not $extractorExe -and $assetInfo.FileName -notmatch '(?i)\.7z$') {
+            $winDir = if ($env:WINDIR) { $env:WINDIR } else { [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Windows) }
             $cmdTar = Get-Command tar.exe -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($cmdTar) {
                 $extractorExe = $cmdTar.Source
@@ -1612,7 +1684,7 @@ function Install-AviSynthPlusRelease {
             Write-Host "  -> Decompressing using PowerShell Expand-Archive..." -ForegroundColor Gray
             Expand-Archive -Path $tempArchive -DestinationPath $tempExtractDir -Force
         } else {
-            throw "No suitable decompression utility found! Please install 7-Zip or ensure Windows tar.exe is available."
+            throw "No suitable decompression utility found! .7z release archives require 7-Zip (Windows tar.exe does not support LZMA/LZMA2)."
         }
 
         # Locate AviSynth.dll under the requested architecture directory (arm64\bin\AviSynth.dll for ARM64, x64\AviSynth.dll for x64)
