@@ -1,14 +1,16 @@
 # MVTools Multi-Platform Benchmark Summary
 
-**Generated:** 2026-10-25 13:11:30  
+**Generated:** 2026-10-25 14:06:27  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
 **Reference Target:** 1080p 24fps -> 60fps Interpolation  
-**Platforms Evaluated:** AMD-Ryzen-AI-5-340, Intel-Processor-N100, Intel-Core-i5-1135G7, Intel-Core-i3-1215U, Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615, Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
+**Platforms Evaluated:** Intel-Core-i5-8259U, Intel-Core-i7-11850H, AMD-Ryzen-AI-5-340, Intel-Processor-N100, Intel-Core-i5-1135G7, Intel-Core-i3-1215U, Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615, Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
 
 ## Cross-Platform Recommended Daily Driver Matrix (Balanced Tier)
 
 | Platform | Engine | Avg FPS | 1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | Dropped Frames | Dedicated Matrix |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)** | CPU SIMD | **60.00** | **54.72** | 15.1% / 25.7% | 23.6% / 24.7% | 0 frames | [Intel-Core-i5-8259U Matrix](BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) |
+| **Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)** | CPU SIMD | **60.00** | **54.68** | 4.5% / 4.8% | 22.7% / 23.1% | 0 frames | [Intel-Core-i7-11850H Matrix](BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) |
 | **AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)** | CPU SIMD | **59.90** | **52.23** | 10.7% / 13.2% | 40.8% / 41.3% | 0 frames | [AMD-Ryzen-AI-5-340 Matrix](BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) |
 | **Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)** | CPU SIMD | **60.00** | **55.35** | 42.3% / 45.4% | 38.5% / 40.1% | 0 frames | [Intel-Processor-N100 Matrix](BenchmarkMatrix_Comparison_Intel-Processor-N100.md) |
 | **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)** | CPU SIMD | **60.00** | **54.22** | 6.2% / 6.4% | 22.9% / 23.7% | 0 frames | [Intel-Core-i5-1135G7 Matrix](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) |
@@ -30,6 +32,8 @@
 
 ## Dedicated Platform Comparison Matrices
 
+- **[Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)](BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md)** (Identifier: `Intel-Core-i5-8259U`): Eco, Balanced, MaxQuality tiers tested
+- **[Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)](BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md)** (Identifier: `Intel-Core-i7-11850H`): Eco, Balanced, MaxQuality tiers tested
 - **[AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)](BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md)** (Identifier: `AMD-Ryzen-AI-5-340`): Eco, Balanced, MaxQuality tiers tested
 - **[Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)](BenchmarkMatrix_Comparison_Intel-Processor-N100.md)** (Identifier: `Intel-Processor-N100`): Eco, Balanced, MaxQuality tiers tested
 - **[Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md)** (Identifier: `Intel-Core-i5-1135G7`): Eco, Balanced, MaxQuality tiers tested

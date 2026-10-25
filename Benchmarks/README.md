@@ -48,6 +48,8 @@ Golden reference benchmark reports and comparative matrices across ARM64 Snapdra
 | :--- | :--- | :--- |
 | **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
 | **AMD Ryzen AI 5 340** | [**`BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md`**](Baseline/BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) | AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c @ 15W TDP, Radeon 840M RDNA 3.5) |
+| **Intel Core i7-11850H** | [**`BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) | Intel Core i7-11850H (8C/16T @ 45W TDP, Intel UHD 32EU, 24MB L3) |
+| **Intel Core i5-8259U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) | Intel Core i5-8259U (4C/8T @ 28W TDP, Iris Plus 655, 128MB eDRAM) |
 | **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12W TDP, Iris Xe 80EU, 16GB Dual-Channel) |
 | **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15W TDP, Intel UHD 64EU, 16GB Dual-Channel) |
 | **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD 24EU, 16GB Single-Channel) |
