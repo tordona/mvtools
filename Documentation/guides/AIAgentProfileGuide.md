@@ -17,7 +17,9 @@ Depending on your environment, you can use this guide in two ways:
 Tool-enabled IDE agents have direct access to your local workspace, terminal shell, and file system. Instead of manually copying prompts or telemetry reports, you can instruct your agent with a single instruction:
 
 #### The 1-Step Prompt:
-> *"Read `Documentation/guides/AIAgentProfileGuide.md`. Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in `AviSynth/`, run the benchmark harness on `Balanced.avs` to verify 60fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur."*
+```text
+Read Documentation/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+```
 
 #### What the IDE Agent Does Autonomously:
 1. **Hardware Autodetection:** Queries Windows CIM/WMI (`Get-CimInstance Win32_Processor`, `Win32_VideoController`, `Win32_PhysicalMemory`) to detect physical core counts, P/E core topology, L3 cache, DRAM channels, and TDP limits.
