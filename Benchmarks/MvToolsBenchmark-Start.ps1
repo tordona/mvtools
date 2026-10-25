@@ -2517,21 +2517,54 @@ function Get-SystemPlatformRecommendation {
     $profiles = Ensure-AviSynthProfiles -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -TargetPotPlayerDir $TargetPotPlayerDir
 
     if ($targetArch -eq "x64") {
-        # Dynamic discovery for specific x64 hardware profiles (RyzenAI, Intel, etc.)
+        # High-quality string matching and dynamic discovery for specific x64 hardware profiles (Core-i5-7Y54, RyzenAI, etc.)
         $matchedProfile = $null
+        $bestMatchScore = 0
+
         foreach ($p in $profiles) {
             if ($p.Platform -like "Generic-x64*" -or $p.Platform -like "Snapdragon*") { continue }
-            $platToken = $p.Platform -replace '(?i)^Snapdragon[-_]?', ''
-            if (-not [string]::IsNullOrWhiteSpace($platToken) -and $combined -match [regex]::Escape($platToken)) {
-                $matchedProfile = $p
-                break
+
+            $score = 0
+            $platNorm = ($p.Platform -creplace '(?<=[a-z])(?=[A-Z])', '-')
+            $tokens = $platNorm -split '[-_]'
+
+            # 1. Exact model token match with word boundaries (e.g. "i5-7Y54", "7Y54", "340")
+            if ($p.Platform -match '[a-zA-Z0-9]+-[a-zA-Z0-9]+' -and $combined -match "(?i)\b$([regex]::Escape($Matches[0]))\b") {
+                $score += 100
             }
-            if ($p.HardwareDesc -and ($combined -match [regex]::Escape($p.HardwareDesc) -or $p.HardwareDesc -match [regex]::Escape($cpuName))) {
+            foreach ($t in $tokens) {
+                if ($t.Length -ge 2) {
+                    if ($t -match '\d' -and $combined -match "(?i)\b$([regex]::Escape($t))\b") {
+                        # High-value model digit token (e.g. "7Y54", "i5", "340")
+                        $score += 30
+                    } elseif ($t.Length -ge 4 -and $combined -match "(?i)\b$([regex]::Escape($t))\b") {
+                        # Descriptive token (e.g. "Core", "Ryzen")
+                        $score += 10
+                    }
+                }
+            }
+
+            # 2. Flexible multi-token regex across the platform name (tolerant of spaces, hyphens, (R), (TM))
+            $platRegex = ($tokens | ForEach-Object { [regex]::Escape($_) }) -join '[\s\-_]*(?:\((?:R|TM)\))?[\s\-_]*'
+            if ($combined -match "(?i)$platRegex") {
+                $score += 50
+            }
+
+            # 3. Hardware description title match
+            if ($p.HardwareDesc) {
+                $hwTitle = ($p.HardwareDesc -replace '\s*\(.*$', '').Trim()
+                $cleanCpu = ($cpuName -replace '\((?:R|TM)\)', '' -replace '\s+CPU\b', '' -replace '\s*@.*$', '').Trim() -replace '\s+', ' '
+                if ($hwTitle -and ($combined -match "(?i)$([regex]::Escape($hwTitle))" -or ($cleanCpu -and $cleanCpu -match "(?i)$([regex]::Escape($hwTitle))") -or ($cleanCpu -and $hwTitle -match "(?i)$([regex]::Escape($cleanCpu))"))) {
+                    $score += 60
+                }
+            }
+
+            if ($score -gt $bestMatchScore) {
+                $bestMatchScore = $score
                 $matchedProfile = $p
-                break
             }
         }
-        if ($matchedProfile) {
+        if ($matchedProfile -and $bestMatchScore -ge 30) {
             $platform = $matchedProfile.Platform
             $platformLabel = if ($matchedProfile.HardwareDesc) { $matchedProfile.HardwareDesc } else { "$($matchedProfile.Platform) ($cpuName)" }
         } else {
