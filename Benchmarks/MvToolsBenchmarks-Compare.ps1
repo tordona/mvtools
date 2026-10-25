@@ -139,16 +139,17 @@ if ($RunMatrix) {
     }
     $cpuEngineLabel = if ($compareArch -eq "arm64") { "CPU NEON" } else { "CPU SIMD" }
 
-    Write-Host "`n========================================================" -ForegroundColor Cyan
-    Write-Host " EXECUTING 3x2 MVTOOLS BENCHMARK COMPARISON MATRIX" -ForegroundColor Cyan
-    Write-Host " Tiers: Eco, Balanced, MaxQuality | Modes: $cpuEngineLabel, D3D12 GPU" -ForegroundColor Cyan
-    Write-Host " Duration: $DurationSeconds s per run ($WarmupSeconds s warmup)" -ForegroundColor Cyan
-    Write-Host "========================================================`n" -ForegroundColor Cyan
-
     $Tiers = @("Eco", "Balanced", "MaxQuality")
-    $Modes = @("CPU", "D3D12")
+    $Modes = if ($compareArch -eq "x64") { @("CPU") } else { @("CPU", "D3D12") }
     $RunIndex = 1
     $TotalRuns = $Tiers.Count * $Modes.Count
+
+    Write-Host "`n========================================================" -ForegroundColor Cyan
+    Write-Host " EXECUTING $($Tiers.Count)x$($Modes.Count) MVTOOLS BENCHMARK COMPARISON MATRIX" -ForegroundColor Cyan
+    $modesDesc = if ($compareArch -eq "x64") { "$cpuEngineLabel" } else { "$cpuEngineLabel, D3D12 GPU" }
+    Write-Host " Tiers: $($Tiers -join ', ') | Modes: $modesDesc" -ForegroundColor Cyan
+    Write-Host " Duration: $DurationSeconds s per run ($WarmupSeconds s warmup)" -ForegroundColor Cyan
+    Write-Host "========================================================`n" -ForegroundColor Cyan
 
     foreach ($tier in $Tiers) {
         foreach ($mode in $Modes) {
@@ -713,10 +714,15 @@ foreach ($pk in $PlatformGroups.Keys) {
             $row.PotPlayerMemMb, $row.DroppedFrames)
     }
 
-    $engineRefDesc = if (@($SortedEntries | Where-Object { $_.ModeShort -eq "CPU SIMD" }).Count -gt 0) { "x64 CPU SIMD" } else { "ARM64 CPU NEON" }
+    $isX64 = @($SortedEntries | Where-Object { $_.ModeShort -eq "CPU SIMD" }).Count -gt 0
+    $engineRefDesc = if ($isX64) { "x64 CPU SIMD" } else { "ARM64 CPU NEON" }
     $MdLines += ""
     $MdLines += "> [!NOTE]"
-    $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2_d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
+    if ($isX64) {
+        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the active production motion estimation engine on x64 platforms."
+    } else {
+        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2_d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
+    }
 
     if ($hasConstrained) {
         $MdLines += ""

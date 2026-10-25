@@ -2240,7 +2240,7 @@ function Install-MvToolsToPotPlayer {
     # 2. Deploy MVTools DLLs directly into PotPlayer directory
     $deployedCount = 0
     if ($resolvedSourceDir) {
-        $binaries = @("mvtools2.dll", "mvtools2_d3d12.dll", "DePan.dll", "DePanEstimate.dll")
+        $binaries = if ($targetArch -eq "x64") { @("mvtools2.dll", "DePan.dll", "DePanEstimate.dll") } else { @("mvtools2.dll", "mvtools2_d3d12.dll", "DePan.dll", "DePanEstimate.dll") }
         foreach ($bin in $binaries) {
             $src = Join-Path $resolvedSourceDir $bin
             $dst = Join-Path $TargetPotPlayerDir $bin
@@ -2724,7 +2724,7 @@ function Select-ProfileAndModeInteractive {
         if ($isRec) { $recIndex = $i + 1 }
         $badge = if ($isRec) { " [RECOMMENDED FOR YOUR HARDWARE]" } else { "" }
         $color = if ($isRec) { "Green" } elseif ($p.Platform -eq $Recommendation.PlatformKey) { "White" } else { "Gray" }
-        $d3dTag = if ($p.SupportsGpu) { " [D3D12/CPU]" } else { " [CPU-Only]" }
+        $d3dTag = if ($targetArch -ne "x64" -and $p.SupportsGpu) { " [D3D12/CPU]" } else { " [CPU-Only]" }
         Write-Host ("  [{0,2}] {1,-35} ({2,-10}){3}{4}" -f ($i + 1), $p.Name, $p.Tier, $d3dTag, $badge) -ForegroundColor $color
     }
 
@@ -2749,7 +2749,8 @@ function Select-ProfileAndModeInteractive {
 
     # GPU Mode selection
     $selectedGpuMode = $CurrentGpuMode
-    if ($selectedProfile.SupportsGpu) {
+    $targetArch = Get-TargetBinaryArchitecture
+    if ($targetArch -ne "x64" -and $selectedProfile.SupportsGpu) {
         Write-Host "`nSelect Motion Vector Acceleration Engine:" -ForegroundColor Yellow
         $cpuEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host ("  [1] {0} (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, rock-solid pacing]" -f $cpuEngineName) -ForegroundColor Green
         Write-Host "  [2] Direct3D 12 GPU (mvtools2_d3d12.dll)  [EXPERIMENTAL PREVIEW: CPU offload, performance/quality not guaranteed]" -ForegroundColor Cyan
@@ -3434,7 +3435,14 @@ function Set-PotPlayerSettings {
 
     # Dynamically inject or override USE_GPU if specified
     $activeGpu = $false
-    if ($RawAvs -match '(?m)^\s*USE_GPU\s*=') {
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
+    if ($targetArch -eq "x64") {
+        # On x64 platforms, mvtools2_d3d12.dll is not available; always enforce CPU SIMD
+        if ($RawAvs -match '(?m)^\s*USE_GPU\s*=') {
+            $RawAvs = $RawAvs -replace '(?m)^\s*USE_GPU\s*=.*$', 'USE_GPU = false'
+        }
+        $activeGpu = $false
+    } elseif ($RawAvs -match '(?m)^\s*USE_GPU\s*=') {
         if ($GpuModeChoice -match '(?i)D3D12|GPU') {
             $RawAvs = $RawAvs -replace '(?m)^\s*USE_GPU\s*=.*$', 'USE_GPU = true'
             $activeGpu = $true
@@ -3460,7 +3468,10 @@ function Set-PotPlayerSettings {
 
     # Substitute relative DLL paths with verified absolute paths
     $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$GpuDll`""
-    $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$CpuDll`""
+    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2\.dll"', "`"$CpuDll`""
+    if ($targetArch -eq "x64") {
+        $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$CpuDll`""
+    }
 
     # Write without BOM using ASCII encoding so AviSynth parses line 1 cleanly
     [System.IO.File]::WriteAllText($TargetAvs, $ResolvedAvs, [System.Text.Encoding]::ASCII)
@@ -3826,6 +3837,11 @@ if ($Interactive -or ([string]::IsNullOrWhiteSpace($AviSynthProfile) -and $isCon
     if ($ChosenGpuMode -eq "Auto" -or [string]::IsNullOrWhiteSpace($ChosenGpuMode)) {
         $ChosenGpuMode = $PlatformRec.RecommendedGpuMode
     }
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
+    if ($targetArch -eq "x64" -and ($ChosenGpuMode -in @("GPU", "D3D12"))) {
+        Write-Warning "Direct3D 12 GPU offload ('mvtools2_d3d12.dll') is not available on x64 platforms. Overriding engine selection to CPU SIMD mode."
+        $ChosenGpuMode = "CPU"
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($ChosenProfilePath) -or -not (Test-Path $ChosenProfilePath)) {
@@ -3876,7 +3892,7 @@ $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
 
 # Check if binaries are missing or if automated download was requested
 $cpuMissing = -not (Test-Path $MvToolsCpuPath)
-$gpuNeededAndMissing = ($ResolvedGpuMode -in @("GPU", "D3D12")) -and (-not (Test-Path $MvToolsGpuPath))
+$gpuNeededAndMissing = ($targetArch -ne "x64") -and ($ResolvedGpuMode -in @("GPU", "D3D12")) -and (-not (Test-Path $MvToolsGpuPath))
 
 if ($AutoDownloadMvTools -or $cpuMissing -or $gpuNeededAndMissing) {
     $targetDir = if (-not [string]::IsNullOrWhiteSpace($MvToolsDir)) { $MvToolsDir } else { $ScriptDir }
@@ -3910,7 +3926,7 @@ if (-not (Test-Path $MvToolsCpuPath)) {
     exit 1
 }
 
-if ($ResolvedGpuMode -eq "GPU" -or $ResolvedGpuMode -eq "D3D12") {
+if ($targetArch -ne "x64" -and ($ResolvedGpuMode -eq "GPU" -or $ResolvedGpuMode -eq "D3D12")) {
     if (-not (Test-Path $MvToolsGpuPath)) {
         Write-Host "`n[FATAL ERROR] Direct3D 12 GPU mode requested, but 'mvtools2_d3d12.dll' was not found in '$MvToolsDir'!" -ForegroundColor Red
         Write-Host "Please build or place 'mvtools2_d3d12.dll' in '$MvToolsDir', or pass -AutoDownloadMvTools to fetch from GitHub releases.`n" -ForegroundColor Yellow
@@ -3919,7 +3935,7 @@ if ($ResolvedGpuMode -eq "GPU" -or $ResolvedGpuMode -eq "D3D12") {
 }
 
 $CpuMeta = Get-MvToolsMetadata -DllPath $MvToolsCpuPath
-$GpuMeta = Get-MvToolsMetadata -DllPath $MvToolsGpuPath
+$GpuMeta = if ($targetArch -ne "x64") { Get-MvToolsMetadata -DllPath $MvToolsGpuPath } else { $null }
 
 if ($CpuMeta) {
     $cpuEngineTag = if ((Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir) -eq "arm64") { "CPU/NEON" } else { "CPU/SIMD" }
@@ -3929,7 +3945,7 @@ if ($CpuMeta) {
     Write-Host "     SHA-256: $($CpuMeta.SHA256)" -ForegroundColor Gray
 }
 
-if ($GpuMeta) {
+if ($targetArch -ne "x64" -and $GpuMeta) {
     Write-Host "  -> mvtools2_d3d12.dll (Direct3D 12 GPU - Experimental Preview):" -ForegroundColor White
     Write-Host "     Version: $($GpuMeta.FileVersion) | Product: $($GpuMeta.ProductVersion)" -ForegroundColor Gray
     Write-Host "     PE Linker Build Date: $($GpuMeta.PeBuildDate)" -ForegroundColor Gray
@@ -4366,9 +4382,9 @@ try {
     PE Build Date:  $($CpuMeta.PeBuildDate)
     SHA-256:        $($CpuMeta.SHA256)
 - mvtools2_d3d12.dll (Direct3D 12 GPU - Experimental Preview):
-    Version:        $(if ($GpuMeta) { $GpuMeta.FileVersion } else { "N/A" })
-    PE Build Date:  $(if ($GpuMeta) { $GpuMeta.PeBuildDate } else { "N/A" })
-    SHA-256:        $(if ($GpuMeta) { $GpuMeta.SHA256 } else { "N/A" })
+    Version:        $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.FileVersion } else { "N/A" })
+    PE Build Date:  $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.PeBuildDate } else { "N/A" })
+    SHA-256:        $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.SHA256 } else { "N/A" })
 - PresentMon Telemetry Engine: $(if ($PresentMonExe) { "$PresentMonExe (Intel PresentMon, MIT License: Benchmarks/PresentMon-LICENSE.txt)" } else { "Not Present" })
 
 3. DETERMINISTIC POTPLAYER CONFIGURATION ENFORCED
