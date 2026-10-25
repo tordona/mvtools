@@ -512,10 +512,10 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
             $droppedStr = $tiersWithDrops -join ", "
             $platformEntity = if ($platformName -match '(?i)Snapdragon|ARM64') { "SoC" } else { "platform" }
             $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this $platformEntity."
-        } elseif ($hasVsyncDrift) {
+        } elseif ($hasVsyncDrift -and (@($Entries | Where-Object { $_.AvgFps -lt 58.0 }).Count -eq 0)) {
             $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 FPS with minimal render latency (<0.5 ms). The 2-3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
         } else {
-            $Lines += "- **Stability & Real-Time Headroom:** Frame drops were recorded on high-complexity passes ($($tiersWithDrops -join ', ')). Consider lower-overhead tiers (e.g. Eco) or capping prefetch threads to maintain real-time presentation deadlines."
+            $Lines += "- **Stability & Real-Time Headroom:** Frame drops and reduced presentation rates were recorded on compute-constrained passes ($($tiersWithDrops -join ', ')). Only lower-overhead tiers (e.g. Eco) or lighter search parameters approach real-time presentation deadlines on this hardware."
         }
     } else {
         $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **$platformName**. **$($lowestCpu.Tier)** minimized CPU compute load ($($lowestCpu.AvgCpuPct.ToString('N1'))%), while **$($bestPacing.Tier)** delivered the smoothest frame consistency ($($bestPacing.Low1PctFps.ToString('N2')) FPS 1% low)."
