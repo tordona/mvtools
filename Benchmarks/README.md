@@ -47,7 +47,11 @@ Golden reference benchmark reports and comparative matrices across ARM64 Snapdra
 | Platform / SoC | Baseline Report | Tested Chassis / Target Hardware |
 | :--- | :--- | :--- |
 | **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
-| **Generic x86-64** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-...md`**](Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) | Intel Pentium Silver N5030 @ 1.10GHz, Intel UHD Graphics 605, 8GB RAM |
+| **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12W TDP, Iris Xe 80EU, 16GB Dual-Channel) |
+| **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15W TDP, Intel UHD 64EU, 16GB Dual-Channel) |
+| **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD 24EU, 16GB Single-Channel) |
+| **Intel Core i5-7Y54** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54...md`**](Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615.md) | Intel Core i5-7Y54 (2C/4T @ 10W TDP, Intel HD 615, 8GB LPDDR3-1866) |
+| **Intel Pentium Silver N5030** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030...md`**](Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) | Intel Pentium Silver N5030 @ 1.10GHz, Intel UHD Graphics 605, 8GB RAM |
 | **Snapdragon X Plus** | [**`BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) | Surface Pro 11th Edition (Qualcomm Oryon, Adreno X1-85) |
 | **Snapdragon 8cx Gen 3** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md) | Lenovo ThinkPad X13s (4x Cortex-X1 + 4x A78, Adreno 690) |
 | **Snapdragon 8cx Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md) | Microsoft Surface Pro X SQ2 (Kryo 495, Adreno 680) |
@@ -281,4 +285,3 @@ When analyzing the comparison matrix, focus on the following key performance ind
    - **Official Project Repository:** [GameTechDev/PresentMon](https://github.com/GameTechDev/PresentMon)
    - **License File:** The complete MIT license text is preserved in [`Benchmarks/PresentMon-LICENSE.txt`](PresentMon-LICENSE.txt).
    - **Redistribution Rights:** Unlike proprietary software, the MIT License explicitly permits redistribution and inclusion of the binary and associated documentation provided that the copyright and permission notices are retained.
-

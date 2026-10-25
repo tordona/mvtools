@@ -1,14 +1,18 @@
 # MVTools Multi-Platform Benchmark Summary
 
-**Generated:** 2026-10-24 21:43:57  
-**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.0)  
+**Generated:** 2026-10-25 12:37:08  
+**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
 **Reference Target:** 1080p 24fps -> 60fps Interpolation  
-**Platforms Evaluated:** Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
+**Platforms Evaluated:** Intel-Processor-N100, Intel-Core-i5-1135G7, Intel-Core-i3-1215U, Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615, Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
 
 ## Cross-Platform Recommended Daily Driver Matrix (Balanced Tier)
 
 | Platform | Engine | Avg FPS | 1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | Dropped Frames | Dedicated Matrix |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)** | CPU SIMD | **60.00** | **55.35** | 42.3% / 45.4% | 38.5% / 40.1% | 0 frames | [Intel-Processor-N100 Matrix](BenchmarkMatrix_Comparison_Intel-Processor-N100.md) |
+| **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)** | CPU SIMD | **60.00** | **54.22** | 6.2% / 6.4% | 22.9% / 23.7% | 0 frames | [Intel-Core-i5-1135G7 Matrix](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) |
+| **Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15W TDP, Intel UHD Graphics 64EU)** | CPU SIMD | **60.00** | **55.13** | 20.8% / 22.4% | 55.1% / 56.1% | 0 frames | [Intel-Core-i3-1215U Matrix](BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) |
+| **Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)** | CPU SIMD | **60.00** | **55.09** | 24.4% / 26.5% | 46.2% / 47.1% | 0 frames | [Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615 Matrix](BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615.md) |
 | **Generic x86-64 (Intel(R) Pentium(R) Silver N5030 CPU @ 1.10GHz, Intel(R) UHD Graphics 605)** | CPU SIMD | **59.97** | **54.50** | 59.2% / 65.2% | 100.5% / 113.3% | 31 frames | [Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605 Matrix](BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) |
 | **Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)** | CPU NEON | **60.00** | **53.02** | 7.3% / 10.7% | 29.3% / 32.4% | 0 (DWM Composed: Flip presentation) | [Snapdragon-X-Plus Matrix](BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) |
 | **Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)** | D3D12 GPU | **60.00** | **54.11** | 21.5% / 23.0% | 76.6% / 79.2% | 47 frames | [Snapdragon-X-Plus Matrix](BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) |
@@ -25,6 +29,10 @@
 
 ## Dedicated Platform Comparison Matrices
 
+- **[Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)](BenchmarkMatrix_Comparison_Intel-Processor-N100.md)** (Identifier: `Intel-Processor-N100`): Eco, Balanced, MaxQuality tiers tested
+- **[Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md)** (Identifier: `Intel-Core-i5-1135G7`): Eco, Balanced, MaxQuality tiers tested
+- **[Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15W TDP, Intel UHD Graphics 64EU)](BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md)** (Identifier: `Intel-Core-i3-1215U`): Eco, Balanced, MaxQuality tiers tested
+- **[Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)](BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615.md)** (Identifier: `Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615`): Eco, Balanced, MaxQuality tiers tested
 - **[Generic x86-64 (Intel(R) Pentium(R) Silver N5030 CPU @ 1.10GHz, Intel(R) UHD Graphics 605)](BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md)** (Identifier: `Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605`): Eco, Balanced, MaxQuality tiers tested
 - **[Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)](BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md)** (Identifier: `Snapdragon-X-Plus`): Eco, Balanced, MaxQuality tiers tested
 - **[Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)](BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md)** (Identifier: `Snapdragon-8cxGen2`): Eco, Balanced, MaxQuality tiers tested
