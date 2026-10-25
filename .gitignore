@@ -314,3 +314,4 @@ Benchmarks/*.mkv
 Benchmarks/*.log
 Benchmarks/log.txt
 Benchmarks/BenchmarkResults/
+Benchmarks/Archived/
