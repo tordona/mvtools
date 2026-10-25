@@ -27,6 +27,7 @@ This fork provides **18 tuned real-time 60fps AviSynth motion interpolation prof
 | **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |
 | **Snapdragon 850** | 4x Gold + 4x Silver / Adreno 630 (~5W Fanless) | [Eco](AviSynth/Snapdragon-850-Eco.avs), [Balanced](AviSynth/Snapdragon-850-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-850-MaxQuality.avs) | [`Snapdragon850.md`](Documentation/guides/Snapdragon850.md) |
 | **Snapdragon 7c Gen 2** | 2x Gold + 6x Silver / Adreno 618 (~5W Fanless) | [Eco](AviSynth/Snapdragon-7cGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-7cGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-7cGen2-MaxQuality.avs) | [`Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md) |
+| **Generic x64 (AMD / Intel)** | Multi-core x64 SIMD / D3D12 GPU | [Eco](AviSynth/Generic-x64-Eco.avs), [Balanced](AviSynth/Generic-x64-Balanced.avs), [MaxQuality](AviSynth/Generic-x64-MaxQuality.avs) | — |
 
 For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC ARM64 $\leftrightarrow$ MinGW GCC), see [**`AI_PORT_NOTICE.md`**](AI_PORT_NOTICE.md) and [**`CHANGELOG.md`**](CHANGELOG.md).
 
@@ -35,8 +36,8 @@ For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC 
 ## Automated Benchmark & Telemetry Test Suite
 
 An automated benchmark harness and comparative matrix suite for reproducible frame pacing and telemetry capture is provided under [`Benchmarks/`](Benchmarks/):
-- **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware SoC autodetection, and deterministic configuration enforcement.
-- **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON vs. Direct3D 12 GPU**.
+- **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware platform autodetection (ARM64 Snapdragon & x64 PC), and deterministic configuration enforcement.
+- **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**.
 - **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Golden reference performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
 
 See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for complete parameter references, usage guides, and verified baseline metrics.

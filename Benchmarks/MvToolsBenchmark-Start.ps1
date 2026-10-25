@@ -30,12 +30,18 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.3.0
+    2.4.0
 .DATE
-    2026-10-19
+    2026-10-24
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.4.0 (2026-10-24): Added full cross-architecture support for x64 (AMD/Intel) and ARM64.
+                           Dynamic hardware platform detection and mode recommendations (CPU SIMD / Platform vs
+                           CPU NEON / SoC). Zero-hardcoded-version asset acquisition via GitHub REST API and
+                           HTML asset fallbacks for MVTools, AviSynth+, 7-Zip, and PotPlayer. Architecture-aware
+                           AviSynth profile validation and automated acquisition from tordona/mvtools. Strict PE
+                           machine validation (0x8664 vs 0xAA64).
     - v2.3.0 (2026-10-19): Added automated GitHub acquisition for MVTools ARM64 and AviSynth+, dual
                            AppData/local PotPlayer INI targeting, binary PE architecture validation,
                            user download confirmations, and background app quiescence prompts.
@@ -140,7 +146,7 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.3.0"
+$Script:HarnessVersion = "2.4.0"
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
 try {

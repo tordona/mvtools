@@ -7,16 +7,24 @@
     Generates GitHub Markdown comparison tables, CSV data exports, and console summaries.
     Optionally executes the full 3x2 permutation test matrix back-to-back.
 .PARAMETER AutoInstallPotPlayer
-    Forwards automated PotPlayer ARM64 download and silent installation to matrix benchmark runs.
+    Forwards automated native PotPlayer (ARM64 or x64) download and silent installation to matrix benchmark runs.
 .PARAMETER AutoDownloadMvTools
-    Forwards automated MVTools ARM64 release download and deployment from GitHub to matrix benchmark runs.
+    Forwards automated MVTools release download (tordona/mvtools or pinterf/mvtools) and deployment to matrix benchmark runs.
+.PARAMETER PotPlayerDir
+    Path to custom PotPlayer directory, forwarded to matrix benchmark runs.
+.PARAMETER MvToolsRepo
+    GitHub repository slug for downloading release packages, forwarded to matrix benchmark runs.
 .VERSION
-    2.3.0
+    2.4.0
 .DATE
-    2026-10-19
+    2026-10-24
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.4.0 (2026-10-24): Dynamic matrix permutation profile forwarding (-Profile $FilterPlatform-$tier).
+                           Dynamic hardware trade-off synthesis (CPU SIMD vs CPU NEON, GPU vendor labels,
+                           platform vs SoC descriptors). Forwarding of -PotPlayerDir and -MvToolsRepo to
+                           child benchmark executions.
     - v2.3.0 (2026-10-19): Added -AutoDownloadMvTools forwarding for unattended matrix benchmarks.
     - v2.2.0 (2026-10-19): Added -AutoInstallPotPlayer forwarding for unattended matrix benchmarks.
     - v2.1.0 (2026-10-19): Added empirical panel scanout support, VSync phase drift discard
@@ -84,7 +92,7 @@ param(
 )
 
 # Compare Suite Semantic Revision
-$Script:CompareVersion = "2.3.0"
+$Script:CompareVersion = "2.4.0"
 
 $ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($ScriptDir)) {

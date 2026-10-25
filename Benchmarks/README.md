@@ -1,12 +1,12 @@
 # MVTools Benchmark & Comparison Test Suite
 
-Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows on ARM64 (Qualcomm Snapdragon SoCs).
+Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows on ARM64 (Qualcomm Snapdragon SoCs) and x64 (AMD Ryzen / Intel Core).
 
-This test suite rigorously measures, validates, and compares motion estimation and 60fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2_d3d12.dll`).
+This test suite rigorously measures, validates, and compares motion estimation and 60fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2_d3d12.dll`).
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`mvtools2_d3d12.dll`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across Qualcomm Adreno GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON engine (`mvtools2.dll`)** serves as the production reference.
+> Direct3D 12 GPU acceleration (`mvtools2_d3d12.dll`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
 
 ---
 
@@ -26,15 +26,16 @@ Benchmarks/
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-850.md
 │   └── BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md
-├── PresentMon-arm64.exe            # Intel PresentMon (DXGI/ETW sub-millisecond frame capture)
+├── PresentMon-arm64.exe            # Intel PresentMon for ARM64 (DXGI/ETW sub-millisecond frame capture)
+├── PresentMon-x64.exe              # Intel PresentMon for x64 (DXGI/ETW sub-millisecond frame capture)
 ├── PresentMon-LICENSE.txt          # MIT License for Intel PresentMon
 └── BenchmarkResults/               # Working directory for local run outputs and raw CSVs
 ```
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.3.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
-| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.2.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.4.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.4.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 
 ---
 
@@ -83,16 +84,16 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 ### The 7-Phase Benchmark Workflow
 
 1. **[1/7] PotPlayer Verification & Automated Acquisition:**
-   - Verifies PotPlayer executable integrity or automatically downloads and silently installs official native PotPlayer ARM64 (`-AutoInstallPotPlayer`).
-   - Verifies presence of `AviSynth.dll` in PotPlayer's directory. If missing from local system and registry locations, automatically acquires the official release package from GitHub (`AviSynth/AviSynthPlus`, latest tag, `filesonly.7z`) and extracts the native architecture binary (`arm64\bin\AviSynth.dll`).
+   - Verifies PotPlayer executable integrity or automatically downloads and silently installs official native PotPlayer (`PotPlayerSetupARM64.exe` on ARM64 or `PotPlayerSetup64.exe` on x64 via `-AutoInstallPotPlayer`).
+   - Verifies presence of `AviSynth.dll` in PotPlayer's directory. If missing from local system and registry locations, automatically acquires the official release package from GitHub (`AviSynth/AviSynthPlus`, dynamic latest tag) and extracts the native architecture binary (`arm64\bin\AviSynth.dll` or `x64\AviSynth.dll`).
 2. **[2/7] PotPlayer Version & Test Asset Integrity Audit:**
    - Detects and records the installed or portable PotPlayer version and PE linker build timestamp (e.g. `1.7.23122 (Build: 2026-09-01 22:30:50)`).
    - Audits the target video's SHA-256 checksum (`99486359be7e3681168a0fe94e1cbb0284c48b57b2a3ce7df4fa75e185987a15`).
    - If missing or corrupted, provides direct download instructions and official Blender Mango URL.
 3. **[3/7] MVTools Plugin Presence & PE Linker Audit:**
-   - Validates existence of specific plugin binaries (`mvtools2.dll` for CPU NEON, `mvtools2_d3d12.dll` for D3D12 GPU mode).
-   - If missing (or when `-AutoDownloadMvTools` is specified), automatically queries GitHub Releases (`tordona/mvtools`), downloads the latest release archive with live streaming progress, and decompresses ARM64 binaries using native 7-Zip or Windows bsdtar.
-   - Synchronizes MVTools binaries and AviSynth profiles into PotPlayer's application directory.
+   - Validates existence of specific plugin binaries (`mvtools2.dll` for CPU NEON/SIMD, `mvtools2_d3d12.dll` for D3D12 GPU mode).
+   - If missing (or when `-AutoDownloadMvTools` is specified), automatically queries GitHub Releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64) using dynamic REST API discovery with HTML fallback (zero hardcoded filenames/versions), downloads the latest release archive with live streaming progress, and decompresses binaries using native 7-Zip or Windows bsdtar.
+   - Synchronizes MVTools binaries and AviSynth profiles into PotPlayer's application directory. If benchmark profiles are missing, acquires them directly from `tordona/mvtools` repository.
    - Queries and logs FileVersion, ProductVersion, PE Linker Build Date, and SHA-256 hashes.
 4. **[4/7] Deterministic Settings Injection & Single-Instance Guarantee:**
    - Injects AviSynth profile with verified absolute DLL paths.
@@ -123,8 +124,8 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 | :--- | :--- | :---: | :---: | :--- |
 | `-VideoPath` | `Video`, `File` | `string` | `"tears_of_steel_1080p.mov"` | Path to target video file. Auto-discovers test MOV in script directory if omitted. |
 | `-AviSynthProfile` | `Profile`, `Avs`, `Script` | `string` | `""` | Profile to load. Accepts full path, filename, partial name (e.g. `X-Plus-Balanced`), or tier keyword (`Eco`, `Balanced`, `MaxQuality`). |
-| `-GpuMode` | `Gpu`, `Mode` | `string` | `"Auto"` | Compute engine selection: `Auto` (hardware recommended), `D3D12` / `GPU`, `CPU` / `NEON`, or `ProfileDefault`. |
-| `-Interactive` | `Menu` | `switch` | `$false` | Launches console interactive menu listing all 18 profiles with hardware badges and engine prompts. |
+| `-GpuMode` | `Gpu`, `Mode` | `string` | `"Auto"` | Compute engine selection: `Auto` (hardware recommended), `D3D12` / `GPU`, `CPU` / `NEON` / `SIMD`, or `ProfileDefault`. |
+| `-Interactive` | `Menu` | `switch` | `$false` | Launches console interactive menu listing all available platform profiles with hardware badges and engine prompts. |
 | `-TestDurationSeconds` | | `int` | `120` | Total duration of the test run in seconds. |
 | `-WarmupSeconds` | | `int` | `20` | Initial duration discarded from telemetry to allow cache and pipeline fill. |
 | `-BufferHeadroomMb` | | `int` | `1024` | Required free RAM buffer above `SetMemoryMax` before test is permitted to run. |
@@ -136,10 +137,10 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 | `-IgnoreRamWarning` | `IgnoreMemoryWarning` | `switch` | `$false` | Bypasses interactive confirmation when physical RAM headroom is below recommended levels on memory-constrained devices. |
 | `-IgnoreBatteryWarning` | | `switch` | `$false` | Bypasses fatal error when device is running on battery power (allows testing on battery without AC connected). |
 | `-MemoryConstrained` | | `switch` | `$false` | Explicitly tags the test run as conducted on a memory-constrained device (also auto-detected if total RAM <= 4.5 GB or free RAM is below headroom). |
-| `-AutoInstallPotPlayer` | | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer ARM64 from Kakao CDN if not found on the machine. |
-| `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools ARM64 binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
-| `-MvToolsRepo` | | `string` | `"tordona/mvtools"` | GitHub repository slug for downloading release packages. |
-| `-AviSynthRepo` | | `string` | `"AviSynth/AviSynthPlus"` | GitHub repository slug for downloading official AviSynth+ releases. If `AviSynth.dll` is missing, the harness automatically downloads the latest release archive (`filesonly.7z`) and extracts `arm64\bin\AviSynth.dll`. |
+| `-AutoInstallPotPlayer` | | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer (`PotPlayerSetupARM64.exe` or `PotPlayerSetup64.exe`) from Kakao CDN if not found on the machine. |
+| `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
+| `-MvToolsRepo` | | `string` | `"tordona/mvtools"` (ARM64)<br>`"pinterf/mvtools"` (x64) | GitHub repository slug for downloading release packages (default dynamically resolves based on target architecture). |
+| `-AviSynthRepo` | | `string` | `"AviSynth/AviSynthPlus"` | GitHub repository slug for downloading official AviSynth+ releases. If `AviSynth.dll` is missing, the harness automatically downloads the latest release archive and extracts `arm64\bin\AviSynth.dll` or `x64\AviSynth.dll`. |
 | `-OutputDir` | | `string` | `"BenchmarkResults"` | Directory where report TXT and CSV telemetry are saved. |
 
 ---
@@ -171,7 +172,7 @@ powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps
 
 ## 2. MvToolsBenchmarks-Compare.ps1
 
-The comparative aggregation tool that parses individual audit reports and transforms them into side-by-side matrices comparing performance across tiers (**Eco vs. Balanced vs. MaxQuality**) and compute engines (**ARM64 CPU NEON vs. Direct3D 12 GPU**).
+The comparative aggregation tool that parses individual audit reports and transforms them into side-by-side matrices comparing performance across tiers (**Eco vs. Balanced vs. MaxQuality**) and compute engines (**ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**).
 
 ### Features
 - **Automatic Log Parsing:** Extracts frame rate pacing (`Avg FPS`, `1% Low FPS`, `0.1% Low FPS`, `Dropped Frames`) and resource load (`CPU %`, `GPU %`, `PotPlayer GPU %`, `RAM MB`).
@@ -192,12 +193,14 @@ The comparative aggregation tool that parses individual audit reports and transf
 | `-WarmupSeconds` | `int` | `10` | Warmup seconds discarded per run when executing `-RunMatrix`. |
 | `-OutputMarkdown` | `string` | `"BenchmarkMatrix_Comparison_<Platform>.md"` | Path to save the Markdown comparison table. By default, auto-names with the platform key to prevent cross-platform file overwrites. |
 | `-OutputCsv` | `string` | `"BenchmarkMatrix_Comparison_<Platform>.csv"` | Path to save the CSV comparison table. By default, auto-names with the platform key to prevent cross-platform file overwrites. |
-| `-FilterPlatform` | `string` | `""` | Substring to filter reports by platform (e.g. `Snapdragon-X-Plus`, `Snapdragon-8cxGen3`). |
+| `-FilterPlatform` | `string` | `""` | Substring to filter reports by platform (e.g. `Generic-x64`, `Snapdragon-X-Plus`, `Snapdragon-8cxGen3`). When executing with `-RunMatrix`, automatically forwards `-Profile <FilterPlatform>-<Tier>`. |
+| `-PotPlayerDir` | `string` | `""` | Custom PotPlayer installation or portable directory, forwarded across all matrix permutations executed under `-RunMatrix`. |
+| `-MvToolsRepo` | `string` | `""` | GitHub repository slug for release acquisition, forwarded across all matrix permutations executed under `-RunMatrix`. |
 | `-IgnoreRamWarning` | `switch` | `$false` | Bypasses interactive RAM headroom confirmation across all matrix runs on memory-constrained devices. |
 | `-IgnoreUsbWarning` | `switch` | `$false` | Bypasses interactive confirmation when running matrix benchmarks from USB flash storage. |
 | `-MemoryConstrained` | `switch` | `$false` | Forwards the memory-constrained tag across all matrix permutations executed under `-RunMatrix`. |
-| `-AutoInstallPotPlayer` | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer ARM64 if missing before running matrix benchmarks. |
-| `-AutoDownloadMvTools` | `switch` | `$false` | Automatically downloads and deploys latest official MVTools ARM64 binaries if missing before running matrix benchmarks. |
+| `-AutoInstallPotPlayer` | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer (ARM64 or x64) if missing before running matrix benchmarks. |
+| `-AutoDownloadMvTools` | `switch` | `$false` | Automatically downloads and deploys latest official MVTools binaries (from `tordona/mvtools` on ARM64 or `pinterf/mvtools` on x64) if missing before running matrix benchmarks. |
 | `-SkipProcessKill` | `switch` | `$false` | Bypasses background app termination prompt across all matrix permutations executed under `-RunMatrix`. |
 
 ---
@@ -246,7 +249,7 @@ When analyzing the comparison matrix, focus on the following key performance ind
 
 ## Prerequisites & Setup
 
-1. **Host Operating System:** Windows 11 on ARM64 (Qualcomm Snapdragon X Elite, Snapdragon X Plus, Snapdragon 8cx Gen 3/2/1, 850, or 7c).
+1. **Host Operating System:** Windows 11 on ARM64 (Qualcomm Snapdragon X Elite, Snapdragon X Plus, Snapdragon 8cx Gen 3/2/1, 850, or 7c) or Windows 10/11 on x64 (AMD Ryzen, Intel Core).
 2. **Administrator Privileges (Recommended):**
    - Windows Event Tracing for Windows (ETW) Direct3D presentation hooks require elevation for PresentMon to record sub-millisecond frame intervals and 1% Lows.
    - Launch PowerShell with **Run as Administrator**.
