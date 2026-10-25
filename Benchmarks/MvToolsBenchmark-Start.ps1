@@ -21,6 +21,10 @@
 .PARAMETER AutoInstallPotPlayer
     Automatically downloads and silently installs official native PotPlayer (ARM64 or x64) from Kakao CDN
     if PotPlayer is not detected on the system. Uses active live progress bar and background spinner.
+.PARAMETER AutoInstallVcRedist
+    Automatically downloads and silently installs official Microsoft Visual C++ 2015-2022 Redistributable
+    (ARM64 or x64) from Microsoft aka.ms permalinks if required runtime DLLs (vcruntime140.dll, msvcp140.dll,
+    vcruntime140_1.dll) are missing or mismatched, preventing PotPlayer 'AviSynth.dll not found' errors.
 .PARAMETER AutoDownloadMvTools
     Automatically downloads and extracts official MVTools release archives (ARM64 and x64)
     (mvtools2.dll, mvtools2_d3d12.dll) from GitHub releases (pinterf/mvtools on x64, tordona/mvtools on ARM64).
@@ -30,12 +34,17 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.4.0
+    2.4.1
 .DATE
-    2026-10-24
+    2026-10-25
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.4.1 (2026-10-25): Added automated diagnostic testing and acquisition for Microsoft Visual C++
+                           2015-2022 Redistributables (ARM64 & x64) via aka.ms permalinks (-AutoInstallVcRedist).
+                           Eliminates PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies
+                           (vcruntime140.dll, msvcp140.dll, vcruntime140_1.dll). Added architecture-specific
+                           PE machine validation in System32.
     - v2.4.0 (2026-10-24): Added full cross-architecture support for x64 (AMD/Intel) and ARM64.
                            Dynamic hardware platform detection and mode recommendations (CPU SIMD / Platform vs
                            CPU NEON / SoC). Zero-hardcoded-version asset acquisition via GitHub REST API and
@@ -132,6 +141,10 @@ param(
     [switch]$AutoInstallPotPlayer,
 
     [Parameter(Mandatory = $false)]
+    [Alias("AutoInstallVC", "InstallVcRedist")]
+    [switch]$AutoInstallVcRedist,
+
+    [Parameter(Mandatory = $false)]
     [Alias("DownloadMvTools", "UpdateMvTools")]
     [switch]$AutoDownloadMvTools,
 
@@ -146,7 +159,8 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.4.0"
+$Script:HarnessVersion = "2.4.1"
+$Script:AutoInstallVcRedist = $AutoInstallVcRedist
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
 try {
@@ -1087,7 +1101,7 @@ function Install-PotPlayer {
             try {
                 icacls.exe "$loc" /grant "*S-1-5-32-545:(OI)(CI)M" /T /Q | Out-Null
             } catch {}
-            Install-MvToolsToPotPlayer -TargetPotPlayerDir $loc -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+            Install-MvToolsToPotPlayer -TargetPotPlayerDir $loc -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo -AutoInstallVcRedist:$AutoInstallVcRedist | Out-Null
             Initialize-PotPlayerIniFiles -PotPlayerDir $loc | Out-Null
             return $loc
         }
@@ -1970,6 +1984,290 @@ function Install-AviSynthPlusRelease {
 }
 
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# HELPER: Audit and Ensure Microsoft Visual C++ Redistributable Runtimes
+# ---------------------------------------------------------
+function Ensure-VisualCppRedistributable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$TargetPotPlayerDir = "",
+
+        [Parameter(Mandatory = $false)]
+        [switch]$AutoInstall
+    )
+
+    if ($Script:VcRedistVerified) {
+        return $true
+    }
+
+    $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
+    $archLabel = $targetArch.ToUpper()
+
+    $expectedMachine = switch ($targetArch) {
+        "arm64" { 0xAA64 }
+        "x64"   { 0x8664 }
+        "x86"   { 0x014C }
+        Default { 0 }
+    }
+
+    # Core required DLLs for Visual C++ 2015-2022 (v14x) runtimes
+    # x64 specifically requires vcruntime140_1.dll for __CxxFrameHandler4
+    $requiredDlls = switch ($targetArch) {
+        "x64"   { @("vcruntime140.dll", "msvcp140.dll", "vcruntime140_1.dll") }
+        Default { @("vcruntime140.dll", "msvcp140.dll") }
+    }
+
+    $sysDir = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::System)
+
+    # Local auditor for DLL existence and PE machine architecture match
+    $AuditDlls = {
+        $missing = @()
+        $mismatched = @()
+        foreach ($dll in $requiredDlls) {
+            $candidatePaths = @((Join-Path $sysDir $dll))
+            if (-not [string]::IsNullOrWhiteSpace($TargetPotPlayerDir)) {
+                $candidatePaths += (Join-Path $TargetPotPlayerDir $dll)
+            }
+
+            $foundValid = $false
+            $foundAny = $false
+            $lastMachine = 0
+            foreach ($cp in $candidatePaths) {
+                if (Test-Path $cp) {
+                    $foundAny = $true
+                    $mach = Get-PeMachine -FilePath $cp
+                    $lastMachine = $mach
+                    if ($expectedMachine -eq 0 -or $mach -eq $expectedMachine) {
+                        $foundValid = $true
+                        break
+                    }
+                }
+            }
+
+            if (-not $foundValid) {
+                if ($foundAny) {
+                    $desc = switch ($lastMachine) {
+                        0xAA64 { "ARM64 (0xAA64)" }
+                        0x8664 { "x64 (0x8664)" }
+                        0x014C { "x86 (0x014C)" }
+                        Default { "0x{0:X4}" -f $lastMachine }
+                    }
+                    $mismatched += "$dll (Incompatible PE Architecture: $desc, expected $archLabel)"
+                } else {
+                    $missing += $dll
+                }
+            }
+        }
+        return @{ Missing = $missing; Mismatched = $mismatched; IsHealthy = (($missing.Count -eq 0) -and ($mismatched.Count -eq 0)) }
+    }
+
+    $audit = & $AuditDlls
+    if ($audit.IsHealthy) {
+        $Script:VcRedistVerified = $true
+        Write-Host "  -> Visual C++ 2015-2022 Redistributable ($archLabel) verified (all required runtime DLLs present: $($requiredDlls -join ", "))." -ForegroundColor Green
+        return $true
+    }
+
+    # Report diagnostic findings
+    Write-Host "`n========================================================================" -ForegroundColor Yellow
+    Write-Host " VISUAL C++ RUNTIME PRE-FLIGHT CHECK: MISSING / INCOMPLETE COMPONENTS" -ForegroundColor Yellow
+    Write-Host "========================================================================" -ForegroundColor Yellow
+    Write-Host " Target Architecture:   $archLabel" -ForegroundColor White
+    Write-Host " Required CRT DLLs:     $($requiredDlls -join ", ")" -ForegroundColor Gray
+    Write-Host " System Directory:      $sysDir" -ForegroundColor Gray
+    if ($audit.Missing.Count -gt 0) {
+        Write-Host " Missing DLL(s):        $($audit.Missing -join ", ")" -ForegroundColor Red
+    }
+    if ($audit.Mismatched.Count -gt 0) {
+        Write-Host " Architecture Mismatch: $($audit.Mismatched -join "; ")" -ForegroundColor Red
+    }
+    Write-Host "------------------------------------------------------------------------" -ForegroundColor Gray
+    Write-Host " CAUTION: When Visual C++ Redistributable runtime DLLs are missing, Windows" -ForegroundColor DarkYellow
+    Write-Host " dynamic linker fails to load AviSynth.dll (Win32 ERROR_MOD_NOT_FOUND / 126)." -ForegroundColor DarkYellow
+    Write-Host " PotPlayer surfaces this as: 'AviSynth.dll not found'." -ForegroundColor DarkYellow
+    Write-Host "========================================================================`n" -ForegroundColor Yellow
+
+    # Target Microsoft official permalink
+    $vcUrl = switch ($targetArch) {
+        "arm64" { "https://aka.ms/vc14/vc_redist.arm64.exe" }
+        "x64"   { "https://aka.ms/vc14/vc_redist.x64.exe" }
+        "x86"   { "https://aka.ms/vc14/vc_redist.x86.exe" }
+        Default { "https://aka.ms/vc14/vc_redist.x64.exe" }
+    }
+
+    $shouldInstall = $AutoInstall -or $Script:AutoInstallVcRedist
+    if (-not $shouldInstall) {
+        $shouldInstall = Confirm-DownloadPermission `
+            -ItemName "Microsoft Visual C++ 2015-2022 Redistributable ($archLabel)" `
+            -SourceUrl $vcUrl `
+            -TargetDir "$env:TEMP\VC_redist.$targetArch.exe" `
+            -SizeDesc "~12-19 MB"
+    }
+
+    if (-not $shouldInstall) {
+        Write-Warning "Visual C++ Redistributable installation declined by user. AviSynth.dll dynamic linking in PotPlayer may fail with 'not found' error."
+        return $false
+    }
+
+    # Phase 1: Download installer with live stream progress bar
+    $tempInstaller = Join-Path $env:TEMP ("VC_redist_{0}_{1}.exe" -f $targetArch, [System.Guid]::NewGuid().ToString("N"))
+    Write-Host "[1/2] Downloading Official Microsoft Visual C++ ($archLabel) Redistributable..." -ForegroundColor Cyan
+
+    $downloadSuccess = $false
+    $client = $null
+    $fileStream = $null
+    $stream = $null
+
+    try {
+        $client = New-Object System.Net.Http.HttpClient
+        $response = $client.GetAsync($vcUrl, 1).GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            throw "Failed to download VC redistributable from $vcUrl! HTTP status: $($response.StatusCode) $($response.ReasonPhrase)"
+        }
+
+        $totalBytes = $response.Content.Headers.ContentLength
+        $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        $fileStream = [System.IO.File]::Create($tempInstaller)
+
+        $buffer = New-Object byte[] 65536
+        $totalRead = 0
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $lastUiUpdate = [System.Diagnostics.Stopwatch]::StartNew()
+
+        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $fileStream.Write($buffer, 0, $read)
+            $totalRead += $read
+
+            if ($lastUiUpdate.ElapsedMilliseconds -ge 100 -or $totalRead -eq $totalBytes) {
+                $percent = if ($totalBytes -gt 0) { [math]::Round(($totalRead / $totalBytes) * 100) } else { 0 }
+                $mbRead = ($totalRead / 1MB).ToString("0.0")
+                $mbTotal = if ($totalBytes -gt 0) { ($totalBytes / 1MB).ToString("0.0") } else { "???" }
+                $elapsedSec = [math]::Max($stopwatch.Elapsed.TotalSeconds, 0.001)
+                $speed = ($totalRead / 1MB / $elapsedSec).ToString("0.0")
+
+                $filledLength = [int](($percent / 100) * 20)
+                $arrow = if ($filledLength -gt 0) { ">" } else { "" }
+                $bar = ("=" * [math]::Max(0, $filledLength - 1)) + $arrow
+                $bar = $bar.PadRight(20, ' ')
+
+                $etaStr = ""
+                if ($totalBytes -gt 0 -and ($totalRead / $elapsedSec) -gt 0) {
+                    $remainingSec = [math]::Round(($totalBytes - $totalRead) / ($totalRead / $elapsedSec))
+                    $etaStr = " [ETA: ${remainingSec}s]"
+                }
+
+                Write-Host -NoNewline ("`r  [$bar] $percent% ($mbRead / $mbTotal MB) | $speed MB/s$etaStr   ") -ForegroundColor DarkCyan
+                $lastUiUpdate.Restart()
+            }
+        }
+
+        $fileStream.Close()
+        $fileStream = $null
+        $stream.Close()
+        $stream = $null
+        $totalMb = ($totalRead / 1MB).ToString("0.0")
+        $totalSec = [math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
+        Write-Host "`r  [OK] Download complete! ($totalMb MB downloaded in ${totalSec}s)                              " -ForegroundColor Green
+        $downloadSuccess = $true
+    }
+    catch {
+        Write-Host "`r  [WARNING] Streaming download encountered an issue: $($_.Exception.Message). Attempting WebClient fallback..." -ForegroundColor Yellow
+        if ($fileStream) { $fileStream.Dispose(); $fileStream = $null }
+        if ($stream) { $stream.Dispose(); $stream = $null }
+        if ($client) { $client.Dispose(); $client = $null }
+
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($vcUrl, $tempInstaller)
+            $webClient.Dispose()
+            if ((Test-Path $tempInstaller) -and ((Get-Item $tempInstaller).Length -gt 0)) {
+                Write-Host "  [OK] Download complete! (Fallback successful)                                   " -ForegroundColor Green
+                $downloadSuccess = $true
+            } else {
+                throw "Downloaded installer was empty or missing."
+            }
+        } catch {
+            Write-Host "`r  [ERROR] Fallback download failed: $_" -ForegroundColor Red
+            if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
+            $downloadSuccess = $false
+        }
+    }
+    finally {
+        if ($fileStream) { $fileStream.Dispose() }
+        if ($stream) { $stream.Dispose() }
+        if ($client) { $client.Dispose() }
+    }
+
+    if (-not $downloadSuccess -or -not (Test-Path $tempInstaller) -or (Get-Item $tempInstaller).Length -eq 0) {
+        Write-Host "`n[FATAL ERROR] Visual C++ Redistributable download failed. Installation aborted.`n" -ForegroundColor Red
+        if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+
+    # Phase 2: Silent installation with animated background spinner
+    Write-Host "`n[2/2] Installing Visual C++ ($archLabel) Redistributable silently in the background..." -ForegroundColor Cyan
+
+    $isElevated = $false
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]$identity
+        $isElevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {}
+
+    $startParams = @{
+        FilePath     = $tempInstaller
+        ArgumentList = @("/install", "/quiet", "/norestart")
+        PassThru     = $true
+    }
+    if (-not $isElevated) {
+        $startParams["Verb"] = "RunAs"
+    }
+
+    try {
+        $proc = Start-Process @startParams
+        $spinner = @('|', '/', '-', '\')
+        $spinIdx = 0
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+
+        while (-not $proc.HasExited) {
+            $char = $spinner[$spinIdx % $spinner.Length]
+            $sec = [math]::Round($watch.Elapsed.TotalSeconds)
+            Write-Host -NoNewline ("`r  [{0}] Executing official Microsoft installer... ({1}s elapsed)   " -f $char, $sec) -ForegroundColor DarkCyan
+            $spinIdx++
+            Start-Sleep -Milliseconds 250
+            if ($sec -ge 120) {
+                Write-Host "`r  [WARNING] Installer has been running for 120 seconds. Waiting for completion...   " -ForegroundColor Yellow
+            }
+        }
+        $exitCode = $proc.ExitCode
+        Write-Host "`r  [OK] Installer process exited with code $exitCode (completed in $([math]::Round($watch.Elapsed.TotalSeconds, 1))s)        " -ForegroundColor Green
+    }
+    catch {
+        Write-Host "`r  [ERROR] Failed to launch installer process: $_" -ForegroundColor Red
+        if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+    finally {
+        if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Re-audit DLLs after installation
+    $reAudit = & $AuditDlls
+    if ($reAudit.IsHealthy) {
+        $Script:VcRedistVerified = $true
+        Write-Host "  -> [SUCCESS] Microsoft Visual C++ 2015-2022 ($archLabel) Redistributable verified healthy!" -ForegroundColor Green
+        return $true
+    } else {
+        if ($exitCode -eq 3010) {
+            Write-Host "  -> [WARNING] Installer indicated a system reboot is pending (ExitCode 3010). Some runtime DLLs may be locked until restart." -ForegroundColor Yellow
+        } else {
+            Write-Warning "Installation finished with code $exitCode, but some runtime DLLs could not be verified: $($reAudit.Missing -join ", ")"
+        }
+        return $false
+    }
+}
+
 # HELPER: List Available AviSynth Profiles Across Potential Locations
 # ---------------------------------------------------------
 function Get-AvailableAviSynthProfiles {
@@ -2200,7 +2498,9 @@ function Install-MvToolsToPotPlayer {
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
         [string]$MvToolsRepo = "",
-        [string]$AviSynthRepo = "AviSynth/AviSynthPlus"
+        [string]$AviSynthRepo = "AviSynth/AviSynthPlus",
+        [Parameter(Mandatory = $false)]
+        [switch]$AutoInstallVcRedist
     )
 
     if (-not (Test-Path $TargetPotPlayerDir)) {
@@ -2260,7 +2560,10 @@ function Install-MvToolsToPotPlayer {
         Write-Warning "Could not find or acquire MVTools binaries to install into PotPlayer directory."
     }
 
-    # 3. Ensure native AviSynth.dll is present in PotPlayer directory (required for PotPlayer AviSynth engine)
+    # 3. Ensure Microsoft Visual C++ 2015-2022 Redistributable runtimes are installed
+    Ensure-VisualCppRedistributable -TargetPotPlayerDir $TargetPotPlayerDir -AutoInstall:$AutoInstallVcRedist | Out-Null
+
+    # 4. Ensure native AviSynth.dll is present in PotPlayer directory (required for PotPlayer AviSynth engine)
     $targetPotArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
     $expectedMachine = switch ($targetPotArch) {
         "arm64" { 0xAA64 }
@@ -2420,7 +2723,7 @@ function Install-MvToolsToPotPlayer {
         }
     }
 
-    # 4. Deploy all AviSynth profiles to PotPlayer\AviSynth directory
+    # 5. Deploy all AviSynth profiles to PotPlayer\AviSynth directory
     $potAvsDir = Join-Path $TargetPotPlayerDir "AviSynth"
     if (-not (Test-Path $potAvsDir)) {
         try {
@@ -3822,7 +4125,7 @@ if (-not (Test-Path $PotExe)) {
 }
 
 # Deploy MVTools plugins, AviSynth.dll, and all .avs profiles into PotPlayer directory
-Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo -AutoInstallVcRedist:$AutoInstallVcRedist | Out-Null
 
 # Initialize and resolve PotPlayer configuration target files (AppData for default install, local for non-default)
 $PotIniTargets = Initialize-PotPlayerIniFiles -PotPlayerDir $PotPlayerDir
@@ -3948,7 +4251,7 @@ if ($AutoDownloadMvTools -or $cpuMissing -or $gpuNeededAndMissing) {
             $MvToolsCpuPath = Join-Path $MvToolsDir "mvtools2.dll"
             $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
             # Ensure newly acquired binaries and profiles are synced to PotPlayer
-            Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo | Out-Null
+            Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo -AutoInstallVcRedist:$AutoInstallVcRedist | Out-Null
         }
     }
 

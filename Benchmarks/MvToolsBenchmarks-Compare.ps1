@@ -8,6 +8,8 @@
     Optionally executes the full 3x2 permutation test matrix back-to-back.
 .PARAMETER AutoInstallPotPlayer
     Forwards automated native PotPlayer (ARM64 or x64) download and silent installation to matrix benchmark runs.
+.PARAMETER AutoInstallVcRedist
+    Forwards automated Microsoft Visual C++ 2015-2022 Redistributable acquisition and installation to matrix benchmark runs.
 .PARAMETER AutoDownloadMvTools
     Forwards automated MVTools release download (tordona/mvtools or pinterf/mvtools) and deployment to matrix benchmark runs.
 .PARAMETER PotPlayerDir
@@ -15,12 +17,14 @@
 .PARAMETER MvToolsRepo
     GitHub repository slug for downloading release packages, forwarded to matrix benchmark runs.
 .VERSION
-    2.4.0
+    2.4.1
 .DATE
-    2026-10-24
+    2026-10-25
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.4.1 (2026-10-25): Added -AutoInstallVcRedist forwarding for unattended matrix benchmarks.
+                           Prevents PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies.
     - v2.4.0 (2026-10-24): Dynamic matrix permutation profile forwarding (-Profile $FilterPlatform-$tier).
                            Dynamic hardware trade-off synthesis (CPU SIMD vs CPU NEON, GPU vendor labels,
                            platform vs SoC descriptors). Forwarding of -PotPlayerDir and -MvToolsRepo to
@@ -77,6 +81,10 @@ param(
     [switch]$AutoInstallPotPlayer,
 
     [Parameter(Mandatory = $false)]
+    [Alias("AutoInstallVC", "InstallVcRedist")]
+    [switch]$AutoInstallVcRedist,
+
+    [Parameter(Mandatory = $false)]
     [switch]$AutoDownloadMvTools,
 
     [Parameter(Mandatory = $false)]
@@ -92,7 +100,7 @@ param(
 )
 
 # Compare Suite Semantic Revision
-$Script:CompareVersion = "2.4.0"
+$Script:CompareVersion = "2.4.1"
 
 $ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($ScriptDir)) {
@@ -185,6 +193,9 @@ if ($RunMatrix) {
             }
             if ($AutoInstallPotPlayer) {
                 $ArgsList += "-AutoInstallPotPlayer"
+            }
+            if ($AutoInstallVcRedist) {
+                $ArgsList += "-AutoInstallVcRedist"
             }
             if ($AutoDownloadMvTools) {
                 $ArgsList += "-AutoDownloadMvTools"

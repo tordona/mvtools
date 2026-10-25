@@ -87,6 +87,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 
 1. **[1/7] PotPlayer Verification & Automated Acquisition:**
    - Verifies PotPlayer executable integrity or automatically downloads and silently installs official native PotPlayer (`PotPlayerSetupARM64.exe` on ARM64 or `PotPlayerSetup64.exe` on x64 via `-AutoInstallPotPlayer`).
+   - Audits required Microsoft Visual C++ 2015-2022 Redistributable runtime libraries (`vcruntime140.dll`, `msvcp140.dll`, and on x64 `vcruntime140_1.dll`) matching target architecture (`0xAA64` ARM64 or `0x8664` x64). If missing or mismatched (which causes PotPlayer to report "AviSynth.dll not found" due to Win32 error 126), prompts for permission or automatically downloads and silently installs from official aka.ms permalinks via `-AutoInstallVcRedist`.
    - Verifies presence of `AviSynth.dll` in PotPlayer's directory. If missing from local system and registry locations, automatically acquires the official release package from GitHub (`AviSynth/AviSynthPlus`, dynamic latest tag) and extracts the native architecture binary (`arm64\bin\AviSynth.dll` or `x64\AviSynth.dll`).
 2. **[2/7] PotPlayer Version & Test Asset Integrity Audit:**
    - Detects and records the installed or portable PotPlayer version and PE linker build timestamp (e.g. `1.7.23122 (Build: 2026-09-01 22:30:50)`).
@@ -140,6 +141,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 | `-IgnoreBatteryWarning` | | `switch` | `$false` | Bypasses fatal error when device is running on battery power (allows testing on battery without AC connected). |
 | `-MemoryConstrained` | | `switch` | `$false` | Explicitly tags the test run as conducted on a memory-constrained device (also auto-detected if total RAM <= 4.5 GB or free RAM is below headroom). |
 | `-AutoInstallPotPlayer` | | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer (`PotPlayerSetupARM64.exe` or `PotPlayerSetup64.exe`) from Kakao CDN if not found on the machine. |
+| `-AutoInstallVcRedist` | `AutoInstallVC`, `InstallVcRedist` | `switch` | `$false` | Automatically downloads and silently installs official Microsoft Visual C++ 2015-2022 Redistributables (`VC_redist.arm64.exe` or `VC_redist.x64.exe`) via aka.ms permalinks if required runtime DLLs are missing or architecture-mismatched. |
 | `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
 | `-MvToolsRepo` | | `string` | `"tordona/mvtools"` (ARM64)<br>`"pinterf/mvtools"` (x64) | GitHub repository slug for downloading release packages (default dynamically resolves based on target architecture). |
 | `-AviSynthRepo` | | `string` | `"AviSynth/AviSynthPlus"` | GitHub repository slug for downloading official AviSynth+ releases. If `AviSynth.dll` is missing, the harness automatically downloads the latest release archive and extracts `arm64\bin\AviSynth.dll` or `x64\AviSynth.dll`. |
@@ -202,6 +204,7 @@ The comparative aggregation tool that parses individual audit reports and transf
 | `-IgnoreUsbWarning` | `switch` | `$false` | Bypasses interactive confirmation when running matrix benchmarks from USB flash storage. |
 | `-MemoryConstrained` | `switch` | `$false` | Forwards the memory-constrained tag across all matrix permutations executed under `-RunMatrix`. |
 | `-AutoInstallPotPlayer` | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer (ARM64 or x64) if missing before running matrix benchmarks. |
+| `-AutoInstallVcRedist` | `switch` | `$false` | Forwards automated Microsoft Visual C++ 2015-2022 Redistributable acquisition and silent installation across all matrix permutations executed under `-RunMatrix`. |
 | `-AutoDownloadMvTools` | `switch` | `$false` | Automatically downloads and deploys latest official MVTools binaries (from `tordona/mvtools` on ARM64 or `pinterf/mvtools` on x64) if missing before running matrix benchmarks. |
 | `-SkipProcessKill` | `switch` | `$false` | Bypasses background app termination prompt across all matrix permutations executed under `-RunMatrix`. |
 
