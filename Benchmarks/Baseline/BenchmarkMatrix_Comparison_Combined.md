@@ -1,14 +1,15 @@
 # MVTools Multi-Platform Benchmark Summary
 
-**Generated:** 2026-10-25 12:37:08  
+**Generated:** 2026-10-25 13:11:30  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
 **Reference Target:** 1080p 24fps -> 60fps Interpolation  
-**Platforms Evaluated:** Intel-Processor-N100, Intel-Core-i5-1135G7, Intel-Core-i3-1215U, Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615, Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
+**Platforms Evaluated:** AMD-Ryzen-AI-5-340, Intel-Processor-N100, Intel-Core-i5-1135G7, Intel-Core-i3-1215U, Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615, Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605, Snapdragon-X-Plus, Snapdragon-8cxGen2, Snapdragon-8cxGen3, Snapdragon-850, Snapdragon-7cGen2, Snapdragon-8cxGen1  
 
 ## Cross-Platform Recommended Daily Driver Matrix (Balanced Tier)
 
 | Platform | Engine | Avg FPS | 1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | Dropped Frames | Dedicated Matrix |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)** | CPU SIMD | **59.90** | **52.23** | 10.7% / 13.2% | 40.8% / 41.3% | 0 frames | [AMD-Ryzen-AI-5-340 Matrix](BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) |
 | **Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)** | CPU SIMD | **60.00** | **55.35** | 42.3% / 45.4% | 38.5% / 40.1% | 0 frames | [Intel-Processor-N100 Matrix](BenchmarkMatrix_Comparison_Intel-Processor-N100.md) |
 | **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)** | CPU SIMD | **60.00** | **54.22** | 6.2% / 6.4% | 22.9% / 23.7% | 0 frames | [Intel-Core-i5-1135G7 Matrix](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) |
 | **Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15W TDP, Intel UHD Graphics 64EU)** | CPU SIMD | **60.00** | **55.13** | 20.8% / 22.4% | 55.1% / 56.1% | 0 frames | [Intel-Core-i3-1215U Matrix](BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) |
@@ -29,6 +30,7 @@
 
 ## Dedicated Platform Comparison Matrices
 
+- **[AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)](BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md)** (Identifier: `AMD-Ryzen-AI-5-340`): Eco, Balanced, MaxQuality tiers tested
 - **[Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)](BenchmarkMatrix_Comparison_Intel-Processor-N100.md)** (Identifier: `Intel-Processor-N100`): Eco, Balanced, MaxQuality tiers tested
 - **[Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)](BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md)** (Identifier: `Intel-Core-i5-1135G7`): Eco, Balanced, MaxQuality tiers tested
 - **[Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15W TDP, Intel UHD Graphics 64EU)](BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md)** (Identifier: `Intel-Core-i3-1215U`): Eco, Balanced, MaxQuality tiers tested
