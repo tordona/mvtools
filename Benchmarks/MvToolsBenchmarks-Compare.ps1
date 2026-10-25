@@ -826,7 +826,7 @@ foreach ($pk in $PlatformGroups.Keys) {
         $firstDup = $dupRows[0]
         $MdLines += ""
         $MdLines += "> [!WARNING]"
-        $MdLines += "> **Thread Capacity Saturation & Suspected Swapchain Duplication ($dupTiers):** Telemetry indicates AviSynth worker threads operated at $($firstDup.CpuSaturationPct)% of their theoretical compute ceiling ($($firstDup.AvgCpuPct)% CPU on $($firstDup.ScriptThreads) threads). When worker threads are compute-saturated, the PotPlayer D3D11 video renderer may repeat previous backbuffers on VSync ticks to maintain a 60 FPS swapchain presentation rate while the filter graph falls behind. Verify real-time filter delivery rate in PotPlayer OSD ('Tab' key) during active playback (ftp: 24 -> XX.XX)."
+        $MdLines += "> **Thread Capacity Saturation & Suspected Swapchain Duplication ($dupTiers):** Telemetry indicates AviSynth worker threads operated at $($firstDup.CpuSaturationPct)% of their theoretical compute ceiling ($($firstDup.AvgCpuPct)% CPU on $($firstDup.ScriptThreads) threads). When worker threads are compute-saturated, the PotPlayer D3D11 video renderer may repeat previous backbuffers on VSync ticks to maintain a 60 FPS swapchain presentation rate while the filter graph falls behind. Verify real-time filter delivery rate in PotPlayer OSD ('Tab' key) during active playback (FPS: 24 -> XX.XX)."
     }
 
     $MdLines += ""

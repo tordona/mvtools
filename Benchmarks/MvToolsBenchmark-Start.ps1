@@ -4687,7 +4687,7 @@ try {
         }
         $duplicationNotice = ""
         if ($isFrameDuplicationSuspected) {
-            $duplicationNotice = "`n`n[!] WARNING: Thread Capacity Saturation Detected ($CpuSaturationRatio% of $ThreadCeilingPct% ceiling)!`n    AviSynth worker threads are compute-bound ($AvgCpu% CPU on $ScriptThreads/$LogicalCores cores). PotPlayer D3D11 swapchain`n    may be repeating cached frames on VSync ticks to sustain the reported $($PmData.AvgFps) FPS.`n    Check PotPlayer OSD (Tab key) during playback to verify true filter pipeline throughput (ftp: 24 -> XX.XX)."
+            $duplicationNotice = "`n`n[!] WARNING: Thread Capacity Saturation Detected ($CpuSaturationRatio% of $ThreadCeilingPct% ceiling)!`n    AviSynth worker threads are compute-bound ($AvgCpu% CPU on $ScriptThreads/$LogicalCores cores). PotPlayer D3D11 swapchain`n    may be repeating cached frames on VSync ticks to sustain the reported $($PmData.AvgFps) FPS.`n    Check PotPlayer OSD (Tab key) during playback to verify true filter pipeline throughput (FPS: 24 -> XX.XX)."
         }
         $FpsReportSection = @"
 5. FRAME RATE & PACING TELEMETRY (via PresentMon)
@@ -4814,7 +4814,7 @@ PresentMon CSV: $(if (Test-Path $PresentMonCsv) { $PresentMonCsv } else { "N/A" 
         Write-Host "`n[!] WARNING: Thread Capacity Saturation Detected ($CpuSaturationRatio% of $ThreadCeilingPct% ceiling)!" -ForegroundColor Yellow
         Write-Host "    AviSynth worker threads are compute-bound ($AvgCpu% CPU on $ScriptThreads/$LogicalCores cores)." -ForegroundColor Yellow
         Write-Host "    Reported $($PmData.AvgFps) FPS is likely sustained by PotPlayer D3D11 swapchain frame duplication." -ForegroundColor Yellow
-        Write-Host "    Check PotPlayer OSD (Tab key) during playback to confirm actual filter throughput (ftp: 24 -> XX.XX).`n" -ForegroundColor Yellow
+        Write-Host "    Check PotPlayer OSD (Tab key) during playback to confirm actual filter throughput (FPS: 24 -> XX.XX).`n" -ForegroundColor Yellow
     }
 
 } finally {
