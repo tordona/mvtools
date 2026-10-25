@@ -1,15 +1,40 @@
 # AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
 
-This guide provides a standardized, copy-paste prompt and user workflow for prompting AI coding assistants (such as Google Antigravity, Claude, ChatGPT, or GitHub Copilot) to generate customized, production-ready **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time interpolation profiles (`.avs`) for any CPU/SoC platform, along with an automated feedback loop to tune profiles if frame drops occur.
+This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
 
 ---
 
-## 1. User Instructions: How to Use This Guide
+## 1. User Workflows: How to Use This Guide
 
-When bringing MVTools2 to a new hardware platform (e.g., AMD Ryzen Zen 5/4/3, Intel Core 8th–14th Gen / Core Ultra, Qualcomm Snapdragon, or Apple Silicon via Wine/Proton), follow these simple steps:
+Depending on your environment, you can use this guide in two ways:
+* **[Mode A: Autonomous IDE Agent (Google Antigravity, Cursor, Windsurf, Claude Code)](#mode-a-autonomous-ide-agent-zero-copy-paste-recommended)**: Recommended for developers running within an agentic IDE with terminal and workspace tools. Zero copy-pasting; the agent executes the entire end-to-end loop autonomously.
+* **[Mode B: Conversational Web Assistant (Gemini Web, ChatGPT, Claude Web)](#mode-b-conversational-web-assistant-manual-workflow)**: Recommended for quick profile drafting in a browser session. Copy the standardized prompt, paste your hardware specs, deploy the files manually, and paste back benchmark audit reports if tuning is needed.
 
-### Step 1: Collect Your Hardware Details
-Before talking to your AI agent, gather three basic pieces of information about your machine:
+---
+
+### Mode A: Autonomous IDE Agent (Zero Copy-Paste, Recommended)
+
+Tool-enabled IDE agents have direct access to your local workspace, terminal shell, and file system. Instead of manually copying prompts or telemetry reports, you can instruct your agent with a single instruction:
+
+#### The 1-Step Prompt:
+> *"Read `Documentation/guides/AIAgentProfileGuide.md`. Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in `AviSynth/`, run the benchmark harness on `Balanced.avs` to verify 60fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur."*
+
+#### What the IDE Agent Does Autonomously:
+1. **Hardware Autodetection:** Queries Windows CIM/WMI (`Get-CimInstance Win32_Processor`, `Win32_VideoController`, `Win32_PhysicalMemory`) to detect physical core counts, P/E core topology, L3 cache, DRAM channels, and TDP limits.
+2. **Deterministic Script Writing:** Synthesizes `<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, and `<Platform>-MaxQuality.avs` directly into `AviSynth/` following the Step 1 & Step 2 architectural constraints.
+3. **Automated Benchmark Execution:** Executes `.\Benchmarks\MvToolsBenchmark-Start.ps1` with `-AutoInstallPotPlayer` and `-AutoInstallVcRedist` in the background.
+4. **Telemetry & Log Auditing:** Reads the resulting `Benchmarks/BenchmarkResults/report_*.txt` and PresentMon frame logs directly from disk.
+5. **Closed-Loop Self-Tuning:** If dropped frames, thread capacity saturation ($\ge 88\%$), or thermal throttling are detected, the agent references the [Step 4 Telemetry Diagnosis Matrix](#step-4-telemetry-diagnosis--tuning-matrix-when-performance-fails-60fps), modifies the `.avs` scripts in-place, and re-tests until 60.00 FPS / 0 drops is empirically achieved.
+6. **Git Version Control:** Verifies syntax, formats line endings, GPG-signs, and commits the validated profile set.
+
+---
+
+### Mode B: Conversational Web Assistant (Manual Workflow)
+
+When using a web-based AI assistant (e.g. `gemini.google.com`, ChatGPT, or Claude Web):
+
+#### Step 1: Collect Your Hardware Details
+Gather three basic pieces of information about your machine:
 1. **CPU Model, Core Layout & TDP:** 
    * Example: *Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45W TDP, 24MB L3)*.
    * Example: *AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c cores @ 15W–28W TDP, 16MB L3)*.
@@ -23,15 +48,15 @@ Before talking to your AI agent, gather three basic pieces of information about 
 3. **System Memory (RAM):** 
    * Example: *16 GB Dual-Channel DDR4-3200*, *16 GB Single-Channel DDR4*, or *32 GB LPDDR5x-7500*.
 
-### Step 2: Copy and Customize the Prompt Below
+#### Step 2: Copy and Customize the Prompt
 Copy the text in the prompt block in [Section 2: The AI Agent Prompt](#2-the-ai-agent-prompt). Replace the bracketed placeholder:
 ```text
 [INSERT TARGET HARDWARE HERE]
 ```
 with your collected specifications.
 
-### Step 3: Deploy the Generated Files
-Your AI agent will generate three files:
+#### Step 3: Deploy the Generated Files
+Your AI assistant will generate three files:
 * `<Platform>-Eco.avs`
 * `<Platform>-Balanced.avs`
 * `<Platform>-MaxQuality.avs`
@@ -43,7 +68,7 @@ AviSynth/<Platform>-Balanced.avs
 AviSynth/<Platform>-MaxQuality.avs
 ```
 
-### Step 4: Validate with the Automated Benchmark Harness
+#### Step 4: Validate with the Automated Benchmark Harness
 Run the automated benchmark harness to verify real-time 60fps stability and zero frame drops:
 ```powershell
 Set-Location Benchmarks
@@ -52,15 +77,16 @@ Set-Location Benchmarks
 > [!TIP]
 > The `-AutoInstallVcRedist` switch automatically diagnoses, acquires, and silently installs official Microsoft Visual C++ 2015–2022 runtimes if missing, preventing the common PotPlayer error *"AviSynth.dll not found"* (Win32 126).
 
-### Step 5: Tuning Loop (If Frame Drops or Stutter Occur)
+#### Step 5: Tuning Loop (If Frame Drops or Stutter Occur)
 If the benchmark reports dropped frames or under 60 FPS:
 1. Open the generated audit report: `Benchmarks/BenchmarkResults/report_<Profile>_<Timestamp>.txt`.
 2. Copy the **`FRAME RATE & PACING TELEMETRY`**, **`PERFORMANCE TELEMETRY SUMMARY`**, and **`MEMORY & PAGING INTEGRITY`** sections.
-3. Paste them back to your AI agent with this prompt:
+3. Paste them back to your AI assistant with this prompt:
    ```text
    The benchmark reported performance issues. Please analyze this telemetry audit report and tune the <Platform> profiles according to the Step 4 Telemetry Diagnosis & Tuning Matrix in your instructions:
    [PASTE TELEMETRY REPORT SECTIONS HERE]
    ```
+
 
 ---
 

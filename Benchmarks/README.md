@@ -35,8 +35,8 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.4.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
-| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.4.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.5.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.5.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 
 ---
 
@@ -61,6 +61,18 @@ Golden reference benchmark reports and comparative matrices across ARM64 Snapdra
 | **Snapdragon 8cx Gen 1** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md) | Microsoft Surface Pro X SQ1 (Kryo 495, Adreno 675) |
 | **Snapdragon 850** | [**`BenchmarkMatrix_Comparison_Snapdragon-850.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-850.md) | Samsung Galaxy Book2 (Kryo 385, Adreno 630, 5W Fanless) |
 | **Snapdragon 7c Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md) | Samsung Galaxy Book Go (Kryo 468, Adreno 618, 4GB Fanless) |
+
+---
+
+## AI Agent Profile Generation & Tuning Guide
+
+When bringing MVTools2 to a new hardware platform or validating new profile sets, refer to the comprehensive companion guide:  
+👉 [**AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles**](../Documentation/guides/AIAgentProfileGuide.md)
+
+This companion guide provides:
+- **Mode A: Autonomous IDE Agent Workflow:** Zero-copy-paste loop for AI coding assistants (Google Antigravity, Cursor, Windsurf, Copilot) to auto-detect hardware, generate `.avs` profiles, run the benchmark harness, audit PresentMon telemetry, and self-tune parameters in a closed loop.
+- **Mode B: Conversational Web Prompt:** Ready-to-use prompt for web LLMs (Gemini, ChatGPT, Claude) with microarchitectural core-pinning laws.
+- **Step 4 Telemetry Diagnosis & Tuning Matrix:** Empirical decision tree mapping dropped frames, thread capacity saturation, and thermal throttling back to prescribed `.avs` parameter adjustments.
 
 ---
 

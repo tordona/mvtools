@@ -38,6 +38,7 @@ An automated benchmark harness and comparative matrix suite for reproducible fra
 - **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware platform autodetection (ARM64 Snapdragon & x64 PC), and deterministic configuration enforcement.
 - **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**.
 - **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Golden reference performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
+- **[`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)**: AI Agent Guide & Standardized Prompt for generating and autonomously tuning custom 3-tier profiles (`Eco`, `Balanced`, `MaxQuality`) on new hardware platforms using IDE agents or web assistants.
 
 See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for complete parameter references, usage guides, and verified baseline metrics.
 
