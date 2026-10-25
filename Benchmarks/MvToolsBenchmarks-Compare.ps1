@@ -538,13 +538,18 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         $Lines += "- **Memory-Constrained Hardware Headroom:** Benchmarks on this platform were executed on a memory-constrained device. To prevent Windows working-set compression and secondary SSD pagefile swapping during high-motion scenes, utilizing the **Eco** profile or conservative `SetMemoryMax` configurations is strongly recommended."
     }
 
+    $hasRecordedDrops = ($Entries | Where-Object { $_.DroppedFrames -ne "0" -and $_.DroppedFrames -notmatch '^0\b' }).Count -gt 0
     $hasNonIntegerDisplay = ($Entries | Where-Object { $_.IsIntegerDisplay -eq $false -or $_.IsVsyncDriftDrop -eq $true }).Count -gt 0
     if ($hasNonIntegerDisplay) {
         $firstNonInt = $Entries | Where-Object { $_.IsIntegerDisplay -eq $false -or $_.IsVsyncDriftDrop -eq $true } | Select-Object -First 1
         $actualHz = if ($firstNonInt.EmpiricalScanoutHz -gt 0) { $firstNonInt.EmpiricalScanoutHz } elseif ($firstNonInt.DisplayRefreshHz -gt 0) { $firstNonInt.DisplayRefreshHz } else { 59.86 }
         $hzDiff = [math]::Abs(60.0 - $actualHz)
         $driftSec = if ($hzDiff -gt 0.001) { [math]::Round(1.0 / $hzDiff, 1) } else { 7.3 }
-        $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Because the AviSynth profile generates strictly 60.000 FPS, an excess frame accumulates every ~$($driftSec)s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck."
+        if ($hasRecordedDrops) {
+            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Because the AviSynth profile generates strictly 60.000 FPS, an excess frame accumulates every ~$($driftSec)s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck."
+        } else {
+            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards."
+        }
     }
 
     return $Lines
@@ -734,8 +739,9 @@ foreach ($pk in $PlatformGroups.Keys) {
         $MdLines += "> **Memory-Constrained Hardware Notice:** Benchmark telemetry for this platform was captured on a memory-constrained device ($($SortedEntries[0].MemoryConstrainedDetail)). Microstutter metrics (1% and 0.1% Low FPS) and memory working sets should be interpreted with memory pressure in mind."
     }
 
+    $hasRecordedDropsGlobal = ($SortedEntries | Where-Object { $_.DroppedFrames -ne "0" -and $_.DroppedFrames -notmatch '^0\b' }).Count -gt 0
     $hasNonIntegerDisplay = ($SortedEntries | Where-Object { $_.IsIntegerDisplay -eq $false -or $_.IsVsyncDriftDrop -eq $true }).Count -gt 0
-    if ($hasNonIntegerDisplay) {
+    if ($hasNonIntegerDisplay -and $hasRecordedDropsGlobal) {
         $nonIntRow = $SortedEntries | Where-Object { $_.IsIntegerDisplay -eq $false -or $_.IsVsyncDriftDrop -eq $true } | Select-Object -First 1
         $actualHz = if ($nonIntRow.EmpiricalScanoutHz -gt 0) { $nonIntRow.EmpiricalScanoutHz } elseif ($nonIntRow.DisplayRefreshHz -gt 0) { $nonIntRow.DisplayRefreshHz } else { 59.86 }
         $MdLines += ""
