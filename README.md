@@ -27,7 +27,6 @@ This fork provides **18 tuned real-time 60fps AviSynth motion interpolation prof
 | **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |
 | **Snapdragon 850** | 4x Gold + 4x Silver / Adreno 630 (~5W Fanless) | [Eco](AviSynth/Snapdragon-850-Eco.avs), [Balanced](AviSynth/Snapdragon-850-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-850-MaxQuality.avs) | [`Snapdragon850.md`](Documentation/guides/Snapdragon850.md) |
 | **Snapdragon 7c Gen 2** | 2x Gold + 6x Silver / Adreno 618 (~5W Fanless) | [Eco](AviSynth/Snapdragon-7cGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-7cGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-7cGen2-MaxQuality.avs) | [`Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md) |
-| **Generic x64 (AMD / Intel)** | Multi-core x64 SIMD / D3D12 GPU | [Eco](AviSynth/Generic-x64-Eco.avs), [Balanced](AviSynth/Generic-x64-Balanced.avs), [MaxQuality](AviSynth/Generic-x64-MaxQuality.avs) | — |
 
 For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC ARM64 $\leftrightarrow$ MinGW GCC), see [**`AI_PORT_NOTICE.md`**](AI_PORT_NOTICE.md) and [**`CHANGELOG.md`**](CHANGELOG.md).
 
