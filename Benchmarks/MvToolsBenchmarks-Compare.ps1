@@ -491,17 +491,21 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
 
     $platformName = if ($Entries.Count -gt 0 -and $Entries[0].Platform) { $Entries[0].Platform } else { "Host Platform" }
 
-    $tiersWithDrops = @()
-    foreach ($r in $Entries) {
-        if ($r.DroppedFrames -ne "0" -and $r.DroppedFrames -notmatch '^0\b') {
-            if (-not $tiersWithDrops.Contains($r.Tier)) { $tiersWithDrops += $r.Tier }
-        }
-    }
-
     $bestPacing = $Entries | Sort-Object Low1PctFps -Descending | Select-Object -First 1
     $lowestCpu = $Entries | Sort-Object AvgCpuPct | Select-Object -First 1
 
     $hasVsyncDrift = ($Entries | Where-Object { $_.IsVsyncDriftDrop -eq $true -or $_.IsIntegerDisplay -eq $false }).Count -gt 0
+    $tiersWithDrops = @()
+    foreach ($r in $Entries) {
+        if ($r.DroppedFrames -ne "0" -and $r.DroppedFrames -notmatch '^0\b') {
+            # If the platform has vsync drift / non-integer display and this run achieved >= 58.0 FPS,
+            # drops are provoked by physical panel scanout rate discrepancy rather than compute bottlenecks.
+            if ($hasVsyncDrift -and $r.AvgFps -ge 58.0) {
+                continue
+            }
+            if (-not $tiersWithDrops.Contains($r.Tier)) { $tiersWithDrops += $r.Tier }
+        }
+    }
     if ($tiersWithDrops.Count -gt 0) {
         $cleanTiers = @()
         foreach ($ct in $TiersPresent) {
