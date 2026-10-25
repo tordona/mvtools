@@ -2690,14 +2690,24 @@ function Select-ProfileAndModeInteractive {
         return @{ ProfilePath = $CurrentProfile; GpuMode = $CurrentGpuMode }
     }
 
+    $targetArch = Get-TargetBinaryArchitecture
     Write-Host "`n========================================================================" -ForegroundColor Cyan
     Write-Host " HARDWARE DETECTION & RECOMMENDATION ENGINE" -ForegroundColor Cyan
     Write-Host "========================================================================" -ForegroundColor Cyan
     Write-Host "  -> CPU:            $($Recommendation.CpuName)" -ForegroundColor White
     Write-Host "  -> GPU:            $($Recommendation.GpuName)" -ForegroundColor White
-    Write-Host "  -> Detected SoC:   $($Recommendation.PlatformLabel)" -ForegroundColor Yellow
+    if ($targetArch -eq "arm64") {
+        Write-Host "  -> Detected SoC:   $($Recommendation.PlatformLabel)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  -> Detected Platform: $($Recommendation.PlatformLabel)" -ForegroundColor Yellow
+    }
     Write-Host "  -> Recommended:    $($Recommendation.RecommendedProfile)" -ForegroundColor Green
-    Write-Host "  -> Suggested Mode: $($Recommendation.RecommendedGpuMode) NEON (Optimum 1% low frame time stability)" -ForegroundColor Green
+    $suggestedModeLabel = if ($Recommendation.RecommendedGpuMode -eq "CPU") {
+        if ($targetArch -eq "arm64") { "CPU NEON" } else { "CPU SIMD" }
+    } else {
+        "$($Recommendation.RecommendedGpuMode) GPU"
+    }
+    Write-Host "  -> Suggested Mode: $suggestedModeLabel (Optimum 1% low frame time stability)" -ForegroundColor Green
     Write-Host "========================================================================`n" -ForegroundColor Cyan
 
     Write-Host "Available AviSynth Profiles:" -ForegroundColor Yellow
@@ -3906,7 +3916,8 @@ $CpuMeta = Get-MvToolsMetadata -DllPath $MvToolsCpuPath
 $GpuMeta = Get-MvToolsMetadata -DllPath $MvToolsGpuPath
 
 if ($CpuMeta) {
-    Write-Host "  -> mvtools2.dll (CPU/NEON):" -ForegroundColor White
+    $cpuEngineTag = if ((Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir) -eq "arm64") { "CPU/NEON" } else { "CPU/SIMD" }
+    Write-Host "  -> mvtools2.dll ($cpuEngineTag):" -ForegroundColor White
     Write-Host "     Version: $($CpuMeta.FileVersion) | Product: $($CpuMeta.ProductVersion)" -ForegroundColor Gray
     Write-Host "     PE Linker Build Date: $($CpuMeta.PeBuildDate)" -ForegroundColor Gray
     Write-Host "     SHA-256: $($CpuMeta.SHA256)" -ForegroundColor Gray

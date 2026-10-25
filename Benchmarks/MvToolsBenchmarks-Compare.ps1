@@ -3,7 +3,7 @@
     MVTools Performance Matrix & Comparison Suite
 .DESCRIPTION
     Parses, compares, and summarizes benchmark audit reports across AviSynth tiers
-    (Eco vs. Balanced vs. MaxQuality) and acceleration engines (ARM64 CPU NEON vs. Direct3D 12 GPU).
+    (Eco vs. Balanced vs. MaxQuality) and acceleration engines (ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU).
     Generates GitHub Markdown comparison tables, CSV data exports, and console summaries.
     Optionally executes the full 3x2 permutation test matrix back-to-back.
 .PARAMETER AutoInstallPotPlayer
@@ -110,9 +110,30 @@ if ($RunMatrix) {
         exit 1
     }
 
+    $compareArch = if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir) -and (Test-Path (Join-Path $PotPlayerDir "PotPlayer64.exe"))) {
+        $archFound = "x64"
+        try {
+            $stream = [System.IO.File]::OpenRead((Join-Path $PotPlayerDir "PotPlayer64.exe"))
+            $binReader = New-Object System.IO.BinaryReader($stream)
+            $stream.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $peOffset = $binReader.ReadInt32()
+            $stream.Seek($peOffset + 4, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $machine = $binReader.ReadUInt16()
+            $binReader.Close()
+            $stream.Close()
+            if ($machine -eq 0xAA64) { $archFound = "arm64" }
+        } catch {}
+        $archFound
+    } elseif ($env:PROCESSOR_ARCHITECTURE -match '(?i)ARM64' -or $env:PROCESSOR_ARCHITEW6432 -match '(?i)ARM64') {
+        "arm64"
+    } else {
+        "x64"
+    }
+    $cpuEngineLabel = if ($compareArch -eq "arm64") { "CPU NEON" } else { "CPU SIMD" }
+
     Write-Host "`n========================================================" -ForegroundColor Cyan
     Write-Host " EXECUTING 3x2 MVTOOLS BENCHMARK COMPARISON MATRIX" -ForegroundColor Cyan
-    Write-Host " Tiers: Eco, Balanced, MaxQuality | Modes: CPU NEON, D3D12 GPU" -ForegroundColor Cyan
+    Write-Host " Tiers: Eco, Balanced, MaxQuality | Modes: $cpuEngineLabel, D3D12 GPU" -ForegroundColor Cyan
     Write-Host " Duration: $DurationSeconds s per run ($WarmupSeconds s warmup)" -ForegroundColor Cyan
     Write-Host "========================================================`n" -ForegroundColor Cyan
 
@@ -423,29 +444,33 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
             $droppedGpu = $gpuRow.DroppedFrames
             $isZeroDropsCpu = ($droppedCpu -match '^0\b')
             $isZeroDropsGpu = ($droppedGpu -match '^0\b')
+            $cpuModeName = if ($cpuRow -and $cpuRow.ModeShort) { $cpuRow.ModeShort } else { "CPU" }
             $droppedText = if ($isZeroDropsCpu -and $isZeroDropsGpu) {
                 "Both engines sustained a solid **$($cpuRow.AvgFps.ToString('N2')) FPS** with 0 dropped presentation frames."
             } else {
-                "Average FPS: CPU NEON **$($cpuRow.AvgFps.ToString('N2')) FPS** ($droppedCpu) vs D3D12 GPU **$($gpuRow.AvgFps.ToString('N2')) FPS** ($droppedGpu)."
+                "Average FPS: $cpuModeName **$($cpuRow.AvgFps.ToString('N2')) FPS** ($droppedCpu) vs D3D12 GPU **$($gpuRow.AvgFps.ToString('N2')) FPS** ($droppedGpu)."
             }
-            $Lines += "   - **Frame Rate & Pacing:** $droppedText 1% Lows: CPU NEON **$($cpuRow.Low1PctFps.ToString('N2')) FPS** vs D3D12 GPU **$($gpuRow.Low1PctFps.ToString('N2')) FPS**."
+            $Lines += "   - **Frame Rate & Pacing:** $droppedText 1% Lows: $cpuModeName **$($cpuRow.Low1PctFps.ToString('N2')) FPS** vs D3D12 GPU **$($gpuRow.Low1PctFps.ToString('N2')) FPS**."
 
+            $gpuComputeName = if ($gpuRow.Platform -match '(?i)Adreno') { "Adreno GPU" } elseif ($gpuRow.Platform -match '(?i)Intel|Arc|Iris') { "Intel GPU" } elseif ($gpuRow.Platform -match '(?i)Radeon|AMD') { "Radeon GPU" } else { "GPU" }
             $cpuAvgDiff = [math]::Round($cpuRow.AvgCpuPct - $gpuRow.AvgCpuPct, 1)
             if ($cpuAvgDiff -gt 0.5) {
-                $Lines += "   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **${cpuAvgDiff}%** (from $($cpuRow.AvgCpuPct.ToString('N1'))% down to $($gpuRow.AvgCpuPct.ToString('N1'))%), utilizing $($gpuRow.PotPlayerGpu.ToString('N1'))% Adreno GPU compute."
+                $Lines += "   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **${cpuAvgDiff}%** (from $($cpuRow.AvgCpuPct.ToString('N1'))% down to $($gpuRow.AvgCpuPct.ToString('N1'))%), utilizing $($gpuRow.PotPlayerGpu.ToString('N1'))% $gpuComputeName compute."
             } elseif ($cpuAvgDiff -lt -0.5) {
-                $Lines += "   - **Compute Offload:** CPU NEON operated with lower CPU load ($($cpuRow.AvgCpuPct.ToString('N1'))% vs $($gpuRow.AvgCpuPct.ToString('N1'))%), with D3D12 GPU engaging $($gpuRow.PotPlayerGpu.ToString('N1'))% Adreno GPU compute."
+                $Lines += "   - **Compute Offload:** $cpuModeName operated with lower CPU load ($($cpuRow.AvgCpuPct.ToString('N1'))% vs $($gpuRow.AvgCpuPct.ToString('N1'))%), with D3D12 GPU engaging $($gpuRow.PotPlayerGpu.ToString('N1'))% $gpuComputeName compute."
             } else {
-                $Lines += "   - **Compute Offload:** System CPU load was comparable ($($cpuRow.AvgCpuPct.ToString('N1'))% CPU NEON vs $($gpuRow.AvgCpuPct.ToString('N1'))% D3D12 GPU), with D3D12 engaging $($gpuRow.PotPlayerGpu.ToString('N1'))% Adreno GPU compute."
+                $Lines += "   - **Compute Offload:** System CPU load was comparable ($($cpuRow.AvgCpuPct.ToString('N1'))% $cpuModeName vs $($gpuRow.AvgCpuPct.ToString('N1'))% D3D12 GPU), with D3D12 engaging $($gpuRow.PotPlayerGpu.ToString('N1'))% $gpuComputeName compute."
             }
 
             $Lines += "   - **Memory Footprint:** PotPlayer working set: $($cpuRow.PotPlayerMemMb.ToString('N1')) MB (CPU) vs $($gpuRow.PotPlayerMemMb.ToString('N1')) MB (D3D12 GPU)."
         } elseif ($cpuRow) {
+            $cpuArchDesc = if ($cpuRow.ModeShort -eq "CPU SIMD") { "x64 CPU SIMD" } else { "native ARM64 NEON" }
             $Lines += "   - **Frame Rate & Pacing:** Sustained **$($cpuRow.AvgFps.ToString('N2')) FPS** (1% Low: **$($cpuRow.Low1PctFps.ToString('N2')) FPS**, Dropped: $($cpuRow.DroppedFrames))."
-            $Lines += "   - **Compute Load:** System CPU averaged $($cpuRow.AvgCpuPct.ToString('N1'))% (Peak: $($cpuRow.PeakCpuPct.ToString('N1'))%) on native ARM64 NEON with working set of $($cpuRow.PotPlayerMemMb.ToString('N1')) MB."
+            $Lines += "   - **Compute Load:** System CPU averaged $($cpuRow.AvgCpuPct.ToString('N1'))% (Peak: $($cpuRow.PeakCpuPct.ToString('N1'))%) on $cpuArchDesc with working set of $($cpuRow.PotPlayerMemMb.ToString('N1')) MB."
         } elseif ($gpuRow) {
+            $gpuComputeName = if ($gpuRow.Platform -match '(?i)Adreno') { "Adreno GPU" } elseif ($gpuRow.Platform -match '(?i)Intel|Arc|Iris') { "Intel GPU" } elseif ($gpuRow.Platform -match '(?i)Radeon|AMD') { "Radeon GPU" } else { "GPU" }
             $Lines += "   - **Frame Rate & Pacing:** Sustained **$($gpuRow.AvgFps.ToString('N2')) FPS** (1% Low: **$($gpuRow.Low1PctFps.ToString('N2')) FPS**, Dropped: $($gpuRow.DroppedFrames))."
-            $Lines += "   - **Compute Load:** System CPU averaged $($gpuRow.AvgCpuPct.ToString('N1'))% while Adreno GPU compute averaged $($gpuRow.PotPlayerGpu.ToString('N1'))% with working set of $($gpuRow.PotPlayerMemMb.ToString('N1')) MB."
+            $Lines += "   - **Compute Load:** System CPU averaged $($gpuRow.AvgCpuPct.ToString('N1'))% while $gpuComputeName compute averaged $($gpuRow.PotPlayerGpu.ToString('N1'))% with working set of $($gpuRow.PotPlayerMemMb.ToString('N1')) MB."
         }
 
         $Lines += ""
@@ -476,7 +501,8 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         if ($cleanTiers.Count -gt 0) {
             $recTier = if ($cleanTiers.Contains("Balanced")) { "Balanced" } else { $cleanTiers[0] }
             $droppedStr = $tiersWithDrops -join ", "
-            $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this SoC."
+            $platformEntity = if ($platformName -match '(?i)Snapdragon|ARM64') { "SoC" } else { "platform" }
+            $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this $platformEntity."
         } elseif ($hasVsyncDrift) {
             $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 FPS with minimal render latency (<0.5 ms). The 2-3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
         } else {
@@ -488,7 +514,10 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
 
     $hasBothEngines = @($Entries | Where-Object { $_.ModeShort -like "CPU*" }).Count -gt 0 -and @($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
     if ($hasBothEngines) {
-        $Lines += "- **Compute Engine Trade-Off:** ARM64 CPU NEON remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the Adreno GPU compute shaders, freeing CPU headroom for background multi-tasking."
+        $firstCpu = $Entries | Where-Object { $_.ModeShort -like "CPU*" } | Select-Object -First 1
+        $cpuArchBaseline = if ($firstCpu.ModeShort -eq "CPU SIMD") { "x64 CPU SIMD" } else { "ARM64 CPU NEON" }
+        $gpuOffloadTarget = if ($firstCpu.Platform -match '(?i)Adreno') { "Adreno GPU" } else { "Direct3D 12 GPU" }
+        $Lines += "- **Compute Engine Trade-Off:** $cpuArchBaseline remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the $gpuOffloadTarget compute shaders, freeing CPU headroom for background multi-tasking."
     }
 
     $hasConstrained = ($Entries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
@@ -676,9 +705,10 @@ foreach ($pk in $PlatformGroups.Keys) {
             $row.PotPlayerMemMb, $row.DroppedFrames)
     }
 
+    $engineRefDesc = if (@($SortedEntries | Where-Object { $_.ModeShort -eq "CPU SIMD" }).Count -gt 0) { "x64 CPU SIMD" } else { "ARM64 CPU NEON" }
     $MdLines += ""
     $MdLines += "> [!NOTE]"
-    $MdLines += "> **Engine Status:** ARM64 CPU NEON (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2_d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
+    $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2_d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
 
     if ($hasConstrained) {
         $MdLines += ""
