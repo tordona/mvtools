@@ -311,4 +311,6 @@ Benchmarks/*.dll
 Benchmarks/*.mov
 Benchmarks/*.mp4
 Benchmarks/*.mkv
+Benchmarks/*.log
+Benchmarks/log.txt
 Benchmarks/BenchmarkResults/

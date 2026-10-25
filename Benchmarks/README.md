@@ -20,6 +20,7 @@ Benchmarks/
 ├── MvToolsBenchmarks-Compare.ps1   # Comparative matrix analysis and report generator
 ├── Baseline/                       # Reference benchmark comparison matrices across platforms
 │   ├── BenchmarkMatrix_Comparison_Combined.md
+│   ├── BenchmarkMatrix_Comparison_Generic-x64.md
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md
@@ -41,11 +42,12 @@ Benchmarks/
 
 ## Reference Baseline Matrices (`Baseline/`)
 
-Golden reference benchmark reports and 3×2 comparative matrices across 6 Snapdragon SoC generations are preserved under [`Baseline/`](Baseline/):
+Golden reference benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](Baseline/):
 
 | Platform / SoC | Baseline Report | Tested Chassis / Target Hardware |
 | :--- | :--- | :--- |
 | **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
+| **Generic x86-64** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-...md`**](Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) | Intel Pentium Silver N5030 @ 1.10GHz, Intel UHD Graphics 605, 8GB RAM |
 | **Snapdragon X Plus** | [**`BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) | Surface Pro 11th Edition (Qualcomm Oryon, Adreno X1-85) |
 | **Snapdragon 8cx Gen 3** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md) | Lenovo ThinkPad X13s (4x Cortex-X1 + 4x A78, Adreno 690) |
 | **Snapdragon 8cx Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md) | Microsoft Surface Pro X SQ2 (Kryo 495, Adreno 680) |
@@ -212,10 +214,12 @@ The comparative aggregation tool that parses individual audit reports and transf
 powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare.ps1"
 ```
 
-#### Example 2: Execute Fresh 3×2 Matrix (60 Seconds per Permutation)
+#### Example 2: Execute Fresh Test Matrix (3×2 on ARM64, 3×1 on x64; 60 Seconds per Permutation)
 ```powershell
 powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare.ps1" -RunMatrix -DurationSeconds 60 -WarmupSeconds 10
 ```
+> [!NOTE]
+> On ARM64 platforms, `-RunMatrix` tests both CPU NEON and D3D12 GPU modes across Eco, Balanced, and MaxQuality tiers (6 permutations). On x64 platforms, `-RunMatrix` automatically restricts execution to CPU SIMD mode (3 permutations), bypassing Direct3D 12 acceleration tests.
 
 #### Example 3: Filter by Platform and Output to Custom Location
 ```powershell
