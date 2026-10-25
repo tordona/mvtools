@@ -34,12 +34,17 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.4.1
+    2.5.0
 .DATE
     2026-10-25
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication Safeguard.
+                           Detects when worker threads are compute-bound (saturation >= 88%) while PresentMon
+                           records ~60 FPS from PotPlayer D3D11 swapchain backbuffer duplication, preventing
+                           silent false positives. Adds profile thread parsing, thread ceiling auditing,
+                           and OSD verification warnings in audit reports and console output.
     - v2.4.1 (2026-10-25): Added automated diagnostic testing and acquisition for Microsoft Visual C++
                            2015-2022 Redistributables (ARM64 & x64) via aka.ms permalinks (-AutoInstallVcRedist).
                            Eliminates PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies
@@ -159,7 +164,7 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.4.1"
+$Script:HarnessVersion = "2.5.0"
 $Script:AutoInstallVcRedist = $AutoInstallVcRedist
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
@@ -3131,6 +3136,29 @@ function Get-AviSynthMemoryRequirement([string]$ProfilePath, [string]$GpuModeCho
 }
 
 # ---------------------------------------------------------
+# HELPER: Parse AviSynth Profile Worker Thread Count
+# ---------------------------------------------------------
+function Get-AviSynthThreadCount([string]$ProfilePath, [string]$GpuModeChoice = "") {
+    if (-not (Test-Path $ProfilePath)) { return 4 }
+    $content = Get-Content -Path $ProfilePath -Raw
+    if ($content -match 'threads\s*=\s*USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)') {
+        $gpuTh = [int]$Matches[1]
+        $cpuTh = [int]$Matches[2]
+        if ($GpuModeChoice -match '(?i)D3D12|GPU') { return $gpuTh }
+        if ($GpuModeChoice -match '(?i)CPU|NEON') { return $cpuTh }
+        if ($content -match '(?m)^\s*USE_GPU\s*=\s*true') { return $gpuTh }
+        return $cpuTh
+    }
+    if ($content -match 'threads\s*=\s*(\d+)') {
+        return [int]$Matches[1]
+    }
+    if ($content -match 'Prefetch\s*\(\s*(\d+)') {
+        return [int]$Matches[1]
+    }
+    return 4
+}
+
+# ---------------------------------------------------------
 # HELPER: Read PE Header Linker Build Timestamp
 # ---------------------------------------------------------
 function Get-PeBuildDate([string]$FilePath) {
@@ -4318,8 +4346,13 @@ $OsInfo = Get-CimInstance Win32_OperatingSystem
 $CurrentFreeRamMb = [math]::Round($OsInfo.FreePhysicalMemory / 1KB, 0)
 $TotalPhysicalRamMb = [math]::Round($OsInfo.TotalVisibleMemorySize / 1KB, 0)
 
+$ScriptThreads = Get-AviSynthThreadCount -ProfilePath $ProfileFullPath -GpuModeChoice $ResolvedGpuMode
+$LogicalCores = [int]$env:NUMBER_OF_PROCESSORS
+if ($LogicalCores -le 0) { $LogicalCores = 4 }
+$ThreadCeilingPct = [math]::Round(($ScriptThreads / [double]$LogicalCores) * 100.0, 1)
 Write-Host "  -> System Total RAM: $TotalPhysicalRamMb MB" -ForegroundColor Gray
 Write-Host "  -> Script SetMemoryMax: $ScriptRamRequirementMb MB" -ForegroundColor Gray
+Write-Host "  -> Profile Worker Threads: $ScriptThreads threads ($LogicalCores logical cores, Ceiling: $ThreadCeilingPct%)" -ForegroundColor Gray
 Write-Host "  -> Required Free RAM: $TotalRequiredRamMb MB (Script + $BufferHeadroomMb MB Player/GPU UMA headroom)" -ForegroundColor Gray
 $RamColor = if ($CurrentFreeRamMb -ge $TotalRequiredRamMb) { "Green" } else { "Red" }
 Write-Host "  -> Available Free RAM: $CurrentFreeRamMb MB" -ForegroundColor $RamColor
@@ -4614,9 +4647,21 @@ try {
         "WARNING: $InstanceAnomalies duplicate instance anomaly events intercepted and resolved."
     }
 
+    # Compute Thread Capacity Saturation & Frame Duplication Safeguard
+    $LogicalCores = [int]$env:NUMBER_OF_PROCESSORS
+    if ($LogicalCores -le 0) { $LogicalCores = 4 }
+    $ScriptThreads = Get-AviSynthThreadCount -ProfilePath $ProfileFullPath -GpuModeChoice $ResolvedGpuMode
+    $ThreadCeilingPct = [math]::Round(($ScriptThreads / [double]$LogicalCores) * 100.0, 1)
+    $CpuSaturationRatio = if ($ThreadCeilingPct -gt 0) { [math]::Round(($AvgCpu / $ThreadCeilingPct) * 100.0, 1) } else { 0.0 }
+
     # Parse PresentMon Frame Rate Results if available
     $FpsReportSection = ""
     $PmData = Get-PresentMonMetrics -CsvPath $PresentMonCsv
+
+    # Detect suspected swapchain frame duplication:
+    # When worker threads run near 100% capacity (saturation >= 88%) while PresentMon reports >= 58 FPS,
+    # the video renderer is repeating frames on VSync ticks to fill display intervals while the filter stalls.
+    $isFrameDuplicationSuspected = ($CpuSaturationRatio -ge 88.0 -and $PmData -and $PmData.AvgFps -ge 58.0)
     if ($PmData) {
         $scanoutLine = if ($PmData.EmpiricalScanoutHz -gt 0) {
             "`n- Physical Panel Scanout: $($PmData.EmpiricalScanoutHz.ToString('N2')) Hz ($($PmData.AvgScanoutMs.ToString('N3')) ms scanout interval)"
@@ -4640,6 +4685,10 @@ try {
             $expectedDrops = if ($driftIntervalSec -gt 0) { [math]::Max(1, [math]::Round($SampleWindow / $driftIntervalSec)) } else { 0 }
             $refreshNotice = "`n- Refresh Pacing Notice: Non-integer display refresh rate ($($effectiveHz.ToString('N2')) Hz) detected. Periodic frame drops (~$expectedDrops drops expected per $SampleWindow s run) are caused by VSync phase drift between the 60.000 FPS video clock and monitor scanout, rather than compute or GPU bottlenecks."
         }
+        $duplicationNotice = ""
+        if ($isFrameDuplicationSuspected) {
+            $duplicationNotice = "`n`n[!] WARNING: Thread Capacity Saturation Detected ($CpuSaturationRatio% of $ThreadCeilingPct% ceiling)!`n    AviSynth worker threads are compute-bound ($AvgCpu% CPU on $ScriptThreads/$LogicalCores cores). PotPlayer D3D11 swapchain`n    may be repeating cached frames on VSync ticks to sustain the reported $($PmData.AvgFps) FPS.`n    Check PotPlayer OSD (Tab key) during playback to verify true filter pipeline throughput (ftp: 24 -> XX.XX)."
+        }
         $FpsReportSection = @"
 5. FRAME RATE & PACING TELEMETRY (via PresentMon)
 - Total Frames Presented: $($PmData.TotalFrames) frames
@@ -4648,7 +4697,7 @@ try {
 - Lowest (Min) FPS:       $($PmData.LowFps) fps
 - 1% Low FPS (Microstutter): $($PmData.Fps1PctLow) fps
 - 0.1% Low FPS:           $($PmData.Fps01PctLow) fps
-- Dropped Frames:         $($PmData.DroppedFrames)$refreshNotice$scanoutLine$dropClassLine
+- Dropped Frames:         $($PmData.DroppedFrames)$refreshNotice$scanoutLine$dropClassLine$duplicationNotice
 "@
         if (Test-Path $PresentMonErrLog) { Remove-Item $PresentMonErrLog -Force -ErrorAction SilentlyContinue }
     } elseif ($PresentMonExe) {
@@ -4748,6 +4797,8 @@ $FpsReportSection
 
 6. PERFORMANCE TELEMETRY SUMMARY
 - Average System CPU Load: $AvgCpu% (Peak: $PeakCpu%)
+- Profile Worker Threads:  $ScriptThreads threads ($LogicalCores logical cores, Ceiling: $ThreadCeilingPct%)
+- Thread Saturation Ratio: $CpuSaturationRatio% $(if ($isFrameDuplicationSuspected) { "[HIGH SATURATION - SWAPCHAIN DUPLICATION SUSPECTED]" } else { "[OK - Headroom Available]" })
 - Average System GPU Load: $AvgGpu% (Peak: $PeakGpu%)
 - Average PotPlayer GPU Load: $AvgPotGpu%
 - Average PotPlayer Working Set: $AvgMem MB
@@ -4758,6 +4809,13 @@ PresentMon CSV: $(if (Test-Path $PresentMonCsv) { $PresentMonCsv } else { "N/A" 
 "@
     Write-Host "`n$Report" -ForegroundColor Cyan
     $Report | Out-File -FilePath $ReportLog -Encoding UTF8
+
+    if ($isFrameDuplicationSuspected) {
+        Write-Host "`n[!] WARNING: Thread Capacity Saturation Detected ($CpuSaturationRatio% of $ThreadCeilingPct% ceiling)!" -ForegroundColor Yellow
+        Write-Host "    AviSynth worker threads are compute-bound ($AvgCpu% CPU on $ScriptThreads/$LogicalCores cores)." -ForegroundColor Yellow
+        Write-Host "    Reported $($PmData.AvgFps) FPS is likely sustained by PotPlayer D3D11 swapchain frame duplication." -ForegroundColor Yellow
+        Write-Host "    Check PotPlayer OSD (Tab key) during playback to confirm actual filter throughput (ftp: 24 -> XX.XX).`n" -ForegroundColor Yellow
+    }
 
 } finally {
     # ---------------------------------------------------------

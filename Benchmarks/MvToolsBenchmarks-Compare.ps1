@@ -23,6 +23,10 @@
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication tracking.
+                           Parses profile worker threads, thread compute ceilings, and saturation ratios.
+                           Flags suspected swapchain frame duplication (saturation >= 88% while reporting ~60 FPS)
+                           with warning indicators in console output, CSV exports, and Markdown matrices.
     - v2.4.1 (2026-10-25): Added -AutoInstallVcRedist forwarding for unattended matrix benchmarks.
                            Prevents PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies.
     - v2.4.0 (2026-10-24): Dynamic matrix permutation profile forwarding (-Profile $FilterPlatform-$tier).
@@ -100,7 +104,7 @@ param(
 )
 
 # Compare Suite Semantic Revision
-$Script:CompareVersion = "2.4.1"
+$Script:CompareVersion = "2.5.0"
 
 $ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($ScriptDir)) {
@@ -236,7 +240,8 @@ function Get-BenchmarkReportData([string]$FilePath) {
 
     $profileRaw = if ($raw -match '(?m)^\s*-\s*AviSynth Profile:\s*(.+)$') { $Matches[1].Trim() } else { [System.IO.Path]::GetFileNameWithoutExtension($FilePath) }
     $profileRev = if ($profileRaw -match '\(Revision:\s*([^)]+)\)') { $Matches[1].Trim() } else { "" }
-    $profile = ($profileRaw -replace '\s*\(Revision:.*?\)', '').Trim()
+    $profile = ($profileRaw -replace '\s*\(Revision:.*$', '').Trim()
+    $profile = ($profile -replace '\)+$', '').Trim()
     $harnessVer = if ($raw -match '(?m)^\s*-\s*Benchmark Harness:\s*.*\(v([^)]+)\)') { $Matches[1].Trim() } else { "" }
     $engine = if ($raw -match '(?m)^\s*-\s*Active Motion Engine:\s*(.+)$') { $Matches[1].Trim() } else { "Unknown" }
     $platform = if ($raw -match '(?m)^\s*-\s*Host Platform:\s*(.+)$') { $Matches[1].Trim() } else { "Unknown" }
@@ -314,6 +319,52 @@ function Get-BenchmarkReportData([string]$FilePath) {
                         elseif ($displayHz -gt 0) { [math]::Abs($displayHz - [math]::Round($displayHz)) -lt 0.001 }
                         else { $true }
 
+    # Thread Capacity Saturation & Swapchain Frame Duplication Audit
+    $scriptThreads = if ($raw -match '(?m)^\s*-\s*Profile Worker Threads:\s*(\d+)') { [int]$Matches[1] } else { 0 }
+    $threadCeiling = if ($raw -match '(?m)^\s*-\s*Profile Worker Threads:\s*\d+\s*threads\s*\([^,]+,\s*Ceiling:\s*([\d\.]+)%\)') { [double]$Matches[1] } else { 0.0 }
+    $cpuSaturation = if ($raw -match '(?m)^\s*-\s*Thread Saturation Ratio:\s*([\d\.]+)%') { [double]$Matches[1] } else { 0.0 }
+    $isDuplicationSuspected = ($raw -match '(?i)SWAPCHAIN DUPLICATION SUSPECTED|Thread Capacity Saturation Detected')
+
+    # Retrospective fallback for legacy reports lacking explicit thread logs
+    if ($cpuSaturation -eq 0.0 -and $profile) {
+        $cleanProfile = ($profile -replace '\)+$', '').Trim()
+        $baseDir = if ($script:ScriptDir) { $script:ScriptDir } else { (Get-Location).Path }
+        $repoRoot = Split-Path $baseDir -Parent
+        $avsCandidates = @(
+            (Join-Path $repoRoot "AviSynth\$cleanProfile"),
+            (Join-Path $baseDir "AviSynth\$cleanProfile"),
+            (Join-Path $baseDir "..\AviSynth\$cleanProfile"),
+            (Join-Path $baseDir "$cleanProfile")
+        )
+        $avsFile = $null
+        foreach ($cand in $avsCandidates) {
+            $p = if ($cand.EndsWith(".avs")) { $cand } else { "$cand.avs" }
+            if (Test-Path $p) { $avsFile = $p; break }
+        }
+        if ($avsFile) {
+            $avsContent = Get-Content -Path $avsFile -Raw -ErrorAction SilentlyContinue
+            if ($avsContent -match 'threads\s*=\s*USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)') {
+                $scriptThreads = if ($engine -match '(?i)GPU|D3D12') { [int]$Matches[1] } else { [int]$Matches[2] }
+            } elseif ($avsContent -match 'threads\s*=\s*(\d+)') {
+                $scriptThreads = [int]$Matches[1]
+            } elseif ($avsContent -match 'Prefetch\s*\(\s*(\d+)') {
+                $scriptThreads = [int]$Matches[1]
+            }
+        }
+        $logCores = 0
+        if ($platform -match '(\d+)\s*threads') { $logCores = [int]$Matches[1] }
+        elseif ($platform -match '(\d+)C/(\d+)T') { $logCores = [int]$Matches[2] }
+        elseif ($platform -match '(\d+)C/(\d+)t') { $logCores = [int]$Matches[2] }
+        elseif ($platform -match '(\d+)\s*cores') { $logCores = [int]$Matches[1] }
+        elseif ($platform -match '8x Oryon|8 Oryon|8-core') { $logCores = 8 }
+
+        if ($scriptThreads -gt 0 -and $logCores -gt 0) {
+            $threadCeiling = [math]::Round(($scriptThreads / [double]$logCores) * 100.0, 1)
+            $cpuSaturation = if ($threadCeiling -gt 0) { [math]::Round(($avgCpu / $threadCeiling) * 100.0, 1) } else { 0.0 }
+            $isDuplicationSuspected = ($cpuSaturation -ge 88.0 -and $avgFps -ge 58.0)
+        }
+    }
+
     return [PSCustomObject]@{
         ReportFile       = [System.IO.Path]::GetFileName($FilePath)
         Timestamp        = $timestamp
@@ -348,6 +399,10 @@ function Get-BenchmarkReportData([string]$FilePath) {
         DisplayStatus           = $displayStatus
         ProfileRevision         = $profileRev
         HarnessVersion          = $harnessVer
+        ScriptThreads           = $scriptThreads
+        ThreadCeilingPct        = $threadCeiling
+        CpuSaturationPct        = $cpuSaturation
+        FrameDuplicationSuspected = if ($isDuplicationSuspected) { "Yes" } else { "No" }
     }
 }
 
@@ -728,8 +783,13 @@ foreach ($pk in $PlatformGroups.Keys) {
     $MdLines += "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |"
 
     foreach ($row in $SortedEntries) {
-        $MdLines += ("| **{0}** | {1} | **{2:N2}** | **{3:N2}** | {4:N2} | {5:N1}% / {6:N1}% | {7:N1}% / {8:N1}% | {9:N1}% | {10:N1} MB | {11} |" -f `
-            $row.Tier, $row.ModeShort, $row.AvgFps, $row.Low1PctFps, $row.Low01PctFps, `
+        $fpsDisplay = if ($row.FrameDuplicationSuspected -eq "Yes") {
+            "**$($row.AvgFps.ToString('N2'))** ⚠️"
+        } else {
+            "**$($row.AvgFps.ToString('N2'))**"
+        }
+        $MdLines += ("| **{0}** | {1} | {2} | **{3:N2}** | {4:N2} | {5:N1}% / {6:N1}% | {7:N1}% / {8:N1}% | {9:N1}% | {10:N1} MB | {11} |" -f `
+            $row.Tier, $row.ModeShort, $fpsDisplay, $row.Low1PctFps, $row.Low01PctFps, `
             $row.AvgCpuPct, $row.PeakCpuPct, $row.AvgGpuPct, $row.PeakGpuPct, $row.PotPlayerGpu, `
             $row.PotPlayerMemMb, $row.DroppedFrames)
     }
@@ -759,6 +819,16 @@ foreach ($pk in $PlatformGroups.Keys) {
         $MdLines += "> [!WARNING]"
         $MdLines += "> **Display Panel Scanout Rate Notice ($($actualHz.ToString('N2')) Hz):** Benchmark telemetry for this platform was captured on a display running at an empirical panel scanout rate of $($actualHz.ToString('N2')) Hz ($($nonIntRow.DisplayDevice)). The recorded dropped frames were provoked by VSync phase drift between the 60.000 FPS video clock and the physical display scanout (1 frame discarded by DXGI Flip Discard every ~7.3s; frame render latency was <0.5 ms), rather than compute or GPU bottlenecks. Testing on an external integer 60.00 Hz / 120.00 Hz monitor will verify 0 dropped frames."
     }
+
+    $dupRows = @($SortedEntries | Where-Object { $_.FrameDuplicationSuspected -eq "Yes" })
+    if ($dupRows.Count -gt 0) {
+        $dupTiers = ($dupRows | ForEach-Object { $_.Tier }) -join ", "
+        $firstDup = $dupRows[0]
+        $MdLines += ""
+        $MdLines += "> [!WARNING]"
+        $MdLines += "> **Thread Capacity Saturation & Suspected Swapchain Duplication ($dupTiers):** Telemetry indicates AviSynth worker threads operated at $($firstDup.CpuSaturationPct)% of their theoretical compute ceiling ($($firstDup.AvgCpuPct)% CPU on $($firstDup.ScriptThreads) threads). When worker threads are compute-saturated, the PotPlayer D3D11 video renderer may repeat previous backbuffers on VSync ticks to maintain a 60 FPS swapchain presentation rate while the filter graph falls behind. Verify real-time filter delivery rate in PotPlayer OSD ('Tab' key) during active playback (ftp: 24 -> XX.XX)."
+    }
+
     $MdLines += ""
     $MdLines += Get-DynamicArchitecturalFindings -Entries $SortedEntries -ScriptDir $ScriptDir
 
