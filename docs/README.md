@@ -1,6 +1,6 @@
 # MVTools2 — Windows on ARM64 & Snapdragon 60fps Hub
 
-> **The official documentation and profile hub for native ARM64 NEON & Direct3D 12 GPU motion interpolation in Daum PotPlayer on Windows on ARM.**
+> **Documentation and profile hub for native ARM64 NEON & Direct3D 12 GPU motion interpolation in Daum PotPlayer on Windows on ARM.**
 
 ![MVTools2 Banner](images/social-preview-flat.jpg)
 
