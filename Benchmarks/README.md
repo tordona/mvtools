@@ -287,7 +287,7 @@ When analyzing the comparison matrix, focus on the following key performance ind
    - **Proprietary Freeware:** PotPlayer is proprietary freeware owned and maintained by **Kakao Corp.**
    - **No Redistribution Permitted:** Under **Article 3 (Obligations of the User), Section 2** of the PotPlayer EULA, users are strictly prohibited from redistributing, hosting, bundling, mirroring, or transferring the software in part or in its entirety. As such, PotPlayer binaries are **not** bundled or tracked in this Git repository.
    - **How to Obtain PotPlayer Officially:**
-     - Official Website: [https://potplayer.tv](https://potplayer.tv) (or [https://potplayer.daum.net](https://potplayer.daum.net))
+     - Official Website: [https://potplayer.tv](https://potplayer.tv)
      - Official Direct Native ARM64 Installer: [PotPlayerSetupARM64.exe](https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe)
    - **Supported Setup Modes:**
      - **Mode 0 (Automated Acquisition - Recommended):** Pass `-AutoInstallPotPlayer` or confirm the prompt when missing. The harness directly streams `PotPlayerSetupARM64.exe` from Kakao CDN with a live progress bar and installs silently via an animated background spinner loop.

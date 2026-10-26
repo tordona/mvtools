@@ -16,7 +16,7 @@ Both `AviSynth.dll` and `mvtools2.dll` depend on the Microsoft Visual C++ ARM64 
 * Run the installer and restart PotPlayer if it was already open.
 
 ### 2. Daum PotPlayer (64-bit ARM64)
-* **Download:** [**Daum PotPlayer 64-bit**](https://potplayer.daum.net/)
+* **Download:** [**Official PotPlayer Website (potplayer.tv)**](https://potplayer.tv/) or download the [**Direct ARM64 Installer (PotPlayerSetupARM64.exe)**](https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetupARM64.exe)
 * Install using default settings. The default installation path is:
   ```text
   C:\Program Files\DAUM\PotPlayer\
