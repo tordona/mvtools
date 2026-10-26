@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MVTools2 — Windows on ARM64 & Qualcomm Snapdragon 60fps Hub</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="description" content="Official documentation hub for MVTools2: Native ARM64 NEON & Direct3D 12 GPU 60fps video motion interpolation for Qualcomm Snapdragon (X Elite, 8cx, 850, 7c), AviSynth+ profiles, and PotPlayer.">
+  <meta name="keywords" content="MVTools2, Windows on ARM, ARM64, Qualcomm Snapdragon, Snapdragon X Elite, PotPlayer 60fps, AviSynth, motion interpolation, Direct3D 12, PresentMon">
+
+  <!-- OpenGraph / Social Metadata -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MVTools2 — Windows on ARM64 & Qualcomm Snapdragon 60fps Hub">
+  <meta property="og:description" content="Real-time 60fps video motion interpolation on Windows on ARM64 with native NEON SIMD, experimental Direct3D 12 GPU offload, and verified PotPlayer profiles.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Documentation/images/social-preview-flat.jpg">
+  <meta property="og:url" content="https://tordona.github.io/mvtools/">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Theme: Docsify Themeable Simple Dark -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.css">
+
+  <style>
+    :root {
+      --base-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --theme-color: #0078d4;
+      --sidebar-width: 290px;
+      --content-max-width: 960px;
+      --code-font-family: "Cascadia Code", "Fira Code", Consolas, Monaco, monospace;
+      --table-cell-padding: 0.65em 0.9em;
+    }
+    .app-name-link img {
+      max-height: 38px;
+    }
+    .sidebar-nav strong {
+      font-size: 0.82em;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8b949e;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      border-radius: 12px;
+      background: #1f6feb;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Loading MVTools2 Documentation Hub...</div>
+  <script>
+    window.$docsify = {
+      name: 'MVTools2 ARM64 Hub',
+      repo: 'https://github.com/tordona/mvtools',
+      loadSidebar: true,
+      auto2top: true,
+      subMaxLevel: 3,
+      maxLevel: 4,
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search documentation...',
+        noData: 'No results found',
+        depth: 4
+      },
+      copyCode: {
+        buttonText: 'Copy',
+        errorText: 'Error',
+        successText: 'Copied'
+      },
+      pagination: {
+        previousText: 'Previous',
+        nextText: 'Next',
+        crossChapter: true
+      }
+    }
+  </script>
+  <!-- Docsify Core -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+  <!-- Plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+  <!-- Prism Syntax Highlighting -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-powershell.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-avisynth.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-cpp.min.js"></script>
+</body>
+</html>
