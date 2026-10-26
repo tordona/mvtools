@@ -43,11 +43,11 @@ The host `AviSynth.dll` bundled with ARM64 video players (e.g., PotPlayer) is ty
 3. **`ApplyFunc` Calling Convention Translation**:
    - *Issue*: Non-member functions returning non-trivial objects (`AVSValue`) by value differ: GCC passes the return buffer pointer in `X8`, while MSVC ARM64 non-member callee expects it in `X0` (shifting arguments to `X1–X3`).
    - *Fix*: Implemented dynamic AArch64 JIT adapter thunk [`AVS_WrapApply`](Sources/include/avisynth.h) to translate register layouts:  
-     `(X0=args, X1=user_data, X2=env, X8=ret_buf)` $\to$ `(X0=ret_buf, X1=args, X2=user_data, X3=env)`.
+     `(X0=args, X1=user_data, X2=env, X8=ret_buf)` → `(X0=ret_buf, X1=args, X2=user_data, X3=env)`.
 
 4. **Bidirectional `IClip::GetFrame` Translation**:
-   - *Outgoing Clips (Filter MSVC $\to$ AviSynth GCC)*: [`AVS_WrapClipVTable`](Sources/include/avisynth.h) dynamically patches `vtable[1]` using an ARM64 thunk to translate GCC caller registers `(X0=this, X1=n, X2=env, X8=ret_buf)` to MSVC callee layout `(X0=this, X1=ret_buf, X2=n, X3=env)`.
-   - *Incoming Clips (AviSynth GCC $\to$ Filter MSVC)*: Implemented [`AVS_ClipProxy`](Sources/include/avisynth.h) and [`AVS_WrapClip`](Sources/include/avisynth.h) to wrap external clips, transparently invoking GCC `GetFrame` with `X8` return buffer convention.
+   - *Outgoing Clips (Filter MSVC → AviSynth GCC)*: [`AVS_WrapClipVTable`](Sources/include/avisynth.h) dynamically patches `vtable[1]` using an ARM64 thunk to translate GCC caller registers `(X0=this, X1=n, X2=env, X8=ret_buf)` to MSVC callee layout `(X0=this, X1=ret_buf, X2=n, X3=env)`.
+   - *Incoming Clips (AviSynth GCC → Filter MSVC)*: Implemented [`AVS_ClipProxy`](Sources/include/avisynth.h) and [`AVS_WrapClip`](Sources/include/avisynth.h) to wrap external clips, transparently invoking GCC `GetFrame` with `X8` return buffer convention.
 
 5. **`IClip` Deleting Destructor Alignment (Lifecycle Stability)**:
    - *Issue*: On playback stop or player exit, AviSynth's `PClip_DESTRUCTOR` invokes GCC deleting destructor slot `vtable[7]` (`0x38`). In MSVC, classes only generated 7 slots (`0x00`–`0x30`), jumping into non-executable `.rdata` and triggering DEP Access Violation `0xC0000005`.
@@ -76,14 +76,14 @@ Custom real-time 60fps AviSynth motion interpolation scripts and PotPlayer iGPU 
 
 - **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15W–30W TDP)**:
   - [`Snapdragon-X-Plus-Eco.avs`](AviSynth/Snapdragon-X-Plus-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
-  - [`Snapdragon-X-Plus-Balanced.avs`](AviSynth/Snapdragon-X-Plus-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 target.
-  - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` $\to$ `8x8` micro-blocks, UMH motion search, `Prefetch(8)`. Maximum fidelity for plugged-in operation.
+  - [`Snapdragon-X-Plus-Balanced.avs`](AviSynth/Snapdragon-X-Plus-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 target.
+  - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` → `8x8` micro-blocks, UMH motion search, `Prefetch(8)`. Maximum fidelity for plugged-in operation.
   - Guide: [`Documentation/guides/SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md).
 
 - **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7W–15W)**:
   - [`Snapdragon-8cxGen3-Eco.avs`](AviSynth/Snapdragon-8cxGen3-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low power and cool operating thermals.
-  - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 on Adreno 690 GPU or 6 out-of-order performance cores.
-  - [`Snapdragon-8cxGen3-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` $\to$ `8x8` micro-blocks on CPU / `32x32` $\to$ `16x16` on Adreno 690 GPU, `mode=2` with `blend=true`, `Prefetch(7)`. Full utilization of 4x Cortex-X1 prime cores + Adreno 690 compute shader.
+  - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 on Adreno 690 GPU or 6 out-of-order performance cores.
+  - [`Snapdragon-8cxGen3-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` → `8x8` micro-blocks on CPU / `32x32` → `16x16` on Adreno 690 GPU, `mode=2` with `blend=true`, `Prefetch(7)`. Full utilization of 4x Cortex-X1 prime cores + Adreno 690 compute shader.
   - Guide: [`Documentation/guides/Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md).
 
 - **Snapdragon 8cx Gen 1 & Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7W–10W Fanless)**:
@@ -94,8 +94,8 @@ Custom real-time 60fps AviSynth motion interpolation scripts and PotPlayer iGPU 
 
 - **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5W Fanless)**:
   - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5W fanless designs.
-  - [`Snapdragon-850-Balanced.avs`](AviSynth/Snapdragon-850-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `pel=1`, `mode=0` block projection, `Prefetch(3)`. Crisp boundary tracking while preserving 1 Gold core for OS and Adreno GPU drivers.
-  - [`Snapdragon-850-MaxQuality.avs`](AviSynth/Snapdragon-850-MaxQuality.avs): `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow interpolation, `Prefetch(4)`. Full Gold core saturation without spilling onto Cortex-A55 cores.
+  - [`Snapdragon-850-Balanced.avs`](AviSynth/Snapdragon-850-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `pel=1`, `mode=0` block projection, `Prefetch(3)`. Crisp boundary tracking while preserving 1 Gold core for OS and Adreno GPU drivers.
+  - [`Snapdragon-850-MaxQuality.avs`](AviSynth/Snapdragon-850-MaxQuality.avs): `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow interpolation, `Prefetch(4)`. Full Gold core saturation without spilling onto Cortex-A55 cores.
   - Guide: [`Documentation/guides/Snapdragon850.md`](Documentation/guides/Snapdragon850.md) (Covers Adreno 630 VPU hardware decode offload and Direct3D 11 rendering).
 
 ---
@@ -125,7 +125,7 @@ msbuild mvtools.sln /p:Configuration=Release /p:Platform=ARM64
 This port was executed using Google Antigravity, leveraging both platform agent skills and specialized systems engineering competencies:
 
 ### A. Antigravity & Agent Skills
-- **[asm-x64-to-arm64](https://skills.rest/skill/asm-x64-to-arm64)**: Primary domain skill for x64 $\to$ AArch64 architecture porting. Governed:
+- **[asm-x64-to-arm64](https://skills.rest/skill/asm-x64-to-arm64)**: Primary domain skill for x64 → AArch64 architecture porting. Governed:
   - Identifying and resolving ABI differences between Windows x64 and AArch64 AAPCS (argument registers, shadow space, indirect return buffers in `X8`).
   - Auditing and isolating legacy x86/x64 inline assembly blocks (`__asm`) in [`Sources/def.h`](Sources/def.h) and redirecting compute paths to portable C++ and SIMD.
   - Guiding 128-bit SIMD SSE-to-NEON vector translation and instruction mapping.

@@ -26,7 +26,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 1. Open **PotPlayer** and press **`F5`** to open **Preferences**.
 2. In the left navigation tree, navigate to:  
-   **Filter Control** $\to$ **Video Decoder**.
+   **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
    - Check **Use DXVA**.
@@ -48,7 +48,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 ## Step 2: Video Renderer Configuration (Adreno X1 Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
@@ -63,7 +63,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 ## Step 3: Colorspace Pass-Through (Zero CPU Copying)
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **Colorspaces**.
+   **Video** → **Colorspaces**.
 2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32` *(prevents CPU color space conversion stalls)*.
 3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
 4. In the format list, verify preferred formats are set to native planar YUV:
@@ -75,7 +75,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 ## Step 4: AviSynth Processing & Script Profile Selection
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **AviSynth**.
+   **Video** → **AviSynth**.
 2. Check **Enable AviSynth processing**.
 3. Check **Add "potplayer_source()"**.
 4. Check **Buffer (back/ahead)** and configure buffer limits:
@@ -86,7 +86,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
    - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
    - **Profile 3 (Max Quality / TrueMotion Pro):** [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
    *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power, whisper-cool battery saver option).*
-6. Click **Apply** $\to$ **OK**.
+6. Click **Apply** → **OK**.
 
 > [!TIP]
 > **Direct3D 12 GPU Acceleration (`mvtools2_d3d12.dll` - Experimental Preview)**  
@@ -101,7 +101,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | :--- | :--- | :--- | :--- |
 | **Script File** | [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) | [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
 | **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=2` (Half-pixel Wiener filter) |
-| **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` $\to$ `16x16` | Dual-pass `16x16` $\to$ `8x8` micro-blocks |
+| **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` → `16x16` | Dual-pass `16x16` → `8x8` micro-blocks |
 | **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | UMH / Exhaustive (`search=3`) |
 | **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Full Y+U+V (`chroma=true`) |
 | **Interpolation Mode** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
@@ -115,14 +115,14 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
-| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
-| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `AV1`, `HEVC`, `H.264`, `VP9` |
+| **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `AV1`, `HEVC`, `H.264`, `VP9` |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
-| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
-| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
-| **Buffer (back/ahead)** | Video $\to$ AviSynth | `12-16` (Back) / `24-30` (Ahead) |
-| **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video → AviSynth | `12-16` (Back) / `24-30` (Ahead) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
 
 ---
 

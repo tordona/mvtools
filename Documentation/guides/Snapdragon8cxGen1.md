@@ -26,7 +26,7 @@ To ensure continuous, rock-solid 60fps playback without dropped frames:
 
 1. Open **PotPlayer** and press **`F5`** to open **Preferences**.
 2. In the left navigation tree, go to:  
-   **Filter Control** $\to$ **Video Decoder**.
+   **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
    - Check **Use DXVA**.
@@ -47,7 +47,7 @@ To ensure continuous, rock-solid 60fps playback without dropped frames:
 
 ## Step 2: Video Renderer Configuration (Adreno 680 Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
      *(Alternative: `EVR Custom Presenter`)*
@@ -64,7 +64,7 @@ To ensure continuous, rock-solid 60fps playback without dropped frames:
 Converting video frames between YUV and RGB on the CPU wastes memory bandwidth and CPU execution cycles.
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **Colorspaces**.
+   **Video** → **Colorspaces**.
 2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
 3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
 4. In the format list, ensure preferred output formats prioritize native planar YUV:
@@ -76,7 +76,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 ## Step 4: AviSynth Processing & Script Activation
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **AviSynth**.
+   **Video** → **AviSynth**.
 2. Check **Enable AviSynth processing**.
 3. Check **Add "potplayer_source()"**.
 4. Check **Buffer (back/ahead)** and configure buffer limits:
@@ -86,7 +86,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
    - **Eco (Battery Saver):** [`Snapdragon-8cxGen1-Eco.avs`](../../AviSynth/Snapdragon-8cxGen1-Eco.avs)
    - **Balanced (Recommended):** [`Snapdragon-8cxGen1-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen1-Balanced.avs)
    - **Max Quality:** [`Snapdragon-8cxGen1-MaxQuality.avs`](../../AviSynth/Snapdragon-8cxGen1-MaxQuality.avs)
-6. Click **Apply** $\to$ **OK**.
+6. Click **Apply** → **OK**.
 
 > [!TIP]
 > **The Thread Capping Rule (`Prefetch <= 4`)**  
@@ -118,14 +118,14 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
-| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
-| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
+| **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
-| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
-| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
-| **Buffer (back/ahead)** | Video $\to$ AviSynth | `12-15` (Back) / `24` (Ahead) |
-| **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
 
 ---
 

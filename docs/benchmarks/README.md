@@ -130,10 +130,10 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
    - Activates Windows High Performance power plan (`8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c`).
    - Quiesces noisy background applications (browsers, Discord, Teams, Slack, Steam).
    - Silences network adapters to suppress background Windows Update / telemetry bursts.
-   - Idles until System CPU load is $\le 8\%$ and GPU is $\le 5\%$ for 5 consecutive seconds.
+   - Idles until System CPU load is ≤ 8% and GPU is ≤ 5% for 5 consecutive seconds.
 7. **[7/7] Telemetry Capture & Tear-Down:**
    - Launches PotPlayer and seeks to 00:01:00.
-   - Discards initial warmup period ($N$ seconds) to bypass JIT compilation and pipeline fill.
+   - Discards initial warmup period (N seconds) to bypass JIT compilation and pipeline fill.
    - Spawns PresentMon for hardware-level ETW frame presentation timing.
    - Samples second-by-second CPU %, total GPU %, PotPlayer GPU %, working set RAM, and memory page swaps.
    - Restores original PotPlayer INI, network adapters, and power plan on exit.
@@ -257,19 +257,19 @@ When analyzing the comparison matrix, focus on the following key performance ind
 ### 1. Motion Fluidity & Pacing
 - **Average FPS:** Target is solid **60.00 FPS**. Any lower indicates dropped or skipped frames.
 - **1% Low FPS (Microstutter Indicator):**
-  - **$\ge 52.0$ FPS:** Flawless presentation; frame time variance is within $\pm 2.5\text{ ms}$.
+  - **≥ 52.0 FPS:** Flawless presentation; frame time variance is within $\pm 2.5\text{ ms}$.
   - **$< 45.0$ FPS:** Visible stutter; frame rendering variance exceeds display refresh sync windows.
-  - *Observation:* ARM64 CPU NEON typically achieves tighter 1% Lows ($53-54\text{ FPS}$) than D3D12 GPU because it avoids command queue contention with PotPlayer's Direct3D 11 presentation swapchain.
+  - *Observation:* ARM64 CPU NEON typically achieves tighter 1% Lows (53-54 FPS) than D3D12 GPU because it avoids command queue contention with PotPlayer's Direct3D 11 presentation swapchain.
 - **Dropped Frames:** In Windows DWM Composed Flip mode, PotPlayer presents directly to the desktop window manager swapchain. Clean runs present zero dropped presentation frames.
 
 ### 2. Compute Load & Efficiency
 - **System CPU Load % vs. PotPlayer GPU %:**
-  - **ARM64 CPU NEON (`mvtools2.dll`):** Average CPU load is $\sim 12-16\%$ across 8 Oryon cores; GPU load stays at $\sim 19-25\%$ (presentation and display composition only).
+  - **ARM64 CPU NEON (`mvtools2.dll`):** Average CPU load is ~12-16% across 8 Oryon cores; GPU load stays at $\sim 19-25\%$ (presentation and display composition only).
   - **Direct3D 12 GPU (`mvtools2_d3d12.dll`):** Offloads motion search into Adreno GPU compute queues ($\sim 72-75\%$ GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
 - **PotPlayer Working Set (RAM):**
-  - **Eco Tier:** $\sim 315\text{ MB}$ (540p proxy clip reduces cache lines and DRAM pressure).
-  - **Balanced Tier:** $\sim 384\text{ MB}$ (Full 1080p motion search).
-  - **MaxQuality Tier:** $\sim 507\text{ MB}$ (Sub-pixel `pel=2` multi-level pyramid).
+  - **Eco Tier:** ~315 MB (540p proxy clip reduces cache lines and DRAM pressure).
+  - **Balanced Tier:** ~384 MB (Full 1080p motion search).
+  - **MaxQuality Tier:** ~507 MB (Sub-pixel `pel=2` multi-level pyramid).
 
 ---
 

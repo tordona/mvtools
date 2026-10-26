@@ -23,9 +23,9 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 | Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
 | :--- | :--- | :--- | :--- | :--- |
-| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass $32\times 32$ Blocks (`searchparam=1`) | `mode=0` Block Projection | `threads=3`, `Prefetch(3, 4)` (leaves 1 X1 + 4 A78 idle) |
-| **Balanced** | Fluid 1080p 60fps, Refined Edges *(Recommended)* | Dual-Pass $32\times 32 \to 16\times 16$ (`MRecalculate`) | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
-| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass $32\times 32$ (`searchparam=2`) $\to 16\times 16$ | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
+| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=0` Block Projection | `threads=3`, `Prefetch(3, 4)` (leaves 1 X1 + 4 A78 idle) |
+| **Balanced** | Fluid 1080p 60fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
+| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`searchparam=2`) → 16×16 | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
 
 ---
 
@@ -33,7 +33,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 1. Open **PotPlayer** and press **`F5`** to open **Preferences**.
 2. In the left navigation tree, go to:  
-   **Filter Control** $\to$ **Video Decoder**.
+   **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
    - Check **Use DXVA**.
@@ -47,7 +47,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 ## Step 2: Video Renderer Configuration (Direct3D 11 Pipeline)
 
-1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video $\to$ Resize)*.
+1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
@@ -61,7 +61,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 ## Step 3: Colorspace Pass-Through (Zero CPU Overhead)
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **Colorspaces**.
+   **Video** → **Colorspaces**.
 2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, set **Output color space** to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
 3. Verify that **High quality YUY2/RGB24/32 conversion** is **Unchecked**.
 4. In the format list, ensure preferred output formats prioritize native planar YUV:
@@ -73,7 +73,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 ## Step 4: AviSynth Processing & Script Activation
 
 1. In **Preferences (`F5`)**, navigate to:  
-   **Video** $\to$ **AviSynth**.
+   **Video** → **AviSynth**.
 2. Check **Enable AviSynth processing**.
 3. Check **Add "potplayer_source()"**.
 4. Check **Buffer (back/ahead)** and configure buffer limits:
@@ -83,7 +83,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
    - **Eco (Battery Saver):** [`Snapdragon-8cxGen3-Eco.avs`](../../AviSynth/Snapdragon-8cxGen3-Eco.avs)
    - **Balanced (Recommended):** [`Snapdragon-8cxGen3-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs)
    - **Max Quality:** [`Snapdragon-8cxGen3-MaxQuality.avs`](../../AviSynth/Snapdragon-8cxGen3-MaxQuality.avs)
-6. Click **Apply** $\to$ **OK**.
+6. Click **Apply** → **OK**.
 
 > [!TIP]
 > **Adreno 690 Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
@@ -100,11 +100,11 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
-| **Hardware Video Decoding** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
-| **Hardware Decode Mode** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control $\to$ Video Decoder $\to$ Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
+| **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
+| **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
-| **Output Colorspace** | Video $\to$ Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
-| **AviSynth Processing** | Video $\to$ AviSynth | `Enable AviSynth processing` checked |
-| **Buffer (back/ahead)** | Video $\to$ AviSynth | `12-15` (Back) / `24` (Ahead) |
-| **AviSynth Script** | Video $\to$ AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
+| **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
+| **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
