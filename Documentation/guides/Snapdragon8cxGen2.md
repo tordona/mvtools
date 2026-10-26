@@ -107,7 +107,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Motion Search** | Single-pass $32 \times 32$ | Dual-pass 32×32 → 16×16 | Dual-pass 16×16 → 8×8 (CPU) / 32×32 → 16×16 (GPU) |
+| **Motion Search** | Single-pass 32×32 | Dual-pass 32×32 → 16×16 | Dual-pass 16×16 → 8×8 (CPU) / 32×32 → 16×16 (GPU) |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
 | **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |

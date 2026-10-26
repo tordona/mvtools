@@ -94,7 +94,7 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds massive me
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
 | **Analysis Resolution** | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) |
-| **Search Block Size** | $64 \times 32$ wide blocks (~1,020 blocks) | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (`searchparam=2`) |
+| **Search Block Size** | 64×32 wide blocks (~1,020 blocks) | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (`searchparam=2`) |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
 | **Search Algorithm** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
 | **Outlier Filter** | Off | `badrange=(-24)` | `badrange=(-24)` |

@@ -15,7 +15,7 @@ Under full 1080p video playback, software decoding alone on the 2 Gold cores can
 
 To achieve continuous, sustained 60 fps without thermal throttling:
 1. **Adreno 618 Hardware Decoding:** Offload H.264/HEVC decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back (reducing CPU decode load to 0%).
-2. **Dynamic 0.5x Proxy Analysis (`MScaleVect`):** Perform motion estimation on an aspect-ratio-aware $0.5\times$ proxy plane (cutting 75% of pixel comparisons and DRAM bandwidth), then scale vectors $2\times$ up to native source dimensions.
+2. **Dynamic 0.5x Proxy Analysis (`MScaleVect`):** Perform motion estimation on an aspect-ratio-aware 0.5× proxy plane (cutting 75% of pixel comparisons and DRAM bandwidth), then scale vectors 2× up to native source dimensions.
 3. **Native 1080p Warp (`MBlockFps mode=0`):** Synthesize new frames directly from the uncompressed 1080p source clip, ensuring **zero loss of spatial resolution or sharpness**.
 4. **Strict Core Pinning (`Prefetch(2)`):** Limit worker threads to 2 so execution stays strictly on the high-performance Kryo 468 Gold cores, completely avoiding stalls from the slow in-order Cortex-A55 Silver cores.
 
@@ -79,7 +79,7 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Search Block Size** | 32×16 at 540p ($64 \times 32$ at 1080p) | $16 \times 16$ at 540p ($32 \times 32$ at 1080p) | $16 \times 16$ at 540p ($32 \times 32$ at 1080p) |
+| **Search Block Size** | 32×16 at 540p (64×32 at 1080p) | 16×16 at 540p (32×32 at 1080p) | 16×16 at 540p (32×32 at 1080p) |
 | **Total Blocks** | ~510 blocks | ~2,040 blocks | ~2,040 blocks |
 | **Search Algorithm** | Hexagonal (radius 1) | Hexagonal (radius 1) | Hexagonal (radius 2) |
 | **Pyramid Levels** | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) |
@@ -99,7 +99,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 - **6x Kryo 468 Silver:** Based on ARM Cortex-A55 (in-order execution, narrow pipeline, ~25–30% of the IPC of A76).
 
 > [!CAUTION]
-> **Never set `Prefetch` $\ge 3$ on this chip.**
+> **Never set `Prefetch` ≥ 3 on this chip.**
 > When AviSynth spawns more than 2 worker threads, Windows thread scheduler places worker threads onto the Cortex-A55 Silver cores. Because an A55 core takes 3.5× longer to complete a frame than an A76 core, the lookahead buffer stalls waiting for the slow thread, dropping the display output from 60 fps to ~15 fps.
 
 ---

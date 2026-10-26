@@ -17,7 +17,7 @@ When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 
 To ensure continuous, rock-solid 60fps playback without dropped frames:
 1. **Adreno 680 Hardware Decoding:** Offload H.264/HEVC/VP9 decoding entirely to the Adreno 680 Video Processing Unit (VPU) via D3D11 / DXVA2 Copy-Back, keeping CPU decode load at **0%**.
 2. **Direct3D 11 Renderer:** Present video using the Direct3D 11 pipeline so scaling and color conversion execute on the GPU shaders.
-3. **Optimized Single-Pass Search:** Gen 1 profiles use high-efficiency single-pass block estimation ($16 \times 16$ or $32 \times 32$), eliminating the memory bus thrashing associated with dual-pass recursive refinement.
+3. **Optimized Single-Pass Search:** Gen 1 profiles use high-efficiency single-pass block estimation (16×16 or 32×32), eliminating the memory bus thrashing associated with dual-pass recursive refinement.
 4. **Strict Core Pinning (`Prefetch <= 4`):** Thread counts are strictly constrained to 3 or 4 to keep all computation exclusively on the high-IPC Gold cores.
 
 ---
@@ -103,7 +103,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Block Size** | $32 \times 32$ | $16 \times 16$ | $16 \times 16$ |
+| **Block Size** | 32×32 | 16×16 | 16×16 |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
 | **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |

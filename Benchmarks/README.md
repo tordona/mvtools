@@ -133,7 +133,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
    - Idles until System CPU load is $\le 8\%$ and GPU is $\le 5\%$ for 5 consecutive seconds.
 7. **[7/7] Telemetry Capture & Tear-Down:**
    - Launches PotPlayer and seeks to 00:01:00.
-   - Discards initial warmup period ($N$ seconds) to bypass JIT compilation and pipeline fill.
+   - Discards initial warmup period (N seconds) to bypass JIT compilation and pipeline fill.
    - Spawns PresentMon for hardware-level ETW frame presentation timing.
    - Samples second-by-second CPU %, total GPU %, PotPlayer GPU %, working set RAM, and memory page swaps.
    - Restores original PotPlayer INI, network adapters, and power plan on exit.
@@ -257,8 +257,8 @@ When analyzing the comparison matrix, focus on the following key performance ind
 ### 1. Motion Fluidity & Pacing
 - **Average FPS:** Target is solid **60.00 FPS**. Any lower indicates dropped or skipped frames.
 - **1% Low FPS (Microstutter Indicator):**
-  - **$\ge 52.0$ FPS:** Flawless presentation; frame time variance is within $\pm 2.5\text{ ms}$.
-  - **$< 45.0$ FPS:** Visible stutter; frame rendering variance exceeds display refresh sync windows.
+  - **≥ 52.0 FPS:** Flawless presentation; frame time variance is within ±2.5 ms.
+  - **< 45.0 FPS:** Visible stutter; frame rendering variance exceeds display refresh sync windows.
   - *Observation:* ARM64 CPU NEON typically achieves tighter 1% Lows ($53-54\text{ FPS}$) than D3D12 GPU because it avoids command queue contention with PotPlayer's Direct3D 11 presentation swapchain.
 - **Dropped Frames:** In Windows DWM Composed Flip mode, PotPlayer presents directly to the desktop window manager swapchain. Clean runs present zero dropped presentation frames.
 
