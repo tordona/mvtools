@@ -175,7 +175,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
 * **Objective:** Sub-8W to 10W package power, cool whisper-quiet or fanless battery playback, 0 dropped frames.
 * **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=0, vpad=0` (zero padding overhead), `sharp=0` (bilinear).
-* **MAnalyse:** Coarse 32x32 blocks (`blksize=32, blksizev=32`, ~2,040 blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
+* **MAnalyse:** Coarse 32x32 blocks (`blksize=32, blksizev=32`, approx. 2,040 blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
 * **MBlockFps:** `mode=0` (fast 2-stream block projection), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
 * **Lookahead:** `Prefetch(threads, 4)`.
 * **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors.
@@ -189,7 +189,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 * **Expected CPU Load:** Typically **4.5% to 20.8%** on modern processors.
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
-* **Objective:** Highest visual fidelity, dense 4px overlapping vector grid (~14,151 blocks), directional alpha blending across complex motion and scene cuts.
+* **Objective:** Highest visual fidelity, dense 4px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
 * **MSuper:** `levels=1`, `pel=1`, `hpad=0, vpad=0`, `sharp=1` (bicubic subpixel sharpness enhances fine detail edge contrast).
 * **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing.
 * **MBlockFps:** `mode=0`, `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.

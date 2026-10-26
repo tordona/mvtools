@@ -1,9 +1,9 @@
 # PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon X Plus
 
 > **Hardware Target:** Qualcomm Snapdragon X Plus (X1P-42-100 / X1P-46-100 / X1P-64-100)  
-> **Integrated GPU:** Qualcomm Adreno X1-85 (~3.8 TFLOPS FP32)  
+> **Integrated GPU:** Qualcomm Adreno X1-85 (3.8 TFLOPS FP32)  
 > **CPU Topology:** 8x Uniform High-IPC Qualcomm Oryon Cores @ up to 3.4 GHz *(No E-cores)*  
-> **Memory Subsystem:** 8-Channel LPDDR5x-8448 MHz (~135 GB/s Unified Bandwidth)  
+> **Memory Subsystem:** 8-Channel LPDDR5x-8448 MHz (135 GB/s Unified Bandwidth)  
 > **Thermal Profile:** 15W–30W Active / High-Efficiency Passive Designs
 
 ---
@@ -13,7 +13,7 @@
 The **Qualcomm Snapdragon X Plus** platform represents a major architectural leap over earlier Windows on ARM chipsets (Snapdragon 850 / 8cx Gen 2). 
 
 1. **Uniform Oryon CPU Cores:** Unlike heterogeneous big.LITTLE architectures, the Snapdragon X Plus features **8 identical high-performance Oryon CPU cores**. There are no weak, in-order efficiency cores to stall the AviSynth worker queue.
-2. **Massive Memory Bandwidth:** The unified LPDDR5x memory bus provides **~135 GB/s** of memory bandwidth (over 4x the Snapdragon 850), easily accommodating complex multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers.
+2. **Massive Memory Bandwidth:** The unified LPDDR5x memory bus provides **135 GB/s** of memory bandwidth (over 4x the Snapdragon 850), easily accommodating complex multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers.
 3. **High-Performance Adreno X1 iGPU:** The Adreno X1-85 GPU features native hardware decoding for **AV1**, **HEVC 10-bit**, and **VP9** up to 4K 120fps / 8K 60fps.
 
 By properly configuring the **Adreno X1 iGPU** for hardware video decoding and presentation alongside the native ARM64 **`mvtools2`** plugin, the system achieves fluid, artifact-free 60fps frame interpolation with low temperatures and battery consumption.
@@ -42,7 +42,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 > [!IMPORTANT]
 > **Why D3D11 / Copy-Back?**  
-> AviSynth filters receive video input through `potplayer_source()`. D3D11 Copy-Back decodes video directly inside the Adreno X1 hardware VPU and maps the uncompressed frames into shared memory, reducing CPU decode overhead from ~35% down to **0%**.
+> AviSynth filters receive video input through `potplayer_source()`. D3D11 Copy-Back decodes video directly inside the Adreno X1 hardware VPU and maps the uncompressed frames into shared memory, reducing CPU decode overhead from approx. 35% down to **0%**.
 
 ---
 
@@ -107,7 +107,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | **Interpolation Mode** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
 | **Threading (`Prefetch`)** | `Prefetch(4)` *(4 cores idle)* | `Prefetch(6)` *(Leaves 2 cores for OS)* | `Prefetch(8)` *(Full 8-core saturation)* |
 | **Memory Allocation** | `SetMemoryMax(1024)` | `SetMemoryMax(2048)` | `SetMemoryMax(4096)` |
-| **Estimated SoC Power** | ~5W – 8W | ~12W – 16W | ~22W – 28W |
+| **Estimated SoC Power** | 5W – 8W | 12W – 16W | 22W – 28W |
 
 ---
 

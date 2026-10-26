@@ -3,8 +3,8 @@
 > **Hardware Target:** Qualcomm Snapdragon 850 (SD850 / SDM850)  
 > **Integrated GPU:** Qualcomm Adreno 630  
 > **CPU Topology:** 4x Kryo 385 Gold (Cortex-A75 @ up to 2.96 GHz) + 4x Kryo 385 Silver (Cortex-A55 @ up to 1.80 GHz)  
-> **Memory Subsystem:** 4-Channel LPDDR4x-1866 (~29.8 GB/s Unified Bandwidth)  
-> **Thermal Profile:** ~5W Fanless Design *(e.g., Lenovo Yoga C630, Samsung Galaxy Book2)*
+> **Memory Subsystem:** 4-Channel LPDDR4x-1866 (29.8 GB/s Unified Bandwidth)  
+> **Thermal Profile:** 5W Fanless Design *(e.g., Lenovo Yoga C630, Samsung Galaxy Book2)*
 
 ---
 
@@ -13,10 +13,10 @@
 On the Qualcomm Snapdragon 850, software video decoding on the Kryo 385 Gold (Cortex-A75) CPU cores consumes **over 50% of the entire 5W package thermal budget**. When running real-time 60fps AviSynth frame interpolation (`mvtools2`), CPU-based decoding quickly causes thermal saturation, dropping core clocks from 2.96 GHz down to 1.5–1.8 GHz and causing dropped frames and stutter.
 
 To achieve sustained, smooth 60fps playback without thermal throttling:
-1. **Adreno 630 Hardware Decoding:** Offload H.264/HEVC/VP9 decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back, reducing CPU decode load to ~0%.
+1. **Adreno 630 Hardware Decoding:** Offload H.264/HEVC/VP9 decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back, reducing CPU decode load to 0%.
 2. **Direct3D 11 Video Renderer:** Display presentation and scaling run directly on Adreno 630 shader units with zero CPU intervention.
 3. **Single-Super Native 1080p Analysis:** Eliminates CPU frame downscaling/resizing and redundant pyramid generation (`levels=1`), sharing a single whole-pixel `MSuper` clip across the pipeline.
-4. **Coarse-to-Fine Block Refinement:** Employs wide 64×32 blocks for Eco (~1,020 blocks) and dual-pass 32×32 → 16×16 refinement for Balanced/MaxQuality, delivering artifact-free 60fps presentation while bypassing the overhead of 7-pass proxy pipelines.
+4. **Coarse-to-Fine Block Refinement:** Employs wide 64×32 blocks for Eco (1,020 blocks) and dual-pass 32×32 → 16×16 refinement for Balanced/MaxQuality, delivering artifact-free 60fps presentation while bypassing the overhead of 7-pass proxy pipelines.
 5. **Strict Core Pinning (`Prefetch(2, 4)` to `Prefetch(4, 4)`):** Limits worker threads so execution stays strictly on the high-IPC Kryo 385 Gold cores, absorbing thread jitter with a 4-frame lookahead queue and avoiding stalls from the in-order Silver cores.
 
 ---
@@ -94,13 +94,13 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds massive me
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
 | **Analysis Resolution** | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) |
-| **Search Block Size** | 64×32 wide blocks (~1,020 blocks) | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (`searchparam=2`) |
+| **Search Block Size** | 64×32 wide blocks (1,020 blocks) | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (`searchparam=2`) |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
 | **Search Algorithm** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
 | **Outlier Filter** | Off | `badrange=(-24)` | `badrange=(-24)` |
 | **Frame Synthesis** | Native 1080p `mode=0` | Native 1080p `mode=0` | Native 1080p `mode=0` |
 | **Worker Threads** | `Prefetch(2, 4)` | `Prefetch(3, 4)` | `Prefetch(4, 4)` |
-| **Target Power** | ~3.0W – 3.5W | ~3.8W – 4.2W | ~4.5W – 5.0W |
+| **Target Power** | 3.0W – 3.5W | 3.8W – 4.2W | 4.5W – 5.0W |
 
 ---
 

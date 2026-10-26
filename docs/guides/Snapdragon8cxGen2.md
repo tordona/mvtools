@@ -1,16 +1,16 @@
 # PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 8cx Gen 2 / Microsoft SQ2
 
 > **Hardware Target:** Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (SC8180XP)  
-> **Integrated GPU:** Qualcomm Adreno 680 (~1.3 TFLOPS FP32)  
+> **Integrated GPU:** Qualcomm Adreno 680 (1.3 TFLOPS FP32)  
 > **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 3.00–3.15 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.80 GHz)  
-> **Memory Subsystem:** 8-Channel LPDDR4x-2133 (~68 GB/s Unified Bandwidth)  
+> **Memory Subsystem:** 8-Channel LPDDR4x-2133 (68 GB/s Unified Bandwidth)  
 > **Thermal Profile:** 7W–10W Fanless Design *(e.g., Microsoft Surface Pro X SQ2, Acer Spin 7, HP Elite Folio)*
 
 ---
 
 ## Overview & Architecture
 
-The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7W to 10W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (~68 GB/s).
+The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7W to 10W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
 
 When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
 
@@ -113,7 +113,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |
 | **Frame Synthesis** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
 | **Worker Threads** | `Prefetch(3, 4)` | `Prefetch(4, 4)` | `Prefetch(4, 4)` |
-| **Target Power** | ~4.5W – 5.5W | ~6.5W – 7.5W | ~7.5W – 8.8W |
+| **Target Power** | 4.5W – 5.5W | 6.5W – 7.5W | 7.5W – 8.8W |
 
 ---
 

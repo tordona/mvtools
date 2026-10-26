@@ -23,7 +23,7 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Configuration:** 0.5x proxy motion estimation (scaled 2x via MScaleVect), 32x16 blocks, pel=1 (integer pixel), Fast block projection (mode=0) | Target: Ultra-Low Power (~3.0W), Whisper-Cool Fanless Operation, Peak Battery Life
+   - **Configuration:** 0.5x proxy motion estimation (scaled 2x via MScaleVect), 32x16 blocks, pel=1 (integer pixel), Fast block projection (mode=0) | Target: Ultra-Low Power (3.0W), Whisper-Cool Fanless Operation, Peak Battery Life
    - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.25 FPS**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 11.4% (Peak: 12.6%) on native ARM64 NEON with working set of 260.6 MB.
 

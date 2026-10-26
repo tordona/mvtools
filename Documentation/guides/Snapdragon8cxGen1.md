@@ -1,10 +1,10 @@
 # PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 8cx Gen 1 / Microsoft SQ1
 
 > **Hardware Target:** Qualcomm Snapdragon 8cx Gen 1 / Microsoft SQ1 (SC8180X)  
-> **Integrated GPU:** Qualcomm Adreno 680 (~1.1 TFLOPS FP32)  
+> **Integrated GPU:** Qualcomm Adreno 680 (1.1 TFLOPS FP32)  
 > **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 2.84 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.80 GHz)  
-> **Memory Subsystem:** 8-Channel LPDDR4x-2133 (~68 GB/s Unified Bandwidth)  
-> **Thermal Profile:** ~7W Fanless Design *(e.g., Microsoft Surface Pro X SQ1, Lenovo Flex 5G / Yoga 5G, Samsung Galaxy Book S)*
+> **Memory Subsystem:** 8-Channel LPDDR4x-2133 (68 GB/s Unified Bandwidth)  
+> **Thermal Profile:** 7W Fanless Design *(e.g., Microsoft Surface Pro X SQ1, Lenovo Flex 5G / Yoga 5G, Samsung Galaxy Book S)*
 
 ---
 
@@ -83,9 +83,9 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
    - **Buffer Back** (first box): Set to **`12`** to **`15`** frames.
    - **Buffer Ahead** (second box): Set to **`24`** frames.
 5. Under **Load script:**, select your preferred Snapdragon 8cx Gen 1 / Microsoft SQ1 script:
-   - **Eco (Battery Saver):** [`Snapdragon-8cxGen1-Eco.avs`](../../AviSynth/Snapdragon-8cxGen1-Eco.avs)
-   - **Balanced (Recommended):** [`Snapdragon-8cxGen1-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen1-Balanced.avs)
-   - **Max Quality:** [`Snapdragon-8cxGen1-MaxQuality.avs`](../../AviSynth/Snapdragon-8cxGen1-MaxQuality.avs)
+   - **Eco (Battery Saver):** [`Snapdragon-8cxGen1-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs)
+   - **Balanced (Recommended):** [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs)
+   - **Max Quality:** [`Snapdragon-8cxGen1-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs)
 6. Click **Apply** → **OK**.
 
 > [!TIP]
@@ -110,7 +110,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Frame Synthesis** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
 | **Worker Threads** | `Prefetch(3, 4)` | `Prefetch(3, 4)` | `Prefetch(4, 4)` |
 | **Memory Limit** | 512 MB | 768 MB | 1024 MB |
-| **Target Power** | ~4.0W – 4.5W | ~5.2W – 5.8W | ~6.2W – 6.8W |
+| **Target Power** | 4.0W – 4.5W | 5.2W – 5.8W | 6.2W – 6.8W |
 
 ---
 
@@ -125,7 +125,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](../../AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
 
 ---
 

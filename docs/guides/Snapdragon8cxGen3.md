@@ -1,9 +1,9 @@
 # PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 8cx Gen 3 / Microsoft SQ3
 
 > **Hardware Target:** Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (SC8280X)  
-> **Integrated GPU:** Qualcomm Adreno 690 (~2.2 TFLOPS FP32)  
+> **Integrated GPU:** Qualcomm Adreno 690 (2.2 TFLOPS FP32)  
 > **CPU Topology:** 4x Cortex-X1 Prime Cores (@ up to 3.0 GHz) + 4x Cortex-A78 Performance Cores (@ up to 2.4 GHz)  
-> **Memory Bus:** 8-channel LPDDR4x-4266 / LPDDR5-6400 (~136 GB/s)  
+> **Memory Bus:** 8-channel LPDDR4x-4266 / LPDDR5-6400 (136 GB/s)  
 > **Thermal Profile:** 7W–15W *(e.g., Lenovo ThinkPad X13s, Microsoft Surface Pro 9 5G)*
 
 ---
@@ -12,8 +12,8 @@
 
 The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) represents a monumental leap over earlier Snapdragon PC chipsets:
 1. **Heterogeneous Performance CPU Topology**: Gen 3 completely eliminated in-order Cortex-A55 efficiency cores, pairing 4x Cortex-X1 Prime cores (@ up to 3.0 GHz) with 4x Cortex-A78 Performance cores (@ up to 2.4 GHz). To prevent asymmetric thread latency stalls and guarantee 0 dropped frames, MVTools worker threads are pinned cleanly to the 4x Cortex-X1 Prime cluster (`threads = 4`, with 4 lookahead queue frames), while the 4x Cortex-A78 cores handle Windows background tasks, audio rendering, PotPlayer UI, and DirectShow filters.
-2. **Adreno 690 Compute Engine (~2.2 TFLOPS)**: Delivers ~70% higher compute shader throughput than Gen 2's Adreno 680, easily running dual-pass motion refinement without thermal saturation.
-3. **Double Memory Bandwidth (~136 GB/s)**: Eliminates texture cache thrashing and memory bus bottlenecks during high-resolution planar uploads.
+2. **Adreno 690 Compute Engine (2.2 TFLOPS)**: Delivers approx. 70% higher compute shader throughput than Gen 2's Adreno 680, easily running dual-pass motion refinement without thermal saturation.
+3. **Double Memory Bandwidth (136 GB/s)**: Eliminates texture cache thrashing and memory bus bottlenecks during high-resolution planar uploads.
 
 ---
 
@@ -92,7 +92,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 > [!NOTE]
 > **Hardware Display Refresh & VSync Timing on Snapdragon 8cx Gen 3**  
-> Certain Snapdragon 8cx Gen 3 hardware platforms (such as the ThinkPad X13s or Surface Pro 9 5G) pair the Qualcomm display controller with an oscillator clock operating at ~59.8 Hz rather than an integer 60.00 Hz (even over certain external display connections). During strict 60.000 FPS video playback, an excess frame accumulates every ~4 to 7 seconds and is discarded by the DXGI swapchain compositor (`DXGI_SWAP_EFFECT_FLIP_DISCARD`) to keep video playback synchronized with audio. These minor discards are confirmed hardware display scanout timing artifacts and do not indicate a CPU/GPU compute bottleneck (frame render latency remains under 0.5 ms).
+> Certain Snapdragon 8cx Gen 3 hardware platforms (such as the ThinkPad X13s or Surface Pro 9 5G) pair the Qualcomm display controller with an oscillator clock operating at approx. 59.8 Hz rather than an integer 60.00 Hz (even over certain external display connections). During strict 60.000 FPS video playback, an excess frame accumulates every 4 to 7 seconds and is discarded by the DXGI swapchain compositor (`DXGI_SWAP_EFFECT_FLIP_DISCARD`) to keep video playback synchronized with audio. These minor discards are confirmed hardware display scanout timing artifacts and do not indicate a CPU/GPU compute bottleneck (frame render latency remains under 0.5 ms).
 
 ---
 
