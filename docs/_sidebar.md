@@ -11,7 +11,8 @@
   * [Snapdragon 7c Gen 2](guides/Snapdragon7cGen2.md)
 
 * **AviSynth Profiles**
-  * [Profile Library & Specifications](profiles/README.md)
+  * [Snapdragon Profiles (ARM64)](profiles/README.md#part-i-qualcomm-snapdragon-arm64-profiles)
+  * [x86-64 Profiles (AMD / Intel)](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-ryzen--intel-core)
 
 * **Benchmark Suite**
   * [PresentMon Harness & Baselines](benchmarks/README.md)

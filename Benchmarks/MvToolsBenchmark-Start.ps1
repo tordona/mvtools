@@ -382,8 +382,60 @@ if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     $OutputDir = Join-Path $ScriptDir "BenchmarkResults"
 }
 
-# Audit Windows Administrator Elevation Status
+# ---------------------------------------------------------
+# ELEVATION AUDIT & AUTOMATED UAC RELAUNCH
+# ---------------------------------------------------------
 $IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $IsAdmin) {
+    Write-Host "`n================================================================" -ForegroundColor Yellow
+    Write-Host " ADMINISTRATIVE ELEVATION RECOMMENDED" -ForegroundColor Yellow
+    Write-Host " Running the benchmark harness with full telemetry requires" -ForegroundColor Gray
+    Write-Host " Windows Administrator privileges to:" -ForegroundColor Gray
+    Write-Host "  1. Capture Direct3D/DXGI frame events & 1% lows via Windows ETW (PresentMon)" -ForegroundColor Gray
+    Write-Host "  2. Deploy AviSynth+, MVTools2, and configure PotPlayer in 'Program Files'" -ForegroundColor Gray
+    Write-Host "  3. Lock High Performance power scheme and stabilize background idle" -ForegroundColor Gray
+    Write-Host "================================================================`n" -ForegroundColor Yellow
+
+    $elevateChoice = $null
+    try {
+        $elevateChoice = Read-Host -Prompt "Relaunch with Administrator privileges (UAC prompt)? [Y/n]"
+    } catch {}
+
+    if ([string]::IsNullOrWhiteSpace($elevateChoice) -or $elevateChoice.Trim() -match '(?i)^y(es)?$') {
+        Write-Host "Requesting Administrator elevation (UAC prompt)...`n" -ForegroundColor Cyan
+
+        $scriptPath = $MyInvocation.MyCommand.Path
+        if (-not $scriptPath) { $scriptPath = $PSCommandPath }
+        if (-not $scriptPath) { $scriptPath = Join-Path $ScriptDir "MvToolsBenchmark-Start.ps1" }
+
+        $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
+        foreach ($k in $PSBoundParameters.Keys) {
+            $val = $PSBoundParameters[$k]
+            if ($val -is [System.Management.Automation.SwitchParameter]) {
+                if ($val.IsPresent) { $argList += "-$k" }
+            } elseif ($val -is [string]) {
+                if (-not [string]::IsNullOrEmpty($val)) { $argList += @("-$k", "`"$val`"") }
+            } else {
+                $argList += @("-$k", "$val")
+            }
+        }
+
+        try {
+            $proc = Start-Process powershell.exe -ArgumentList $argList -WorkingDirectory (Get-Location).Path -Verb RunAs -PassThru
+            $proc.WaitForExit()
+            exit $proc.ExitCode
+        } catch {
+            Write-Host "`n[NOTICE] Elevation was cancelled or denied: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "Proceeding with standard user privileges...`n" -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+    } else {
+        Write-Host "`n[NOTICE] Continuing with standard user privileges." -ForegroundColor Yellow
+        Write-Host "Note: PresentMon ETW hardware frame pacing and 1% lows will be skipped.`n" -ForegroundColor Gray
+        Start-Sleep -Seconds 1
+    }
+}
 
 # ---------------------------------------------------------
 # HELPER: Detect USB Drive & Storage Media Characteristics
@@ -2253,9 +2305,26 @@ function Ensure-VisualCppRedistributable {
         if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
         return $false
     }
-    finally {
-        if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
+    # If exit code indicates another version is already installed (1638), run repair mode to restore any missing DLLs
+    if ($exitCode -eq 1638) {
+        Write-Host "  -> Another version of VC++ runtime is detected (ExitCode 1638). Executing repair mode..." -ForegroundColor Cyan
+        try {
+            $repairParams = @{
+                FilePath     = $tempInstaller
+                ArgumentList = @("/repair", "/quiet", "/norestart")
+                Wait         = $true
+                PassThru     = $true
+            }
+            if (-not $isElevated) { $repairParams["Verb"] = "RunAs" }
+            $procRepair = Start-Process @repairParams
+            try { $exitCode = $procRepair.ExitCode } catch {}
+            Write-Host "  -> Repair mode finished with exit code $exitCode" -ForegroundColor Gray
+        } catch {
+            Write-Warning "Repair mode execution error: $_"
+        }
     }
+
+    if (Test-Path $tempInstaller) { Remove-Item $tempInstaller -Force -ErrorAction SilentlyContinue }
 
     # Re-audit DLLs after installation
     $reAudit = & $AuditDlls
@@ -3831,10 +3900,12 @@ function Set-PotPlayerSettings {
     }
 
     # Substitute relative DLL paths with verified absolute paths
-    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$GpuDll`""
-    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2\.dll"', "`"$CpuDll`""
+    $cleanCpuDll = if ($CpuDll) { $CpuDll.Replace('\', '/') } else { "" }
+    $cleanGpuDll = if ($GpuDll) { $GpuDll.Replace('\', '/') } else { $cleanCpuDll }
+    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$cleanGpuDll`""
+    $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$cleanCpuDll`""
     if ($targetArch -eq "x64") {
-        $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$CpuDll`""
+        $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$cleanCpuDll`""
     }
 
     # Write without BOM using ASCII encoding so AviSynth parses line 1 cleanly
