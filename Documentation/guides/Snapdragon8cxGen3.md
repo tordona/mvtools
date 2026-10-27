@@ -8,24 +8,14 @@
 
 ---
 
-## Overview
+## Overview & Thermal Strategy
 
-The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) represents a monumental leap over earlier Snapdragon PC chipsets:
-1. **Heterogeneous Performance CPU Topology**: Gen 3 completely eliminated in-order Cortex-A55 efficiency cores, pairing 4x Cortex-X1 Prime cores (@ up to 3.0 GHz) with 4x Cortex-A78 Performance cores (@ up to 2.4 GHz). To prevent asymmetric thread latency stalls and guarantee 0 dropped frames, MVTools worker threads are pinned cleanly to the 4x Cortex-X1 Prime cluster (`threads = 4`, with 4 lookahead queue frames), while the 4x Cortex-A78 cores handle Windows background tasks, audio rendering, PotPlayer UI, and DirectShow filters.
-2. **Adreno 690 Compute Engine (2.2 TFLOPS)**: Delivers approx. 70% higher compute shader throughput than Gen 2's Adreno 680, easily running dual-pass motion refinement without thermal saturation.
-3. **Double Memory Bandwidth (136 GB/s)**: Eliminates texture cache thrashing and memory bus bottlenecks during high-resolution planar uploads.
+The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configurable **7W–15W thermal envelope** (ranging from fanless tablet designs such as the Surface Pro 9 5G to actively cooled chassis such as the ThinkPad X13s):
 
----
-
-## Profile Architecture & Performance
-
-All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads, 4)` lookahead buffering:
-
-| Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
-| :--- | :--- | :--- | :--- | :--- |
-| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=0` Block Projection | `threads=3`, `Prefetch(3, 4)` (leaves 1 X1 + 4 A78 idle) |
-| **Balanced** | Fluid 1080p 60fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
-| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`searchparam=2`) → 16×16 | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
+1. **Heterogeneous Performance CPU Topology**: Gen 3 eliminated in-order Cortex-A55 efficiency cores, pairing 4x Cortex-X1 Prime cores (@ up to 3.0 GHz) with 4x Cortex-A78 Performance cores (@ up to 2.4 GHz). To prevent asymmetric thread latency stalls and thermal saturation, MVTools worker threads are pinned to the 4x Cortex-X1 Prime cluster (`threads = 4`, with 4 lookahead queue frames), while the 4x Cortex-A78 cores handle background tasks, audio rendering, and UI filters at lower clock frequencies.
+2. **Thermal Budget Preservation via Adreno 690 VPU**: Offloading H.264/HEVC/VP9 decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back reduces CPU decode overhead to 0%, preventing cumulative package power from exceeding fanless thermal dissipation limits.
+3. **Adreno 690 Compute Engine (2.2 TFLOPS)**: Delivers approx. 70% higher compute shader throughput than Gen 2's Adreno 680, running dual-pass motion refinement without thermal throttling.
+4. **Unified Memory Bandwidth (136 GB/s)**: Eliminates memory bus bottlenecks and reduces DRAM controller power draw during high-resolution planar processing.
 
 ---
 
@@ -96,6 +86,18 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 ---
 
+## Profile Comparison: Snapdragon 8cx Gen 3 / SQ3
+
+All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads, 4)` lookahead buffering:
+
+| Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
+| :--- | :--- | :--- | :--- | :--- |
+| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=0` Block Projection | `threads=3`, `Prefetch(3, 4)` (leaves 1 X1 + 4 A78 idle) |
+| **Balanced** | Fluid 1080p 60fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
+| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`searchparam=2`) → 16×16 | `mode=0` Block Projection | `threads=4`, `Prefetch(4, 4)` (pinned to 4x Cortex-X1) |
+
+---
+
 ## Summary Configuration Checklist
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
@@ -108,3 +110,17 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
 | **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+
+---
+
+## Verification & OSD Diagnostic
+
+To confirm that the Adreno 690 hardware decoder and 60fps AviSynth processing are active during playback:
+
+1. Open and play any 24fps/30fps video in PotPlayer.
+2. Press **`Tab`** to toggle the On-Screen Display (OSD).
+3. Confirm the following real-time metrics:
+   - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(confirming GPU decode)*.
+   - **Video Output:** Shows **`Direct3D 11 Video Renderer`**.
+   - **Frame Rate:** Displays **`XX.XX fps -> 60.00 fps`**.
+   - **CPU Usage:** Stays stably low (typically 15%–28% across the Cortex-X1 cores).

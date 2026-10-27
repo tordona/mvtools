@@ -8,15 +8,17 @@
 
 ---
 
-## Overview
+## Overview & Thermal Strategy
 
-The **Qualcomm Snapdragon X Plus** platform represents a major architectural leap over earlier Windows on ARM chipsets (Snapdragon 850 / 8cx Gen 2). 
+The **Qualcomm Snapdragon X Plus** platform operates across a configurable **15W–30W thermal envelope**, scaling from high-efficiency passive/convertible designs to actively cooled laptop chassis:
 
-1. **Uniform Oryon CPU Cores:** Unlike heterogeneous big.LITTLE architectures, the Snapdragon X Plus features **8 identical high-performance Oryon CPU cores**. There are no weak, in-order efficiency cores to stall the AviSynth worker queue.
-2. **High Memory Bandwidth:** The unified LPDDR5x memory bus provides **135 GB/s** of memory bandwidth (over 4x the Snapdragon 850), accommodating multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers.
-3. **High-Performance Adreno X1 iGPU:** The Adreno X1-85 GPU features native hardware decoding for **AV1**, **HEVC 10-bit**, and **VP9** up to 4K 120fps / 8K 60fps.
-
-By properly configuring the **Adreno X1 iGPU** for hardware video decoding and presentation alongside the native ARM64 **`mvtools2`** plugin, the system achieves fluid, artifact-free 60fps frame interpolation with low temperatures and battery consumption.
+1. **Uniform Oryon CPU Cores:** Unlike heterogeneous big.LITTLE architectures, the Snapdragon X Plus features **8 uniform high-performance Oryon CPU cores** (up to 3.4 GHz). Eliminating in-order efficiency cores removes asymmetric worker thread bottlenecks.
+2. **Thermal Budget Preservation via Adreno X1 VPU:** Software decoding of modern high-bitrate codecs (such as 4K AV1 or 10-bit HEVC) can draw over 6W–8W on the CPU cores alone, elevating package temperatures and triggering cooling fans or thermal stepping. Offloading decode entirely to the Adreno X1 VPU reduces CPU decode overhead to 0%, preserving thermal headroom for MVTools synthesis.
+3. **High Memory Bandwidth (135 GB/s):** The unified 8-channel LPDDR5x memory bus provides 135 GB/s of bandwidth, accommodating multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers without memory bus throttling.
+4. **Thermal Profile Scaling:** 
+   - **Eco (5W–8W):** `Prefetch(4)` keeps 4 Oryon cores completely idle, ensuring minimal thermal dissipation and silent fanless operation.
+   - **Balanced (12W–16W):** `Prefetch(6)` provides 60fps interpolation with 2 idle cores reserved for OS processes and thermal dissipation.
+   - **MaxQuality (22W–28W):** `Prefetch(8)` utilizes all 8 cores for fine-grid motion vectors within active cooling thermal ceilings.
 
 ---
 
@@ -83,8 +85,8 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 5. Under **Load script:**, select your desired Snapdragon X Plus script:
    - **Profile 1 (Eco / Battery Saver):** [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs)
    - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
-   - **Profile 3 (Max Quality / TrueMotion Pro):** [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
-   *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power, whisper-cool battery saver option).*
+   - **Profile 3 (Max Quality / Fine Grid):** [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
+   *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power battery saver option).*
 6. Click **Apply** → **OK**.
 
 > [!TIP]

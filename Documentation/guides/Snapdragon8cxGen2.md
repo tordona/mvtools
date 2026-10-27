@@ -8,7 +8,7 @@
 
 ---
 
-## Overview & Architecture
+## Overview & Thermal Strategy
 
 The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7W to 10W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
 
@@ -95,7 +95,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
 > All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, deterministic 60fps with zero dropped frames.  
 > Setting `USE_GPU = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`mvtools2_d3d12.dll`) to offload motion search to the Adreno 680 GPU:
-> - **Balanced (`USE_GPU = true`):** Sustains 60fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), keeping temperatures whisper-cool.
+> - **Balanced (`USE_GPU = true`):** Sustains 60fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), maintaining low package temperatures and high thermal margin.
 > - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) to prevent L1/L2 texture cache thrashing, sustaining continuous 60fps.
 >
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*

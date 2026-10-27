@@ -8,7 +8,7 @@
 
 ---
 
-## Overview & Architecture
+## Overview & Thermal Strategy
 
 The **Qualcomm Snapdragon 8cx Gen 1** (and its Microsoft customized variant, the **Microsoft SQ1**) is a 7nm fanless PC platform operating within a strict **7-Watt system envelope**.
 

@@ -126,6 +126,6 @@ To confirm that the Adreno 630 hardware decoder and 60fps AviSynth processing ar
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).
 3. Verify the following fields:
    - **Video Codec:** Indicates **`D3D11 Native/CopyBack`** or **`DXVA2`** *(not Software / ffmpeg)*.
-   - **Output:** **`Direct3D 11 Video Renderer`** (or `EVR`).
+   - **Output:** **`Direct3D 11 Video Renderer`**.
    - **Frame Rate:** Displays **`XX fps -> 60.00 fps`**.
    - **CPU Usage:** Stays well below 30–40% on the Kryo 385 Gold cores.

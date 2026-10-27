@@ -7,7 +7,7 @@
 
 ---
 
-## 1. Overview & Thermal Strategy
+## Overview & Thermal Strategy
 
 The **Samsung Galaxy Book Go** is a lightweight, completely fanless Windows on ARM64 laptop with a nominal package thermal design power (TDP) of **5 Watts**. 
 
@@ -16,14 +16,13 @@ Under full 1080p video playback, software decoding alone on the 2 Gold cores can
 To achieve continuous, sustained 60 fps without thermal throttling:
 1. **Adreno 618 Hardware Decoding:** Offload H.264/HEVC decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back (reducing CPU decode load to 0%).
 2. **Dynamic 0.5x Proxy Analysis (`MScaleVect`):** Perform motion estimation on an aspect-ratio-aware 0.5× proxy plane (cutting 75% of pixel comparisons and DRAM bandwidth), then scale vectors 2× up to native source dimensions.
-3. **Native 1080p Warp (`MBlockFps mode=0`):** Synthesize new frames directly from the uncompressed 1080p source clip, ensuring **zero loss of spatial resolution or sharpness**.
+3. **Native 1080p Warp (`MBlockFps mode=0`):** Synthesize new frames directly from the uncompressed 1080p source clip, ensuring zero loss of spatial resolution or sharpness.
 4. **Strict Core Pinning (`Prefetch(2)`):** Limit worker threads to 2 so execution stays strictly on the high-performance Kryo 468 Gold cores, completely avoiding stalls from the slow in-order Cortex-A55 Silver cores.
 
 ---
 
-## 2. Step-by-Step PotPlayer Setup
+## Step 1: Hardware Video Decoder Configuration (Adreno 618 VPU)
 
-### Step 1: Hardware Video Decoder (Adreno 618 VPU)
 1. Open **PotPlayer** and press **`F5`** for **Preferences**.
 2. Navigate to **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
@@ -36,7 +35,8 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ---
 
-### Step 2: Video Renderer (Direct3D 11 Pipeline)
+## Step 2: Video Renderer Configuration (Adreno 618 Direct3D 11 Pipeline)
+
 1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
@@ -48,7 +48,8 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ---
 
-### Step 3: Colorspace Pass-Through (Zero CPU YUV Conversion)
+## Step 3: Colorspace Pass-Through (Zero CPU Overhead)
+
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** → **Colorspaces**.
 2. Under **Supported Colorspaces / YCbCr <-> RGB conversion**, ensure **Output color space** is set to **`Auto (Recommended)`** (or native planar YUV: **`NV12`** / **`YV12`**). Do **NOT** select `RGB 32` or `ARGB 32`.
@@ -60,7 +61,8 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ---
 
-### Step 4: Load Snapdragon 7c Gen 2 AviSynth Profile
+## Step 4: AviSynth Processing & Script Activation
+
 1. In **Preferences (`F5`)**, navigate to **Video** → **AviSynth**.
 2. Check **Enable AviSynth processing**.
 3. Check **Add "potplayer_source()"**.
@@ -69,13 +71,13 @@ To achieve continuous, sustained 60 fps without thermal throttling:
    - **Buffer Ahead** (second box): Set to **`16`** to **`20`** frames.
 5. Under **Load script:**, browse and select your preferred Snapdragon 7c Gen 2 profile:
    - [**`Snapdragon-7cGen2-Balanced.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60fps watching)*
-   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(For whisper-cool, ultra-long battery life, 3.0W)*
+   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(Low-power operation, extended battery longevity, 3.0W)*
    - [**`Snapdragon-7cGen2-MaxQuality.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) *(Hierarchical pyramid search for fast action scenes)*
 6. Click **Apply** and **OK**.
 
 ---
 
-## 3. Profiles Comparison for Galaxy Book Go
+## Profile Comparison: Snapdragon 7c Gen 2
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
@@ -92,7 +94,7 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ---
 
-## 4. Why `Prefetch(2)` is Critical on Snapdragon 7c Gen 2
+## Architectural Thread Constraint: Prefetch(2)
 
 The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 - **2x Kryo 468 Gold:** Based on ARM Cortex-A76 (out-of-order execution, wide decode, high IPC).
@@ -104,7 +106,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 
 ---
 
-## 5. Summary Configuration Checklist
+## Summary Configuration Checklist
 
 | Setting | Location in Preferences (`F5`) | Recommended Value |
 | :--- | :--- | :--- |
@@ -119,7 +121,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 
 ---
 
-## 6. Verification & OSD Diagnostic
+## Verification & OSD Diagnostic
 
 To confirm that the Adreno 618 hardware decoder and 60fps AviSynth processing are active during playback:
 
