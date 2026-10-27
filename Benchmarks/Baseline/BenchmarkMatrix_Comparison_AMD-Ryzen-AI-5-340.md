@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - AMD-Ryzen-AI-5-340
+﻿# MVTools Benchmark Comparison Matrix - AMD-Ryzen-AI-5-340
 
 **Host Platform:** AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)  
 **Platform Identifier:** AMD-Ryzen-AI-5-340  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)**. **Eco** minimized CPU compute load (10.3%), while **MaxQuality** delivered the smoothest frame consistency (52.36 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.89 Hz** (Primary Display (60.000 Hz, 60/1)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.89 Hz** (Primary Display (60.000 Hz, 60/1)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

@@ -28,7 +28,7 @@ Change log
   - Direct3D 12 DirectCompute GPU Offload (Adreno GPU Native Execution):
     - Ported block SAD (Sum of Absolute Differences) and motion vector search into HLSL Compute Shader (`cs_5_0`).
     - Executes natively on Qualcomm Adreno GPU with zero CPU overhead.
-    - Achieves rock-solid continuous 60fps on Snapdragon X Plus across both Balanced and MaxQuality profiles.
+    - Achieves continuous 60fps without dropped frames on Snapdragon X Plus across both Balanced and MaxQuality profiles.
     - Implemented 4-slot LRU reference plane upload cache with 5-point 64-bit sampling check, cutting per-frame CPU-to-GPU memory copies by 75% (from 56.8 MB/frame down to ~14.2 MB/frame, saving ~3.2 GB/s on unified memory bus).
     - Persistently mapped constant buffer, readback buffer, and predictor buffers to eliminate per-frame OS kernel Map/Unmap transitions.
     - Optimized compute shader refinement (`MRecalculate`): uses tight 8-point 3x3 local subpixel grid with early-exit on near-perfect coarse matches (`bestSAD <= 128`), cutting per-block refinement cycles by up to 71%.

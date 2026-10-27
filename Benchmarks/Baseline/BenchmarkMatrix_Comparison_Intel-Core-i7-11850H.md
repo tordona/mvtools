@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - Intel-Core-i7-11850H
+﻿# MVTools Benchmark Comparison Matrix - Intel-Core-i7-11850H
 
 **Host Platform:** Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)  
 **Platform Identifier:** Intel-Core-i7-11850H  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)**. **Eco** minimized CPU compute load (3.8%), while **MaxQuality** delivered the smoothest frame consistency (54.84 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.00 Hz** (Primary Display (60.003 Hz, 13866000/231088)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.00 Hz** (Primary Display (60.003 Hz, 13866000/231088)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

@@ -2,7 +2,7 @@
 
 > **Curated, hardware-tailored AviSynth+ profiles for real-time 24fps → 60fps video motion interpolation in Daum PotPlayer on Windows on ARM64 and x86-64.**
 
-All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`)**, eliminating memory thrashing on unified memory architectures while sustaining flawless 60fps frame delivery.
+All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`)**, eliminating memory thrashing on unified memory architectures while sustaining consistent 60fps frame delivery without frame drops.
 
 ---
 
@@ -73,7 +73,7 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 # ==============================================================================
 # PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Sweet spot between fluid motion, sharp edges, and efficient power draw
+# Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
 # Revision: 2.0.0
 # ==============================================================================
 USE_GPU = false

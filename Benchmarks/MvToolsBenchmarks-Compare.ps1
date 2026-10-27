@@ -614,7 +614,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         if ($hasRecordedDrops) {
             $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Because the AviSynth profile generates strictly 60.000 FPS, an excess frame accumulates every ~$($driftSec)s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck."
         } else {
-            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards."
+            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards."
         }
     }
 

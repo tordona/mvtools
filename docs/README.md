@@ -10,7 +10,7 @@
 
 **MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24fps → 60fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
-This documentation hub covers the original breakthrough features developed in this fork:
+This documentation hub covers the key architectural additions developed in this fork:
 * **Native Windows on ARM64 Port:** Pure 64-bit ARM assembly (`ARM64 NEON`) with zero x86 emulation overhead.
 * **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`mvtools2_d3d12.dll`).
 * **18 Tuned Snapdragon Profiles:** Empirically verified `.avs` scripts with single-level geometry (`levels=1`) preserving memory bus bandwidth.
@@ -53,5 +53,5 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 ## 📦 Binaries & Downloads
 
 Download official pre-compiled releases from the [GitHub Releases Page](https://github.com/tordona/mvtools/releases):
-* **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD engine for daily viewing and rock-solid frame delivery.
+* **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD engine for daily viewing and deterministic 60fps frame delivery.
 * **`mvtools2_d3d12.dll`** *(Experimental Preview)*: Direct3D 12 DirectCompute GPU-accelerated engine.

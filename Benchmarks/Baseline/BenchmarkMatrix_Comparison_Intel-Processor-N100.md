@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - Intel-Processor-N100
+﻿# MVTools Benchmark Comparison Matrix - Intel-Processor-N100
 
 **Host Platform:** Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)  
 **Platform Identifier:** Intel-Processor-N100  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)**. **Eco** minimized CPU compute load (37.3%), while **Eco** delivered the smoothest frame consistency (55.61 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.98 Hz** (Primary Display (59.984 Hz, 14780000/246400)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.98 Hz** (Primary Display (59.984 Hz, 14780000/246400)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

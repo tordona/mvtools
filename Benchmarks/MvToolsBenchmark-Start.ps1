@@ -3162,7 +3162,7 @@ function Select-ProfileAndModeInteractive {
     $targetArch = Get-TargetBinaryArchitecture
     if ($targetArch -ne "x64" -and $selectedProfile.SupportsGpu) {
         Write-Host "`nSelect Motion Vector Acceleration Engine:" -ForegroundColor Yellow
-        $cpuEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host ("  [1] {0} (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, rock-solid pacing]" -f $cpuEngineName) -ForegroundColor Green
+        $cpuEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host ("  [1] {0} (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, uniform frame pacing]" -f $cpuEngineName) -ForegroundColor Green
         Write-Host "  [2] Direct3D 12 GPU (mvtools2_d3d12.dll)  [EXPERIMENTAL PREVIEW: CPU offload, performance/quality not guaranteed]" -ForegroundColor Cyan
         Write-Host "Select Acceleration Mode [1-2] (Press Enter for default [1]): " -NoNewline -ForegroundColor Cyan
         $modeChoice = Read-Host

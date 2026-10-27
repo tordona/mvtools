@@ -28,13 +28,13 @@
    - **Memory Footprint:** PotPlayer working set: 341.4 MB (CPU) vs 323.6 MB (D3D12 GPU).
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Configuration:** Full native analysis, Dual-pass 32x32 -> 16x16, pel=1 (integer pixel), Pixel-flow synthesis (mode=2) | Target: Sweet spot between fluid motion, sharp edges, and efficient power draw
+   - **Configuration:** Full native analysis, Dual-pass 32x32 -> 16x16, pel=1 (integer pixel), Pixel-flow synthesis (mode=2) | Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
    - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.04 FPS** (3 frames) vs D3D12 GPU **60.00 FPS** (21 frames). 1% Lows: CPU NEON **52.72 FPS** vs D3D12 GPU **52.48 FPS**.
    - **Compute Offload:** System CPU load was comparable (7.7% CPU NEON vs 7.5% D3D12 GPU), with D3D12 engaging 69.9% Adreno GPU compute.
    - **Memory Footprint:** PotPlayer working set: 387.9 MB (CPU) vs 376.5 MB (D3D12 GPU).
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Configuration:** Full native analysis, Dual-pass 16x16 -> 8x8 (CPU) / 32x32 -> 16x16 (GPU), pel=2 (subpixel Wiener/bicubic), Pixel-flow synthesis (mode=2) | Target: Highest visual fidelity, subpixel precision, rock-solid sustained 60fps
+   - **Configuration:** Full native analysis, Dual-pass 16x16 -> 8x8 (CPU) / 32x32 -> 16x16 (GPU), pel=2 (subpixel Wiener/bicubic), Pixel-flow synthesis (mode=2) | Target: Highest visual fidelity, subpixel precision, deterministic sustained 60fps
    - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 FPS** (19 frames) vs D3D12 GPU **60.00 FPS** (0 frames). 1% Lows: CPU NEON **53.58 FPS** vs D3D12 GPU **54.19 FPS**.
    - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **3.3%** (from 13.8% down to 10.5%), utilizing 77.4% Adreno GPU compute.
    - **Memory Footprint:** PotPlayer working set: 511.6 MB (CPU) vs 455.0 MB (D3D12 GPU).

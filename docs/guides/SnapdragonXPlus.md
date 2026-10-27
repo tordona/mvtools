@@ -13,7 +13,7 @@
 The **Qualcomm Snapdragon X Plus** platform represents a major architectural leap over earlier Windows on ARM chipsets (Snapdragon 850 / 8cx Gen 2). 
 
 1. **Uniform Oryon CPU Cores:** Unlike heterogeneous big.LITTLE architectures, the Snapdragon X Plus features **8 identical high-performance Oryon CPU cores**. There are no weak, in-order efficiency cores to stall the AviSynth worker queue.
-2. **Massive Memory Bandwidth:** The unified LPDDR5x memory bus provides **135 GB/s** of memory bandwidth (over 4x the Snapdragon 850), easily accommodating complex multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers.
+2. **High Memory Bandwidth:** The unified LPDDR5x memory bus provides **135 GB/s** of memory bandwidth (over 4x the Snapdragon 850), accommodating multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers.
 3. **High-Performance Adreno X1 iGPU:** The Adreno X1-85 GPU features native hardware decoding for **AV1**, **HEVC 10-bit**, and **VP9** up to 4K 120fps / 8K 60fps.
 
 By properly configuring the **Adreno X1 iGPU** for hardware video decoding and presentation alongside the native ARM64 **`mvtools2`** plugin, the system achieves fluid, artifact-free 60fps frame interpolation with low temperatures and battery consumption.

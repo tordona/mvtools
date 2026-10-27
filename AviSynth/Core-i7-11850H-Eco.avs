@@ -3,7 +3,7 @@
 # Hardware: Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)
 # Memory: 16GB-64GB Dual-Channel DDR4-3200 (51.2 GB/s Bandwidth, 24MB Shared L3 Cache)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: Sub-10W Whisper-Quiet Envelope, Silent Fanless Profile, 0 Dropped Frames
+# Target: Sub-10W Low-Acoustic Envelope, Low-Thermal Profile, 0 Dropped Frames
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 

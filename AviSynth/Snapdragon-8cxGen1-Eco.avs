@@ -35,7 +35,7 @@ LoadPlugin(plugin_file)
 super = MSuper(pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Ultra-Lightweight Coarse Motion Analysis
-# blksize=32, blksizev=32: Large 32x32 blocks dramatically reduce vector calculations
+# blksize=32, blksizev=32: Large 32x32 blocks reduce vector evaluation complexity by 75%
 # search=2: Hexagonal search pattern (extremely fast and stable)
 # searchparam=1: Minimal search radius to limit vector comparisons
 # chroma=false: Evaluates luminance only, saving 50% vector computation

@@ -60,7 +60,7 @@ To achieve sustained, smooth 60fps playback without thermal throttling:
 
 ## Step 3: Colorspace Pass-Through (Zero CPU Conversion)
 
-Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds massive memory copying and conversion overhead.
+Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantial memory copying and conversion overhead.
 
 1. In **Preferences (`F5`)**, navigate to:  
    **Video** → **Colorspaces**.

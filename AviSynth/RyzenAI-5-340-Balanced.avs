@@ -49,5 +49,5 @@ MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=fa
 
 # 4. Core Pinning: 4 Threads with 6-Frame Lookahead Queue
 # 4 worker threads provides high throughput across Zen 5 cores without thermal throttling
-# 6 lookahead frames absorb thread scheduling jitter for rock-solid 1% low frame times
+# 6 lookahead frames absorb thread scheduling jitter for stable 1% low frame times
 Prefetch(threads, 6)

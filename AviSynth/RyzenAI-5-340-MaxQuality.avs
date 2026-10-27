@@ -46,6 +46,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, ov
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=true, thSCD1=350, thSCD2=115)
 
 # 4. Core Pinning: 6 Threads with 6-Frame Lookahead Queue
-# 6 worker threads on 6 physical cores provides massive AVX-512 vector compute
+# 6 worker threads on 6 physical cores provides high-throughput AVX-512 vector compute
 # 6 lookahead frames absorb thread scheduling jitter
 Prefetch(threads, 6)

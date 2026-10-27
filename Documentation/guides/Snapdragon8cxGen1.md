@@ -14,7 +14,7 @@ The **Qualcomm Snapdragon 8cx Gen 1** (and its Microsoft customized variant, the
 
 When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores handle NEON motion vector estimation. Because Gen 1 has a tighter thermal ceiling than later revisions, running dual-pass recursive refinement or software video decoding causes the package to rapidly heat up, inducing thermal throttling from 2.84 GHz down to 1.6 GHz.
 
-To ensure continuous, rock-solid 60fps playback without dropped frames:
+To ensure continuous, deterministic 60fps playback without dropped frames:
 1. **Adreno 680 Hardware Decoding:** Offload H.264/HEVC/VP9 decoding entirely to the Adreno 680 Video Processing Unit (VPU) via D3D11 / DXVA2 Copy-Back, keeping CPU decode load at **0%**.
 2. **Direct3D 11 Renderer:** Present video using the Direct3D 11 pipeline so scaling and color conversion execute on the GPU shaders.
 3. **Optimized Single-Pass Search:** Gen 1 profiles use high-efficiency single-pass block estimation (16×16 or 32×32), eliminating the memory bus thrashing associated with dual-pass recursive refinement.

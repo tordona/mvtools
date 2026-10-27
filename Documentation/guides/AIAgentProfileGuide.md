@@ -173,7 +173,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 ### Step 2: Profile Tier Definitions & Tuning Parameters
 
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
-* **Objective:** Sub-8W to 10W package power, cool whisper-quiet or fanless battery playback, 0 dropped frames.
+* **Objective:** Sub-8W to 10W package power, low-thermal battery playback, 0 dropped frames.
 * **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=0, vpad=0` (zero padding overhead), `sharp=0` (bilinear).
 * **MAnalyse:** Coarse 32x32 blocks (`blksize=32, blksizev=32`, approx. 2,040 blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
 * **MBlockFps:** `mode=0` (fast 2-stream block projection), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
@@ -181,7 +181,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 * **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors.
 
 #### Tier 2: Balanced Profile (`<Platform>-Balanced.avs`)
-* **Objective:** The recommended daily driver. Native 1080p 16x16 vector grid (8,160 blocks; 4x density of 32x32), razor-sharp object tracking, zero optical flow latency bubbles, 0 dropped frames.
+* **Objective:** Recommended primary profile. Native 1080p 16x16 vector grid (8,160 blocks; 4x density of 32x32), fine-grained vector tracking, zero optical flow latency bubbles, 0 dropped frames.
 * **MSuper:** `levels=1`, `pel=1`, `hpad=0, vpad=0`, `sharp=0`.
 * **MAnalyse:** Native 1080p 16x16 blocks (`blksize=16, blksizev=16`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
 * **MBlockFps:** `mode=0` (direct native block projection), `blend=false`, `thSCD1=380, thSCD2=125`.

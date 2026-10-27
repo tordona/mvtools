@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - Intel-Core-i5-1135G7
+﻿# MVTools Benchmark Comparison Matrix - Intel-Core-i5-1135G7
 
 **Host Platform:** Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)  
 **Platform Identifier:** Intel-Core-i5-1135G7  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)**. **Eco** minimized CPU compute load (4.9%), while **Eco** delivered the smoothest frame consistency (55.32 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.96 Hz** (Primary Display (59.959 Hz, 32575000/543289)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.96 Hz** (Primary Display (59.959 Hz, 32575000/543289)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

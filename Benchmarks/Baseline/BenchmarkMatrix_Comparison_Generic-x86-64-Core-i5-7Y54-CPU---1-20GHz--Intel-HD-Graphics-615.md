@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615
+﻿# MVTools Benchmark Comparison Matrix - Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615
 
 **Host Platform:** Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)  
 **Platform Identifier:** Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)**. **Eco** minimized CPU compute load (20.9%), while **Eco** delivered the smoothest frame consistency (55.29 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.02 Hz** (Primary Display (60.022 Hz, 162300000/2704000)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.02 Hz** (Primary Display (60.022 Hz, 162300000/2704000)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

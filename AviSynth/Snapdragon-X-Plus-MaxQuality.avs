@@ -1,7 +1,7 @@
 # ==============================================================================
 # PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Highest visual fidelity, subpixel precision, rock-solid sustained 60fps
+# Target: Highest visual fidelity, subpixel precision, deterministic sustained 60fps
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=6, Prefetch(6, 4), mem_limit=2048, D3D12 toggle
 # ==============================================================================
@@ -69,7 +69,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 
 # 4. Advanced Pixel-Flow Motion Interpolation
 # mode=2: Advanced pixel-flow motion synthesis with occlusion masking
-# blend=true: Seamless occlusion blending without edge tearing
+# blend=true: Directional occlusion blending without edge tearing
 # thSCD1=320, thSCD2=115: Strict scene-change detection to immediately isolate camera cuts
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 

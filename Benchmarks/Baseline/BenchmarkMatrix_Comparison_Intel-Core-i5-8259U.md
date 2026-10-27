@@ -1,4 +1,4 @@
-# MVTools Benchmark Comparison Matrix - Intel-Core-i5-8259U
+﻿# MVTools Benchmark Comparison Matrix - Intel-Core-i5-8259U
 
 **Host Platform:** Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)  
 **Platform Identifier:** Intel-Core-i5-8259U  
@@ -33,4 +33,4 @@
 ### Platform Assessment & Profile Recommendation
 
 - **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)**. **Eco** minimized CPU compute load (12.9%), while **Eco** delivered the smoothest frame consistency (55.38 FPS 1% low).
-- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.00 Hz** (Primary Display (59.999 Hz, 218540000/3642400)). Across the evaluated duration, presentation synchronized seamlessly without accumulating frame discards.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.00 Hz** (Primary Display (59.999 Hz, 218540000/3642400)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.
