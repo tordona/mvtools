@@ -28,14 +28,14 @@ To achieve sustained, smooth 60fps playback without thermal throttling:
    **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
-   - Check **Use DXVA**.
+   - Check **Use DXVA** at the top.
    - Under **Hardware acceleration (DXVA) settings**:
-     - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
-     - Set **Resolution limit:** to **`Always Use`**.
-     - Ensure hardware acceleration is checked for:
-       - **H.264/AVC1**
-       - **H.265/HEVC**
-       - **VP9**
+     - Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
+     - Set **Resolution limit:** to **`Always use`**.
+     - Verify individual codec dropdowns are set to their default built-in decoders:
+       - **H.264/AVC1:** `Built-in FFmpeg Decoder (Recommended)`
+       - **H.265/HEVC:** `Built-in FFmpeg Decoder (Recommended)`
+       - **VP9:** `Built-in FFmpeg Decoder (Recommended)`
 5. Click **Apply**.
 
 > [!IMPORTANT]
@@ -48,8 +48,7 @@ To achieve sustained, smooth 60fps playback without thermal throttling:
 
 1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
-   - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
-     *(Alternative: `EVR Custom Presenter`)*
+   - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
    - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
    - Select **`Shader Bilinear`** *(lowest GPU power / battery saver)* or **`Shader Bicubic(A = -0.6)`** *(crisp 1080p presentation)*.  
@@ -110,7 +109,7 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
 | :--- | :--- | :--- |
 | **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
 | **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | Built-in decoder active (`H.264`, `HEVC`, `VP9`) |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |

@@ -29,15 +29,15 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
    **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
 4. Configure the following options:
-   - Check **Use DXVA**.
+   - Check **Use DXVA** at the top.
    - Under **Hardware acceleration (DXVA) settings**:
-     - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
-     - Set **Resolution limit:** to **`Always Use`**.
-     - Ensure hardware acceleration is checked for:
-       - **AV1** *(Natively accelerated by Adreno X1)*
-       - **H.265/HEVC**
-       - **H.264/AVC1**
-       - **VP9**
+     - Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
+     - Set **Resolution limit:** to **`Always use`**.
+     - Verify individual codec dropdowns are set to their default built-in decoders:
+       - **AV1:** `Built-in FFmpeg Decoder (Recommended)` *(Adreno X1 hardware accelerated)*
+       - **H.265/HEVC:** `Built-in FFmpeg Decoder (Recommended)`
+       - **H.264/AVC1:** `Built-in FFmpeg Decoder (Recommended)`
+       - **VP9:** `Built-in FFmpeg Decoder (Recommended)`
 5. Click **Apply**.
 
 > [!IMPORTANT]
@@ -50,8 +50,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 1. In **Preferences (`F5`)**, navigate to the main **Video** page *(do NOT use the sub-page Video → Resize)*.
 2. Set **Video Renderer** to:
-   - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*  
-     *(Alternative: `EVR Custom Presenter`)*
+   - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
    - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
    - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for balanced performance)* or **`Shader(2-Pass) Lanczos 2`** *(Max Quality)*.  
@@ -117,7 +116,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | :--- | :--- | :--- |
 | **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
 | **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `AV1`, `HEVC`, `H.264`, `VP9` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | Built-in decoder active (`AV1`, `HEVC`, `H.264`, `VP9`) |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |

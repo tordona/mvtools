@@ -67,7 +67,7 @@ Golden reference benchmark reports and comparative matrices across ARM64 Snapdra
 ## AI Agent Profile Generation & Tuning Guide
 
 When bringing MVTools2 to a new hardware platform or validating new profile sets, refer to the comprehensive companion guide:  
-👉 [**AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles**](guides/AIAgentProfileGuide.md)
+👉 [**AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles**](../guides/AIAgentProfileGuide.md)
 
 This companion guide provides:
 - **Mode A: Autonomous IDE Agent Workflow:** Zero-copy-paste loop for AI coding assistants (Google Antigravity, Cursor, Windsurf, Copilot) to auto-detect hardware, generate `.avs` profiles, run the benchmark harness, audit PresentMon telemetry, and self-tune parameters in a closed loop.

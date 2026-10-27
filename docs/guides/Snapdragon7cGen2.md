@@ -27,11 +27,11 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 1. Open **PotPlayer** and press **`F5`** for **Preferences**.
 2. Navigate to **Filter Control** → **Video Decoder**.
 3. Click the **Built-in Video Codec/DXVA Settings** button.
-4. Check **Use DXVA**.
+4. Check **Use DXVA** at the top.
 5. Under **Hardware acceleration (DXVA) settings**:
-   - Check **Prioritize D3D11 DXVA** *(Recommended)* or set **DXVA2 Copy-Back:** to **`Auto (Recommended)`** / **`Always Use`**.
-   - Set **Resolution limit:** to **`Always Use`**.
-   - Confirm hardware acceleration is active for **H.264/AVC1**, **H.265/HEVC**, and **VP9**.
+   - Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
+   - Set **Resolution limit:** to **`Always use`**.
+   - Verify individual codec dropdowns (**H.264/AVC1**, **H.265/HEVC**, **VP9**) are set to their default built-in decoders.
 6. Click **Apply**.
 
 ---
@@ -110,7 +110,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 | :--- | :--- | :--- |
 | **Hardware Video Decoding** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Use DXVA` checked |
 | **Hardware Decode Mode** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `Prioritize D3D11 DXVA` or `DXVA2 Copy-Back` |
-| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | `H.264/AVC1`, `H.265/HEVC`, `VP9` |
+| **Codecs Accelerated** | Filter Control → Video Decoder → Built-in Video Codec/DXVA Settings | Built-in decoder active (`H.264`, `HEVC`, `VP9`) |
 | **Video Renderer** | Video | `Built-in Direct3D 11 Video Renderer` |
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |

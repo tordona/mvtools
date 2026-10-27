@@ -296,8 +296,7 @@ Prefetch(threads, 4)
 ```
 
 ---
-
-<span id="part-ii-x86-64-hardware-profiles"></span>
+<span id="part-ii-x86-64-hardware-profiles-amd-ryzen-intel-core"></span>
 ## Part II: x86-64 Hardware Profiles (AMD Ryzen & Intel Core)
 
 Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, preserving memory bandwidth on integrated GPUs (AMD Radeon RDNA, Intel Iris Xe, and Intel Arc) while maintaining fluid 60fps frame delivery.

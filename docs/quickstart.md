@@ -72,11 +72,11 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 ### Step 2: Configure Hardware Decoding (Adreno VPU)
 1. Open PotPlayer and press **`F5`** to open **Preferences**.
 2. Navigate to **Filter Control** → **Video Decoder** → click **Built-in Video Codec/DXVA Settings**.
-3. Check **Use DXVA**.
+3. Check **Use DXVA** at the top.
 4. Under **Hardware acceleration (DXVA) settings**:
-   * Set **DXVA2 Copy-Back:** to **`D3D11`** or **`Auto (Recommended)`**.
-   * Set **Resolution limit:** to **`Always Use`**.
-   * Enable hardware acceleration checkboxes for **AV1** *(Snapdragon X)*, **H.265/HEVC**, **H.264/AVC1**, and **VP9**.
+   * Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
+   * Set **Resolution limit:** to **`Always use`**.
+   * Verify individual codec dropdowns (**H.264/AVC1**, **H.265/HEVC**, **VP9**, and **AV1** on Snapdragon X) are set to their default built-in decoders.
 5. Click **Apply**.
 
 ### Step 3: Configure Direct3D 11 Video Renderer
@@ -149,10 +149,11 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ### Step 2: Configure Hardware Decoding & Video Renderer
 1. Open PotPlayer and press **`F5`**.
-2. **Video Decoder:** Navigate to **Filter Control** → **Video Decoder** → **Built-in Video Codec/DXVA Settings**:
-   * Check **Use DXVA**.
-   * Set **DXVA2 Copy-Back:** to **`D3D11`** or **`Auto (Recommended)`**.
-   * Enable hardware acceleration for **H.265/HEVC**, **H.264/AVC1**, **VP9**, and **AV1** (if supported by Intel Arc/Iris or AMD RDNA).
+2. **Video Decoder:** Navigate to **Filter Control** → **Video Decoder** → click **Built-in Video Codec/DXVA Settings**:
+   * Check **Use DXVA** at the top.
+   * Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
+   * Set **Resolution limit:** to **`Always use`**.
+   * Verify individual codec dropdowns (**H.264/AVC1**, **H.265/HEVC**, **VP9**, and **AV1**) are set to their default built-in decoders.
 3. **Video Renderer:** Navigate to **Video** → set **Video Renderer** to **`Direct3D 11 Video Renderer`**.
 
 ### Step 3: Enable AviSynth & Apply x86-64 Profile
