@@ -19,10 +19,24 @@ An automated setup script is provided in the repository to detect your hardware,
 6. Auto-configures D3D11 Copy-Back hardware decoding, D3D11 Video Renderer, and activates the optimal **Balanced** profile.
 
 ### How to Run:
-Open PowerShell on your target machine and run:
+
+#### Option A: Direct 1-Line Web Install (Recommended — No Git Required)
+Open PowerShell and run:
 
 ```powershell
-# Clone or download the repository, then run from the repository root:
+irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1 | iex
+```
+
+> [!NOTE]
+> To pass automated parameters (such as `-AutoInstall` and `-Launch` for zero-touch setup):
+> ```powershell
+> & ([scriptblock]::Create((irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1))) -AutoInstall -Launch
+> ```
+
+#### Option B: From Cloned / Downloaded Repository
+If you have cloned or downloaded the repository, open PowerShell in the project directory:
+
+```powershell
 .\Install-MvToolsPotPlayer.ps1 -AutoInstall -Launch
 ```
 
@@ -143,7 +157,7 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ### Step 3: Enable AviSynth & Apply x86-64 Profile
 1. Navigate to **Video** → **AviSynth** and check **AviSynth**.
-2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles) or use this universal x86-64 script:
+2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-ryzen-intel-core) or use this universal x86-64 script:
 
 ```avisynth
 # ==============================================================================

@@ -108,15 +108,43 @@ if (-not $IsAdmin) {
 
         $scriptPath = $MyInvocation.MyCommand.Path
         if (-not $scriptPath) { $scriptPath = $PSCommandPath }
-        if (-not $scriptPath) { $scriptPath = Join-Path (Get-Location).Path "Install-MvToolsPotPlayer.ps1" }
+        if (-not $scriptPath -or -not (Test-Path $scriptPath)) {
+            $candidatePath = Join-Path (Get-Location).Path "Install-MvToolsPotPlayer.ps1"
+            if (Test-Path $candidatePath) {
+                $scriptPath = $candidatePath
+            } else {
+                # In-memory pipeline execution (e.g. irm ... | iex). Cache to TEMP for elevated execution.
+                $repoTarget = if (-not [string]::IsNullOrWhiteSpace($MvToolsRepo)) { $MvToolsRepo } else { "tordona/mvtools" }
+                $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools_d3d12" }
+                $tempScript = Join-Path $env:TEMP "Install-MvToolsPotPlayer.ps1"
+                $rawScriptUrl = "https://raw.githubusercontent.com/$repoTarget/$branchTarget/Install-MvToolsPotPlayer.ps1"
+                try {
+                    Write-Host "Caching installer to temporary directory for elevated launch..." -ForegroundColor Gray
+                    $wcElevate = New-Object System.Net.WebClient
+                    $wcElevate.DownloadFile($rawScriptUrl, $tempScript)
+                    $wcElevate.Dispose()
+                    if (Test-Path $tempScript) { $scriptPath = $tempScript }
+                } catch {
+                    Write-Warning "Could not cache installer script from ${rawScriptUrl}: $($_.Exception.Message)"
+                }
+            }
+        }
 
-        $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
-        if ($AutoInstall) { $argList += "-AutoInstall" }
-        if ($Launch) { $argList += "-Launch" }
-        if ($ForceProfile) { $argList += @("-ForceProfile", "`"$ForceProfile`"") }
-        if ($PotPlayerDir) { $argList += @("-PotPlayerDir", "`"$PotPlayerDir`"") }
-        if ($MvToolsRepo) { $argList += @("-MvToolsRepo", "`"$MvToolsRepo`"") }
-        if ($ProfileBranch -and $ProfileBranch -ne "mvtools_d3d12") { $argList += @("-ProfileBranch", "`"$ProfileBranch`"") }
+        $argList = @()
+        if ($scriptPath -and (Test-Path $scriptPath)) {
+            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$scriptPath`"")
+            if ($AutoInstall) { $argList += "-AutoInstall" }
+            if ($Launch) { $argList += "-Launch" }
+            if ($ForceProfile) { $argList += @("-ForceProfile", "`"$ForceProfile`"") }
+            if ($PotPlayerDir) { $argList += @("-PotPlayerDir", "`"$PotPlayerDir`"") }
+            if ($MvToolsRepo) { $argList += @("-MvToolsRepo", "`"$MvToolsRepo`"") }
+            if ($ProfileBranch -and $ProfileBranch -ne "mvtools_d3d12") { $argList += @("-ProfileBranch", "`"$ProfileBranch`"") }
+        } else {
+            $repoTarget = if (-not [string]::IsNullOrWhiteSpace($MvToolsRepo)) { $MvToolsRepo } else { "tordona/mvtools" }
+            $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools_d3d12" }
+            $remoteCmd = "irm https://raw.githubusercontent.com/$repoTarget/$branchTarget/Install-MvToolsPotPlayer.ps1 | iex"
+            $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $remoteCmd)
+        }
 
         try {
             $proc = Start-Process powershell.exe -ArgumentList $argList -WorkingDirectory (Get-Location).Path -Verb RunAs -PassThru
