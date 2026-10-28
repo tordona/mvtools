@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Sweet spot between fluid motion, sharp edges, and efficient power draw
 # ==============================================================================

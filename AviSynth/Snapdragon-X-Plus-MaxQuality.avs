@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, subpixel precision, chroma tracking, 8x8 refinement
 # ==============================================================================

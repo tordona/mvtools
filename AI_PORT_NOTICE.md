@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.47.121-arm64`**. 
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.47.122`**. 
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
@@ -13,7 +13,7 @@ Historically, MVTools was tightly coupled to x86/x64 assembly and MSVC/GCC x86 i
 2. Reliance on x86-specific inline assembly and x86 SIMD (`emmintrin.h`, `smmintrin.h`, etc.).
 3. Fundamental **C++ ABI calling convention and vtable layout mismatches** between host **MinGW GCC** binaries (such as PotPlayer's bundled `AviSynth.dll`) and **MSVC ARM64** plugins.
 
-This port resolves all three tiers of incompatibilities, delivering **native ARM64 execution**, **128-bit NEON SIMD vectorization**, **zero-crash lifecycle stability**, and **tuned real-time 60fps profiles**.
+This port resolves all three tiers of incompatibilities, delivering **native ARM64 execution**, **128-bit NEON SIMD vectorization**, **zero-crash lifecycle stability**, and **tuned real-time 60 fps profiles**.
 
 ---
 
@@ -57,22 +57,22 @@ The host `AviSynth.dll` bundled with ARM64 video players (e.g., PotPlayer) is ty
 
 ## 3. Hardware Profiles & Deployment Guides
 
-Custom real-time 60fps AviSynth motion interpolation scripts and PotPlayer iGPU offload guides were engineered for Qualcomm Snapdragon platforms:
+Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer iGPU offload guides were engineered for Qualcomm Snapdragon platforms:
 
-- **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15W–30W TDP)**:
+- **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15 W – 30 W TDP)**:
   - [`Snapdragon-X-Plus-Eco.avs`](AviSynth/Snapdragon-X-Plus-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
   - [`Snapdragon-X-Plus-Balanced.avs`](AviSynth/Snapdragon-X-Plus-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 target.
   - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` $\to$ `8x8` micro-blocks, UMH motion search, `Prefetch(8)`. Maximum fidelity for plugged-in operation.
   - Guide: [`Documentation/guides/SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md).
 
-- **Snapdragon 8cx Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7W–10W Fanless)**:
+- **Snapdragon 8cx Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7 W – 10 W Fanless)**:
   - [`Snapdragon-8cxGen2-Eco.avs`](AviSynth/Snapdragon-8cxGen2-Eco.avs): `pel=1`, large `32x32` blocks, `mode=0` block projection, `Prefetch(3)`. Leaves 1 Gold core + 4 Silver cores idle; designed for fanless battery longevity with zero dropped frames.
   - [`Snapdragon-8cxGen2-Balanced.avs`](AviSynth/Snapdragon-8cxGen2-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(4)`. Pins 1:1 to the 4 Kryo Gold cores to prevent scheduling spills onto weak in-order Cortex-A55 cores.
   - [`Snapdragon-8cxGen2-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` $\to$ `8x8` micro-blocks, `mode=2` with `blend=true` occlusion handling, `Prefetch(4)`. Maximum visual clarity without thermal throttling.
   - Guide: [`Documentation/guides/Adreno680.md`](Documentation/guides/Adreno680.md) (Covers Adreno 680 VPU DXVA2/D3D11 Copy-Back decode and Direct3D 11 NV12/YV12 rendering).
 
-- **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5W Fanless)**:
-  - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5W fanless designs.
+- **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5 W Fanless)**:
+  - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5 W fanless designs.
   - [`Snapdragon-850-Balanced.avs`](AviSynth/Snapdragon-850-Balanced.avs): Dual-pass `32x32` $\to$ `16x16` refinement (`MRecalculate`), `pel=1`, `mode=0` block projection, `Prefetch(3)`. Crisp boundary tracking while preserving 1 Gold core for OS and Adreno GPU drivers.
   - [`Snapdragon-850-MaxQuality.avs`](AviSynth/Snapdragon-850-MaxQuality.avs): `32x32` $\to$ `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow interpolation, `Prefetch(4)`. Full Gold core saturation without spilling onto Cortex-A55 cores.
   - Guide: [`Documentation/guides/Adreno630.md`](Documentation/guides/Adreno630.md) (Covers Adreno 630 VPU hardware decode offload and Direct3D 11 rendering).
@@ -128,7 +128,7 @@ This port was executed using Google Antigravity, leveraging both platform agent 
   - Replaced x86-specific inline assembly with portable C++ and SIMD equivalents.
 - **Heterogeneous SoC Optimization & Thermal Tuning**:
   - Analyzed Qualcomm Snapdragon big.LITTLE / heterogeneous core topologies (Qualcomm Oryon, Kryo Gold/Silver) to eliminate thread starvation caused by inappropriate thread pool oversizing.
-  - Formulated real-time 60fps AviSynth profiles and PotPlayer iGPU hardware-decoding offload recommendations for Snapdragon X Plus, 8cx Gen 2, and 850.
+  - Formulated real-time 60 fps AviSynth profiles and PotPlayer iGPU hardware-decoding offload recommendations for Snapdragon X Plus, 8cx Gen 2, and 850.
 - **Build System Engineering & Modernization**:
   - Integrated MSVC ARM64 platform definitions across multi-project Visual Studio solution files (`.sln`, `.vcxproj`).
   - Preserved strict backward compatibility for legacy x86 and x64 builds through preprocessor guards.

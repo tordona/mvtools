@@ -1,6 +1,6 @@
 # mvtools
 Motion estimation and compensation plugin for Avisynth+ and Avisynth v2.6 family.\
-Supporting YUY2, 4:2:0, 4:2:2, 4:4:4 at native 8, 10, 12, 14 and 16 bit depths, 32bit float in selected filters.\
+Supporting YUY2, 4:2:0, 4:2:2, 4:4:4 at native 8, 10, 12, 14 and 16 bit depths, 32-bit float in selected filters.\
 Still supporting Windows XP.
 x86 and x64 versions
 From December 20, 2020: Linux port

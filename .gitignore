@@ -295,3 +295,7 @@ __pycache__/
 
 # Cake -
 # tools/
+
+# Local AI agent guidelines
+AGENTS.md
+agents.md

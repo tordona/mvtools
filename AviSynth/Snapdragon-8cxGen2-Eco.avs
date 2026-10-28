@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
-# Target: 7W Fanless Thermal Envelope, Maximum Battery Life, 0 Dropped Frames
+# Target: 7 W Fanless Thermal Envelope, Maximum Battery Life, 0 Dropped Frames
 # ==============================================================================
 
 # Memory allocation (768 MB leaves maximum LPDDR4x memory bandwidth for Adreno 680 iGPU)
@@ -31,7 +31,7 @@ super = MSuper(pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
 
-# 3. Direct Block-Based 60fps Synthesis
+# 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)
 # blend=false: Avoids calculating blend transparency masks on fast motion
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes
@@ -40,5 +40,5 @@ MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, 
 # 4. Multi-Threading Capped to 3 Cores
 # Caps worker threads to 3, keeping work strictly on the fast Kryo 495 Gold cores.
 # Leaves 1 Gold core + all 4 Silver cores completely idle for OS, audio, and Adreno 680 iGPU driver.
-# Prevents thermal throttling in fanless 7W devices (e.g. Surface Pro X).
+# Prevents thermal throttling in fanless 7 W devices (e.g. Surface Pro X).
 Prefetch(3)

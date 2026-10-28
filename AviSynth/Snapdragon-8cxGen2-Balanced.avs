@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
-# Target: Fluid 1080p 60fps, Sharp Edge Tracking, Stable Thermal Ceiling
+# Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
 # ==============================================================================
 
 # Memory allocation (1.5 GB memory pool)

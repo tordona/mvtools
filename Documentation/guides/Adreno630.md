@@ -2,13 +2,13 @@
 
 > **Hardware Target:** Qualcomm Snapdragon 850 (SD850 / SDM850)  
 > **Integrated GPU:** Qualcomm Adreno 630  
-> **Thermal Profile:** ~5W Fanless Design *(e.g., Lenovo Yoga C630, Samsung Galaxy Book2)*
+> **Thermal Profile:** ~5 W Fanless Design *(e.g., Lenovo Yoga C630, Samsung Galaxy Book2)*
 
 ---
 
 ## Overview
 
-On the Qualcomm Snapdragon 850, software video decoding on the Kryo 385 Gold (Cortex-A75) CPU cores consumes **over 50% of the entire 5W package thermal budget**. When running real-time 60fps AviSynth frame interpolation (`mvtools2`), CPU-based decoding quickly causes thermal saturation, dropping core clocks from 2.96 GHz down to 1.5–1.8 GHz and causing dropped frames and stutter.
+On the Qualcomm Snapdragon 850, software video decoding on the Kryo 385 Gold (Cortex-A75) CPU cores consumes **over 50% of the entire 5 W package thermal budget**. When running real-time 60 fps AviSynth frame interpolation (`mvtools2`), CPU-based decoding quickly causes thermal saturation, dropping core clocks from 2.96 GHz down to 1.5–1.8 GHz and causing dropped frames and stutter.
 
 Offloading both **video decoding** and **display rendering/presentation** to the **Adreno 630 iGPU** eliminates CPU decode overhead (reducing it to ~0%), preserving the CPU cores and LPDDR4x-1866 bus exclusively for MVTools NEON vector estimation.
 
@@ -95,7 +95,7 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds massive me
 
 ## Verification & OSD Diagnostic
 
-To confirm that the Adreno 630 hardware decoder and 60fps AviSynth processing are active during playback:
+To confirm that the Adreno 630 hardware decoder and 60 fps AviSynth processing are active during playback:
 
 1. Play a video in PotPlayer.
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).

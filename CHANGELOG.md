@@ -1,10 +1,14 @@
 Change log
+- 2.7.47.122 (20261027)
+  - Dropped platform architecture suffix from versioning resource strings in favor of canonical semantic versioning across ARM64 and x64 builds.
+  - Bumped file and product version to 2.7.47.122.
+
 - 2.7.47.121-arm64 (20261023)
   - Synthesis Memory & NEON Blend Refinements:
     - Elided unused full-frame/small occlusion mask allocations (MaskFull*, MaskOcc*, smallMask*, SimpleResize) and per-frame full-frame zeroing in MVBlockFps modes 0-2, saving ~17.2 MB working set at 1080p (~78-104 MB at 4K) under AviSynth+ MT and ~252 MB/s of dead memory writes at 1080p60.
     - Enabled SIMD overlapped output conversion (Short2Bytes_sse2 for 8-bit, Short2Bytes_Int32toWord16_sse4 for 10-16-bit) in MVBlockFps with 16-byte pointer and pitch alignment guards.
     - Vectorized frame and edge-border Blend<pixel_t> in MaskFun.cpp across uint8_t, uint16_t, and float planes using native ARM64 NEON intrinsics with an early-out for empty border strips.
-    - Further reduced sustained 1080p24 -> 60fps system CPU load on Qualcomm Snapdragon X Plus (Balanced profile) from 8.24% down to 7.27% mean / 7.00% median / 10.70% peak (-55.1% cumulative reduction vs scalar baseline) with zero dropped frames.
+    - Further reduced sustained 1080p 24 fps -> 60 fps system CPU load on Qualcomm Snapdragon X Plus (Balanced profile) from 8.24% down to 7.27% mean / 7.00% median / 10.70% peak (-55.1% cumulative reduction vs scalar baseline) with zero dropped frames.
 
 - 2.7.47.120-arm64 (20261023)
   - Native ARM64 NEON SIMD Vectorization & Full-Pipeline Dispatch:
@@ -12,7 +16,7 @@ Change log
     - Implemented native ARMv8.0 NEON (Sad_neon_v8) and ARMv8.2-A DotProd UDOT (Sad_neon_dotprod) 8-bit SAD kernels across all 45 block sizes (4x1 to 64x64) with dynamic Windows PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE runtime detection.
     - Implemented unrolled 128-bit/64-bit NEON block copying (Copy_neon) in CopyCode.cpp across 8-bit, 16-bit, and 32-bit float formats.
     - Added get_simd_cpu_flags() ARM64 CPUF bridge in cpu.cpp across MSuper, MVBlockFps, MVFlowFps, MVFlow*, MVRecalculate, MVCompensate, MVDegrain*, MVMask, MVFinest, MVShow, DCTFactory, and Padding, activating SIMD pyramid downsampling, pel=2/4 Wiener/bicubic refinement, SimpleResize vector upsampling, and Overlaps windowing.
-    - Reduced sustained 1080p24 -> 60fps system CPU load on Qualcomm Snapdragon X Plus by 49.4% (from 16.2% down to 8.2% mean / 12.3% peak) with zero dropped frames.
+    - Reduced sustained 1080p 24 fps -> 60 fps system CPU load on Qualcomm Snapdragon X Plus by 49.4% (from 16.2% down to 8.2% mean / 12.3% peak) with zero dropped frames.
 
 - 2.7.47-arm64 (20261016)
   - Native Windows on ARM64 support:
@@ -30,7 +34,7 @@ Change log
     - Implemented dynamic AArch64 JIT adapter thunk (AVS_WrapApply) for X8 indirect return-buffer register translation.
     - Added bidirectional GetFrame ABI adapters (AVS_WrapClipVTable for MSVC callee clips; AVS_ClipProxy / AVS_WrapClip for GCC callee clips).
     - Fixed crash on playback stop/exit by adding __dummy_gcc_dtor_pad to IClip, correctly catching GCC deleting destructor calls at vtable[7].
-  - Qualcomm Snapdragon 60fps AviSynth profiles:
+  - Qualcomm Snapdragon 60 fps AviSynth profiles:
     - Added 9 tuned real-time motion interpolation profiles under AviSynth/:
       - Snapdragon X Plus (8x Oryon): Eco, Balanced, MaxQuality.
       - Snapdragon 8cx Gen 2 (4x Gold + 4x Silver): Eco, Balanced, MaxQuality with strict Prefetch <= 4 core pinning.
@@ -152,7 +156,7 @@ Change log
   - MCompensate: limit thSAD, thSAD2, thSCD1 to valid range 0-(8x8x255)\
   (e.g. given thSAD = 100000 will go back to 16320)
   - Fix: MCompensate: use int64 to avoid effective thSAD and thSAD2 overflow typically happen at bigger block sizes or large thSAD parameter value.
-  - MCompensate: SSE2 (8bit) and SSE4 (10-16 bit) overlap result calculation
+  - MCompensate: SSE2 (8-bit) and SSE4 (10-16 bit) overlap result calculation
   - Changed: SAD 8x8, 8x4, 4x4, 4x8 to use SSE2 instead of MMX registers
   - Fix: MDegrain if overlap<>0: missing rounder in rightmost 8 pixels for non-mod8 width 8 bit clips
   - Fix: MSuper artifacts at 10-32 bits and nPel==4
@@ -193,7 +197,7 @@ Change log
 
 - 2.7.31 (20180409)
   - Fix: MFlow: SC detection after having the mv clip. Fixed in 2.5.11.22 but was missed during 2.6.0.5 merge.
-  - Fix: MFlow: crash in 16bit 4:2:0, mode=1
+  - Fix: MFlow: crash in 16-bit 4:2:0, mode=1
   - Fix: MDegrain, out16=true: Green bottom lines when overlap blocks are not covering the full vertical area
 
 - 2.7.30 (20180405)
@@ -215,10 +219,10 @@ Change log
     (other filters already have proper registration, MDepan was missed)
 
 - 2.7.26 (20180314)
-  - New: MDegrain1-6 and N: new parameter bool "out16" = false. If set, 8 bit input results in native 16bit output\
+  - New: MDegrain1-6 and N: new parameter bool "out16" = false. If set, 8 bit input results in native 16-bit output\
   (like lsb=true hack but this is native).
   Faster than lsb=true by up to 12% (i7-7700)
-  - Faster: special 10 bit SAD functions instead of the generic 10-16bit one.\
+  - Faster: special 10 bit SAD functions instead of the generic 10-16-bit one.\
    Depending on the block size, 4-17% gain for a typical MDegrain1-6 session
 
 - 2.7.25 (20180227)
@@ -226,18 +230,18 @@ Change log
   e.g. in x264 encoding, depending on following filters.
   - Fix: MSCDetection SC value parameter name to Ysc from Yth (must be an ancient typo),\
   docs are OK, but the fix is mentioned in docs
-  - MSuper: import 8 bit sse2 interpolators from mvtools-vs. Extend them for 10-16bits (faster super clip)\
+  - MSuper: import 8 bit sse2 interpolators from mvtools-vs. Extend them for 10-16-bits (faster super clip)\
           Some filters are still todo.
-  - MSuper: support 32bit float clips, which can be used later by MDegrains (but not for MAnalyse)
+  - MSuper: support 32-bit float clips, which can be used later by MDegrains (but not for MAnalyse)
   - MDegrains: allow degraining clip with different bit depth from vectors. Clip and Super must be the same bit depth
   - MDegrains: consistently use limit and limitC, 255 do nothing, otherwise scale 0-254 value to the current bit-depth range
   - Overlaps: more correct internal rounding for 8 bits:\
             old: `pixel = Sum( (tmp + 256) >> 6) >> 5`\
             new: `pixel = (Sum( (tmp + 32) >> 6) + 16) >> 5`
-  - Overlaps: round for 16bits\
+  - Overlaps: round for 16-bits\
             old: `pixel = Sum(tmp) >> 11`\
             new: `pixel = (Sum(tmp) + 1024) >> 11`
-  - Overlaps: 32bit float (but still use the original 11 bit window constants)
+  - Overlaps: 32-bit float (but still use the original 11 bit window constants)
   - Project: change from yasm to nasm.
 
 - 2.7.24 (20171205)
@@ -251,8 +255,8 @@ Change log
 
 - 2.7.22 (20170830)
   - Misc: Stop using version suffix .22
-  - Fix: [DCT 8x8@8bit] garbage on x64: internal assembly code did not save xmm6/xmm7
-  - Fix: [DCT 8x8@8bit] safe multithreading for integer DCT (8x8 block size, 8 bit video):\
+  - Fix: [DCT 8x8@8-bit] garbage on x64: internal assembly code did not save xmm6/xmm7
+  - Fix: [DCT 8x8@8-bit] safe multithreading for integer DCT (8x8 block size, 8 bit video):\
   assembly had a single working buffer.
   - Fix: [MDegrain] did not release input motion vector clips in destructor, possible hang at script closing.\
   Bug since 2.7.1.22 (introducing MDegrain4/5)       

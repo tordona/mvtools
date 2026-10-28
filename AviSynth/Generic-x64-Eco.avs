@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 1: Eco)
 # Hardware: Generic 64-bit x86 (Intel Pentium/Celeron N-Series / Atom / Core / AMD)
-# Target: Low-Power Fanless Budget Envelopes (~6W TDP e.g. N5000 / N4100 / N100)
+# Target: Low-Power Fanless Budget Envelopes (~6 W TDP e.g. N5000 / N4100 / N100)
 # Architecture: Native 1080p Single-Super Wide-Block (Zero Resizing Overhead)
 # Revision: 2.0.0 (2026-10-24)
 # ==============================================================================
@@ -9,7 +9,7 @@
 threads     = 2                   # Conservative 2 worker threads avoids overloading entry quad-cores
 mem_limit   = 512
 
-# Ultra-lean memory pool: safe for 4GB system RAM configurations
+# Ultra-lean memory pool: safe for 4 GB system RAM configurations
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
@@ -34,7 +34,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=64, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=64, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Block-Based 60fps Synthesis
+# 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)
 # blend=false: Avoids calculating blend transparency masks on fast motion
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes

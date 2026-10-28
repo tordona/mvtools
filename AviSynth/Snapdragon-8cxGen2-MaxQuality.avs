@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Gen 2 Thermal Ceiling
 # ==============================================================================
@@ -25,7 +25,7 @@ super = MSuper(pel=2, hpad=8, vpad=8, sharp=1)
 # 2. Dense Motion Vector Field Analysis (16x16 blocks)
 # blksize=16, blksizev=16: Dense initial block grid (4x denser than 32x32)
 # search=2, searchparam=2: Wider hexagonal search tracking faster action
-# chroma=false: Luma-focused motion estimation keeps computation inside the 7W-10W budget
+# chroma=false: Luma-focused motion estimation keeps computation inside the 7 W – 10 W budget
 # badrange=(-24): Strict outlier vector suppression
 backward_dense = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
 forward_dense  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))

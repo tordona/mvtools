@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 850 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
-# Target: Highest Quality Motion Flow within 5W Snapdragon 850 Thermal Budget
+# Target: Highest Quality Motion Flow within 5 W Snapdragon 850 Thermal Budget
 # ==============================================================================
 
 # Memory allocation (1 GB memory pool)

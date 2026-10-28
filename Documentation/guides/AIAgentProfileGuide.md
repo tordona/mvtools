@@ -39,14 +39,14 @@ AviSynth/<Platform>-MaxQuality.avs
 ```
 
 ### Step 4: Validate with the Automated Benchmark Harness
-Run the benchmark harness to verify real-time 60fps stability and zero frame drops:
+Run the benchmark harness to verify real-time 60 fps stability and zero frame drops:
 ```powershell
 Set-Location Benchmarks
 .\MvToolsBenchmark-Start.ps1 -Profile "<Platform>-Balanced.avs" -TestDurationSeconds 90 -WarmupSeconds 10
 ```
 
 ### Step 5: Tuning Loop (If Frame Drops or Stutter Occur)
-If the benchmark reports dropped frames or under 60 FPS:
+If the benchmark reports dropped frames or under 60 fps:
 1. Open the generated audit report: `Benchmarks/BenchmarkResults/report_<Profile>_<Timestamp>.txt`.
 2. Copy the **`FRAME RATE & PACING TELEMETRY`**, **`PERFORMANCE TELEMETRY SUMMARY`**, and **`MEMORY & PAGING INTEGRITY`** sections.
 3. Paste them back to your AI agent with this prompt:
@@ -62,10 +62,10 @@ If the benchmark reports dropped frames or under 60 FPS:
 Copy the text inside the block below and paste it into your AI assistant:
 
 ````markdown
-You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (1080p 24fps -> 60fps real-time playback in PotPlayer).
+You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (1080p 24 fps -> 60 fps real-time playback in PotPlayer).
 
 Your task is to generate and iteratively tune a complete, production-grade 3-tier AviSynth profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) for the following target hardware platform:
-[INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 9 HX 370 (4x Zen 5 + 8x Zen 5c, Radeon 890M, 32GB LPDDR5x)]
+[INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 9 HX 370 (4x Zen 5 + 8x Zen 5c, Radeon 890M, 32 GB LPDDR5x)]
 
 ---
 
@@ -97,7 +97,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    # Refines coarse vectors down to finer block sizes at object boundaries
 
    # 4. Motion Interpolation Frame Synthesis (MBlockFps)
-   # num=60, den=1 (1080p24 -> 60fps)
+   # num=60, den=1 (1080p 24 fps -> 60 fps)
    MBlockFps(src, super, backward_final, forward_final, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
    # 5. Thread Pool & Lookahead Buffer
@@ -131,7 +131,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 * **MBlockFps:** `mode=0` (fast block projection), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (strict scene cut isolation).
 
 #### Tier 2: Balanced Profile (`<Platform>-Balanced.avs`)
-* **Objective:** The recommended daily driver. Crisp object edges, zero tearing, fluid 60fps, modest CPU utilization.
+* **Objective:** The recommended daily driver. Crisp object edges, zero tearing, fluid 60 fps, modest CPU utilization.
 * **MSuper:** `levels=1` (or dynamic), `pel=1` (whole-pixel base), `hpad=0` (or `8`), `vpad=0` (or `8`), `sharp=0` (or `1` bicubic).
 * **Coarse Pass:** `blksize=32, blksizev=32` (~2,040 blocks for 1080p), `search=2, searchparam=1` (or `2`), `chroma=false`, `badrange=(-24)`.
 * **Refinement (MRecalculate):** Subdivides macro-blocks down to `blksize=16, blksizev=16` around moving edges (`search=2, searchparam=1, chroma=false`).
@@ -155,22 +155,22 @@ For the requested platform, output:
    * `<Platform>-Balanced.avs`
    * `<Platform>-MaxQuality.avs`
    Each file must include a standardized header comment:
-   * `# PotPlayer AviSynth 60fps Interpolation: <Platform> (Profile N: <Tier>)`
+   * `# PotPlayer AviSynth 60 fps Interpolation: <Platform> (Profile N: <Tier>)`
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Target: <Core Design Goal>`
    * `# Revision: 2.0.0 (<Date>)`
 
 ---
 
-### Step 4: Telemetry Diagnosis & Tuning Matrix (When Performance Fails 60fps)
+### Step 4: Telemetry Diagnosis & Tuning Matrix (When Performance Fails 60 fps)
 
-If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showing dropped frames or under 60fps, diagnose the root cause and adjust parameters strictly according to this matrix:
+If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showing dropped frames or under 60 fps, diagnose the root cause and adjust parameters strictly according to this matrix:
 
 | Telemetry Symptom in Audit Report | Root Cause Diagnosis | Prescribed Parameter Adjustment |
 | :--- | :--- | :--- |
 | **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (>85%) | **Compute saturation:** Vector search or pixel synthesis exceeds CPU core capability. | 1. Change `pel=2` $\to$ `pel=1` in `MSuper`.<br>2. Increase block size (e.g. 16x16 $\to$ 32x32, or 32x32 $\to$ 64x32).<br>3. Set `levels=1` in `MSuper` (bypasses 9 pyramid calculations).<br>4. Switch `mode=2` $\to$ `mode=0` in `MBlockFps`. |
-| **FPS degrades over time** (starts at 60 FPS, drops to 45–50 FPS by 60s) | **Thermal Throttling:** All-core package heat forces CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 $\to$ 4, or 4 $\to$ 2) to reduce total package power.<br>2. Restrict threads strictly to Performance/Gold cores.<br>3. Set `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
-| **Severe Microstutter (1% Low < 45 FPS)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `Prefetch(threads, 4)` lookahead queue is set.<br>2. If `threads` $\ge$ total physical cores, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
+| **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 $\to$ 4, or 4 $\to$ 2) to reduce total package power.<br>2. Restrict threads strictly to Performance/Gold cores.<br>3. Set `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
+| **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `Prefetch(threads, 4)` lookahead queue is set.<br>2. If `threads` $\ge$ total physical cores, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 2048 $\to$ 1024, or 1024 $\to$ 768).<br>2. In 4K or `pel=2` modes, check working set and reduce `threads`. |
 | **1–2 dropped frames with Render Latency 0.00 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (~59.86 Hz panel clock), not a computational bottleneck. |
 ````

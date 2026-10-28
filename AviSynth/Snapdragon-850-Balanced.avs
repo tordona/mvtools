@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
-# Target: Fluid 1080p 60fps, Refined 16x16 Edges, Stable Thermal Ceiling
+# Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
 # ==============================================================================
 
 # Memory allocation (768 MB memory pool)
@@ -43,5 +43,5 @@ MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false
 # 5. Core Pinning: Strictly 3 Threads
 # Utilizes 3 of the 4 Kryo 385 Gold cores.
 # Leaves 1 Gold core + all 4 Silver cores completely free for OS, audio, and Adreno 630 GPU driver.
-# Prevents thermal throttling in 5W fanless designs.
+# Prevents thermal throttling in 5 W fanless designs.
 Prefetch(3)

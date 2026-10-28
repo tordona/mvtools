@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 2: Balanced)
 # Hardware: Generic 64-bit x86 (Intel Pentium/Celeron N-Series / Core i3/i5 / AMD)
-# Target: Fluid 1080p 60fps, Refined 16x16 Edges, Broad Compatibility Baseline
+# Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Broad Compatibility Baseline
 # Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
 # Revision: 2.0.0 (2026-10-24)
 # ==============================================================================

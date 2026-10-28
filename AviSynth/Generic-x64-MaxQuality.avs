@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 3: Max Quality)
 # Hardware: Generic 64-bit x86 (Intel Core i5/i7/i9 / AMD Ryzen / High-Clock Quad+)
 # Target: Subpixel Precision, Occlusion Handling, Crisp Motion Edges
 # Revision: 2.0.0 (2026-10-24)

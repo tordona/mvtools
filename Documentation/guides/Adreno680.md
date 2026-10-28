@@ -3,17 +3,17 @@
 > **Hardware Target:** Qualcomm Snapdragon 8cx Gen 2 5G (SC8180XP / Microsoft SQ2)  
 > **Integrated GPU:** Qualcomm Adreno 680 (~1.3 TFLOPS FP32)  
 > **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 3.15 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.8 GHz)  
-> **Thermal Profile:** 7W–10W Fanless Design *(e.g., Microsoft Surface Pro X, Lenovo Flex 5G, Samsung Galaxy Book S)*
+> **Thermal Profile:** 7 W – 10 W Fanless Design *(e.g., Microsoft Surface Pro X, Lenovo Flex 5G, Samsung Galaxy Book S)*
 
 ---
 
 ## Overview
 
-On the Qualcomm Snapdragon 8cx Gen 2, the CPU and Adreno 680 iGPU share a unified **7W to 10W fanless thermal envelope** and an 8-channel LPDDR4x-2133 memory bus (~68 GB/s). 
+On the Qualcomm Snapdragon 8cx Gen 2, the CPU and Adreno 680 iGPU share a unified **7 W to 10 W fanless thermal envelope** and an 8-channel LPDDR4x-2133 memory bus (~68 GB/s). 
 
-When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
+When performing real-time 60 fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
 
-Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60fps video playback with zero dropped frames.
+Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60 fps video playback with zero dropped frames.
 
 ---
 
@@ -102,9 +102,9 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 ## Verification & OSD Diagnostic
 
-To verify that the Adreno 680 hardware decoder and 60fps interpolation are active during playback:
+To verify that the Adreno 680 hardware decoder and 60 fps interpolation are active during playback:
 
-1. Open and play any 24fps/30fps video in PotPlayer.
+1. Open and play any 24 fps/30 fps video in PotPlayer.
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).
 3. Confirm the following real-time metrics:
    - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(not Software / ffmpeg)*.
