@@ -19,18 +19,18 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **59.90 FPS** (1% Low: **52.04 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **59.90 fps** (1% Low: **52.04 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 10.3% (Peak: 13.7%) on x64 CPU SIMD with working set of 286.8 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **59.90 FPS** (1% Low: **52.23 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **59.90 fps** (1% Low: **52.23 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 10.7% (Peak: 13.2%) on x64 CPU SIMD with working set of 299.2 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **59.89 FPS** (1% Low: **52.36 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **59.89 fps** (1% Low: **52.36 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 13.5% (Peak: 17.6%) on x64 CPU SIMD with working set of 337.5 MB.
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)**. **Eco** minimized CPU compute load (10.3%), while **MaxQuality** delivered the smoothest frame consistency (52.36 FPS 1% low).
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)**. **Eco** minimized CPU compute load (10.3%), while **MaxQuality** delivered the smoothest frame consistency (52.36 fps 1% low).
 - **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.89 Hz** (Primary Display (60.000 Hz, 60/1)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

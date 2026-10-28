@@ -1,6 +1,6 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 3: Max Quality)
-# Hardware: Generic 64-bit x86 (Intel Core i5/i7/i9 / AMD Ryzen / Modern 25W+ Quad+ Cores)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 3: Max Quality)
+# Hardware: Generic 64-bit x86 (Intel Core i5/i7/i9 / AMD Ryzen / Modern 25 W+ Quad+ Cores)
 # Architecture: Native 1080p x86-64 AVX2 / AVX-512 CPU Motion Estimation (mvtools2.dll)
 # Target: High-Fidelity 16x16 Vectors (8,160 Blocks), Subpixel Edge Contrast, 0 Drops
 # Revision: 3.0.0 (2026-10-25)
@@ -12,7 +12,7 @@
 # 4 worker threads utilizes compute capacity on modern quad/multi-core x86 processors.
 # Native 16x16 block grid resolves fine detail contours, moving text, and complex panning.
 threads     = 4
-mem_limit   = 768                 # Controlled working set footprint for 8GB+ system RAM
+mem_limit   = 768                 # Controlled working set footprint for 8 GB+ system RAM
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -39,7 +39,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps native frames using fine-grained 16x16 vector fields
 # mode=0: Fast 2-stream block projection (avoids mode=2 pixel-flow compute collapse)
 # blend=false: Crisp block projection avoiding blur on fast motion
@@ -47,6 +47,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, sea
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=350, thSCD2=115)
 
 # 4. Core Pinning: 4 Threads with 6-Frame Lookahead Queue
-# 4 threads delivers smooth 60fps real-time throughput on modern 25W+ quad-core CPUs
+# 4 threads delivers smooth 60 fps real-time throughput on modern 25 W+ quad-core CPUs
 # 6 lookahead frames absorb thread scheduling jitter
 Prefetch(threads, 6)

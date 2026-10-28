@@ -19,18 +19,18 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **55.29 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **55.29 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 20.9% (Peak: 23.2%) on x64 CPU SIMD with working set of 250.0 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **55.09 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **55.09 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 24.4% (Peak: 26.5%) on x64 CPU SIMD with working set of 263.5 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.73 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.73 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 43.2% (Peak: 47.6%) on x64 CPU SIMD with working set of 277.8 MB.
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)**. **Eco** minimized CPU compute load (20.9%), while **Eco** delivered the smoothest frame consistency (55.29 FPS 1% low).
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **Generic x86-64 (Intel(R) Core(TM) i5-7Y54 CPU @ 1.20GHz, Intel(R) HD Graphics 615)**. **Eco** minimized CPU compute load (20.9%), while **Eco** delivered the smoothest frame consistency (55.29 fps 1% low).
 - **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.02 Hz** (Primary Display (60.022 Hz, 162300000/2704000)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

@@ -1,4 +1,4 @@
-# MVTools2 — Windows on ARM64 & Snapdragon 60fps Hub
+# MVTools2 — Windows on ARM64 60 fps Hub
 
 > **Documentation and profile hub for native ARM64 NEON & Direct3D 12 GPU motion interpolation in Daum PotPlayer on Windows on ARM.**
 
@@ -8,7 +8,7 @@
 
 ## Welcome to the Documentation Hub
 
-**MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24fps → 60fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
+**MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
 This documentation hub covers the key architectural additions developed in this fork:
 * **Native Windows on ARM64 Port:** Pure 64-bit ARM assembly (`ARM64 NEON`) with zero x86 emulation overhead.
@@ -30,14 +30,14 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 | **Snapdragon 8cx Gen 2 / SQ2** | Microsoft Surface Pro X SQ2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen2.md) |
 | **Snapdragon 8cx Gen 1 / SQ1** | Microsoft Surface Pro X SQ1 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen1.md) |
 | **Snapdragon 850** | Samsung Galaxy Book2, Lenovo Yoga C630 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon850.md) |
-| **Snapdragon 7c Gen 2** | Samsung Galaxy Book Go (Fanless 4GB) | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon7cGen2.md) |
+| **Snapdragon 7c Gen 2** | Samsung Galaxy Book Go (Fanless 4 GB) | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon7cGen2.md) |
 
 ---
 
 ## ⚡ Core Sections
 
 * [**Quick Start Setup Guide**](quickstart.md)  
-  Get up and running with 60fps video interpolation in PotPlayer in under 3 minutes.
+  Get up and running with 60 fps video interpolation in PotPlayer in under 3 minutes.
 
 * [**AviSynth Profile Library**](profiles/README.md)  
   Explore all 18 Snapdragon profiles (`Eco`, `Balanced`, `MaxQuality`), inspect parameter settings, and copy `.avs` scripts directly.
@@ -53,5 +53,5 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 ## 📦 Binaries & Downloads
 
 Download official pre-compiled releases from the [GitHub Releases Page](https://github.com/tordona/mvtools/releases):
-* **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD engine for daily viewing and deterministic 60fps frame delivery.
+* **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD engine for daily viewing and deterministic 60 fps frame delivery.
 * **`mvtools2_d3d12.dll`** *(Experimental Preview)*: Direct3D 12 DirectCompute GPU-accelerated engine.

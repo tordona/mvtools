@@ -1,6 +1,6 @@
 ﻿# MVTools Benchmark Comparison Matrix - Intel-Core-i7-11850H
 
-**Host Platform:** Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)  
+**Host Platform:** Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45 W TDP, Intel UHD Graphics 32EU)  
 **Platform Identifier:** Intel-Core-i7-11850H  
 **PotPlayer Version:** 1.7.23164 (Build: 2026-10-23 02:59:00)  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
@@ -19,18 +19,18 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.58 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.58 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 3.8% (Peak: 4.1%) on x64 CPU SIMD with working set of 303.8 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.68 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.68 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 4.5% (Peak: 4.8%) on x64 CPU SIMD with working set of 321.3 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.84 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.84 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 6.5% (Peak: 6.9%) on x64 CPU SIMD with working set of 376.7 MB.
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)**. **Eco** minimized CPU compute load (3.8%), while **MaxQuality** delivered the smoothest frame consistency (54.84 FPS 1% low).
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45 W TDP, Intel UHD Graphics 32EU)**. **Eco** minimized CPU compute load (3.8%), while **MaxQuality** delivered the smoothest frame consistency (54.84 fps 1% low).
 - **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **60.00 Hz** (Primary Display (60.003 Hz, 13866000/231088)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

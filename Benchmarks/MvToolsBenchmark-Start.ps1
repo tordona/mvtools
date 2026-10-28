@@ -42,7 +42,7 @@
     Revision History:
     - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication Safeguard.
                            Detects when worker threads are compute-bound (saturation >= 88%) while PresentMon
-                           records ~60 FPS from PotPlayer D3D11 swapchain backbuffer duplication, preventing
+                           records ~60 fps from PotPlayer D3D11 swapchain backbuffer duplication, preventing
                            silent false positives. Adds profile thread parsing, thread ceiling auditing,
                            and OSD verification warnings in audit reports and console output.
     - v2.4.1 (2026-10-25): Added automated diagnostic testing and acquisition for Microsoft Visual C++
@@ -1099,7 +1099,7 @@ function Install-PotPlayer {
 
                 if ($InstalledCandidate) {
                     $StableSuccessCount++
-                    # If core files are verified stable across 8 cycles (2.0s), installer completed unpacking
+                    # If core files are verified stable across 8 cycles (2.0 s), installer completed unpacking
                     if ($StableSuccessCount -ge 8) {
                         try {
                             if (-not $Process.WaitForExit(3000)) {
@@ -1212,31 +1212,37 @@ function Get-MvToolsLatestReleaseAsset {
 
             $targetArch = Get-TargetBinaryArchitecture
             if ($targetArch -eq "x64") {
-                # x64: match mvtools-*.7z or mvtools-*.zip
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools-.*\.7z$' } | Select-Object -First 1
+                # x64: match explicit x64 archives first, then generic non-arm64 fallbacks
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)x64.*\.7z$' } | Select-Object -First 1
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)x64.*\.zip$' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools-.*\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.zip$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
                 }
             } else {
                 # ARM64: match arm64 release archives
                 $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
-                }
-                if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
-                }
-                if (-not $asset) {
                     $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.zip$' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
                 }
             }
 
@@ -1293,14 +1299,16 @@ function Get-MvToolsLatestReleaseAsset {
 
             $selectedUrl = $null
             if ($targetArch -eq "x64") {
-                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1 }
+                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)x64.*\.7z$' } | Select-Object -First 1
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)x64.*\.zip$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.zip$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
             } else {
                 $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1 }
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
                 if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.zip$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' -and $_ -notmatch '(?i)x64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' -and $_ -notmatch '(?i)x64' } | Select-Object -First 1 }
             }
 
             if ($selectedUrl) {
@@ -3620,7 +3628,7 @@ function Get-PresentMonMetrics([string]$CsvPath) {
     $avgRenderTimeMs = if ($renderTimesMs.Count -gt 0) { [math]::Round(($renderTimesMs | Measure-Object -Average).Average, 3) } else { 0.0 }
     $avgDropRenderTimeMs = if ($dropRenderTimesMs.Count -gt 0) { [math]::Round(($dropRenderTimesMs | Measure-Object -Average).Average, 3) } else { 0.0 }
 
-    # Detect VSync phase drift: drops occur with render completion well under VSync deadline (<5.0ms)
+    # Detect VSync phase drift: drops occur with render completion well under VSync deadline (< 5.0 ms)
     $isVsyncDrift = ($droppedCount -gt 0 -and $droppedCount -lt [math]::Max(10, [int]($totalFrames * 0.05)) -and $avgDropRenderTimeMs -lt 5.0 -and ($empiricalScanoutHz -gt 0 -and [math]::Abs($empiricalScanoutHz - 60.0) -gt 0.02))
 
     # In Windows on ARM DWM Composed: Flip mode, PresentMon marks 100% of frames Dropped=1
@@ -4428,7 +4436,7 @@ Write-Host "  -> Required Free RAM: $TotalRequiredRamMb MB (Script + $BufferHead
 $RamColor = if ($CurrentFreeRamMb -ge $TotalRequiredRamMb) { "Green" } else { "Red" }
 Write-Host "  -> Available Free RAM: $CurrentFreeRamMb MB" -ForegroundColor $RamColor
 
-# Determine if device is memory-constrained (<= 4.5GB RAM, low headroom, or explicit switch)
+# Determine if device is memory-constrained (<= 4.5 GB RAM, low headroom, or explicit switch)
 $isMemoryConstrained = $MemoryConstrained.IsPresent -or ($TotalPhysicalRamMb -le 4608) -or ($CurrentFreeRamMb -lt $TotalRequiredRamMb)
 $script:IsMemoryConstrained = $isMemoryConstrained
 $script:TotalPhysicalRamMb = $TotalPhysicalRamMb
@@ -4448,8 +4456,8 @@ if ($CurrentFreeRamMb -lt $TotalRequiredRamMb) {
     Write-Host "  -> Available Free RAM: $CurrentFreeRamMb MB | Recommended Free RAM: $TotalRequiredRamMb MB" -ForegroundColor Yellow
     Write-Host "  POTENTIAL BENCHMARK IMPACT:" -ForegroundColor Yellow
     Write-Host "  Insufficient physical RAM can cause Windows memory compression and SSD pagefile swapping," -ForegroundColor White
-    Write-Host "  introducing hard latency spikes (5-25ms) that may artificially skew 60fps frame pacing." -ForegroundColor White
-    Write-Host "  On memory-constrained devices (e.g. 4GB RAM), benchmarks can proceed but results should" -ForegroundColor White
+    Write-Host "  introducing hard latency spikes (5–25 ms) that may artificially skew 60 fps frame pacing." -ForegroundColor White
+    Write-Host "  On memory-constrained devices (e.g. 4 GB RAM), benchmarks can proceed but results should" -ForegroundColor White
     Write-Host "  be evaluated with memory pressure in mind.`n" -ForegroundColor White
 
     if ($IgnoreRamWarning) {
@@ -4491,7 +4499,7 @@ if ($script:DisplayInfo.IsIntegerRate) {
     Write-Host "`n[WARNING] Non-Integer Display Refresh Rate Detected: $($script:DisplayInfo.RefreshRateHz.ToString('N3')) Hz ($($script:DisplayInfo.RationalString))!" -ForegroundColor Yellow
     Write-Host "  Display Device: $($script:DisplayInfo.MonitorName)" -ForegroundColor Yellow
     Write-Host "  POTENTIAL BENCHMARK IMPACT (VSYNC PHASE DRIFT):" -ForegroundColor Yellow
-    Write-Host "  The AviSynth interpolation profile outputs frames at strictly 60.000 FPS." -ForegroundColor White
+    Write-Host "  The AviSynth interpolation profile outputs frames at strictly 60.000 fps." -ForegroundColor White
     Write-Host "  Because your display scans at $($script:DisplayInfo.RefreshRateHz.ToString('N3')) Hz (not a whole number like 60, 100, 120, 144 Hz)," -ForegroundColor White
     Write-Host "  an excess frame accumulates in the presentation queue every ~$driftIntervalSec seconds." -ForegroundColor White
     Write-Host "  The DXGI compositor will discard this excess frame (~$expectedDrops drops per $($TestDurationSeconds - $WarmupSeconds)s run) to maintain audio sync," -ForegroundColor White
@@ -4730,7 +4738,7 @@ try {
     $PmData = Get-PresentMonMetrics -CsvPath $PresentMonCsv
 
     # Detect suspected swapchain frame duplication:
-    # When worker threads run near 100% capacity (saturation >= 88%) while PresentMon reports >= 58 FPS,
+    # When worker threads run near 100% capacity (saturation >= 88%) while PresentMon reports >= 58 fps,
     # the video renderer is repeating frames on VSync ticks to fill display intervals while the filter stalls.
     $isFrameDuplicationSuspected = ($CpuSaturationRatio -ge 88.0 -and $PmData -and $PmData.AvgFps -ge 58.0)
     if ($PmData) {
@@ -4742,7 +4750,7 @@ try {
         if ($PmData.RawDroppedCount -gt 0) {
             if ($PmData.IsVsyncDrift) {
                 $driftSec = [math]::Round(1.0 / [math]::Abs(60.0 - $PmData.EmpiricalScanoutHz), 1)
-                $dropClassLine = "`n- Drop Classification:    VSync Phase Drift / DXGI Flip Discard (Render latency on drops: $($PmData.AvgDropRenderTimeMs.ToString('N2')) ms; zero compute lag). Physical panel ($($PmData.EmpiricalScanoutHz.ToString('N2')) Hz) runs slower than video presentation (60.00 FPS), causing 1 excess frame every ~$driftSec s to be discarded by the DXGI swapchain to preserve audio sync."
+                $dropClassLine = "`n- Drop Classification:    VSync Phase Drift / DXGI Flip Discard (Render latency on drops: $($PmData.AvgDropRenderTimeMs.ToString('N2')) ms; zero compute lag). Physical panel ($($PmData.EmpiricalScanoutHz.ToString('N2')) Hz) runs slower than video presentation (60.00 fps), causing 1 excess frame every ~$driftSec s to be discarded by the DXGI swapchain to preserve audio sync."
             } else {
                 $dropClassLine = "`n- Drop Classification:    Compute / Pipeline Latency Stall (Render latency on drops: $($PmData.AvgDropRenderTimeMs.ToString('N2')) ms)."
             }
@@ -4754,7 +4762,7 @@ try {
             $hzDiff = [math]::Abs(60.0 - $effectiveHz)
             $driftIntervalSec = if ($hzDiff -gt 0.001) { [math]::Round(1.0 / $hzDiff, 1) } else { 999.0 }
             $expectedDrops = if ($driftIntervalSec -gt 0) { [math]::Max(1, [math]::Round($SampleWindow / $driftIntervalSec)) } else { 0 }
-            $refreshNotice = "`n- Refresh Pacing Notice: Non-integer display refresh rate ($($effectiveHz.ToString('N2')) Hz) detected. Periodic frame drops (~$expectedDrops drops expected per $SampleWindow s run) are caused by VSync phase drift between the 60.000 FPS video clock and monitor scanout, rather than compute or GPU bottlenecks."
+            $refreshNotice = "`n- Refresh Pacing Notice: Non-integer display refresh rate ($($effectiveHz.ToString('N2')) Hz) detected. Periodic frame drops (~$expectedDrops drops expected per $SampleWindow s run) are caused by VSync phase drift between the 60.000 fps video clock and monitor scanout, rather than compute or GPU bottlenecks."
         }
         $duplicationNotice = ""
         if ($isFrameDuplicationSuspected) {

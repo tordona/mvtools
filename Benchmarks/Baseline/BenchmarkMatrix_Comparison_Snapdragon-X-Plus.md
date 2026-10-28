@@ -5,7 +5,7 @@
 **PotPlayer Version:** 1.7.23122 (Build: 2026-09-01 22:30:50)  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.1.0)  
 **Generated:** 2026-10-19 10:32:10  
-**Reference Target:** 1080p 24fps -> 60fps Interpolation  
+**Reference Target:** 1080p 24 fps -> 60 fps Interpolation  
 
 | Tier | Motion Engine | Avg FPS | 1% Low FPS | 0.1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | PotPlayer GPU | RAM Working Set | Dropped Frames |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -23,23 +23,23 @@
 
 1. **Eco Tier (Battery & Thermal Priority):**
    - **Configuration:** Full native analysis, 32x32 blocks, pel=1 (integer pixel), Fast block projection (mode=0) | Target: Ultra-low CPU usage, zero dropped frames, cool & quiet / battery saver
-   - **Frame Rate & Pacing:** Both engines sustained a solid **60.00 FPS** with 0 dropped presentation frames. 1% Lows: CPU NEON **53.09 FPS** vs D3D12 GPU **55.09 FPS**.
+   - **Frame Rate & Pacing:** Both engines sustained a solid **60.00 fps** with 0 dropped presentation frames. 1% Lows: CPU NEON **53.09 fps** vs D3D12 GPU **55.09 fps**.
    - **Compute Offload:** System CPU load was comparable (6.2% CPU NEON vs 6.1% D3D12 GPU), with D3D12 engaging 70.5% Adreno GPU compute.
    - **Memory Footprint:** PotPlayer working set: 341.4 MB (CPU) vs 323.6 MB (D3D12 GPU).
 
 2. **Balanced Tier (Recommended Daily Driver):**
    - **Configuration:** Full native analysis, Dual-pass 32x32 -> 16x16, pel=1 (integer pixel), Pixel-flow synthesis (mode=2) | Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.04 FPS** (3 frames) vs D3D12 GPU **60.00 FPS** (21 frames). 1% Lows: CPU NEON **52.72 FPS** vs D3D12 GPU **52.48 FPS**.
+   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.04 fps** (3 frames) vs D3D12 GPU **60.00 fps** (21 frames). 1% Lows: CPU NEON **52.72 fps** vs D3D12 GPU **52.48 fps**.
    - **Compute Offload:** System CPU load was comparable (7.7% CPU NEON vs 7.5% D3D12 GPU), with D3D12 engaging 69.9% Adreno GPU compute.
    - **Memory Footprint:** PotPlayer working set: 387.9 MB (CPU) vs 376.5 MB (D3D12 GPU).
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Configuration:** Full native analysis, Dual-pass 16x16 -> 8x8 (CPU) / 32x32 -> 16x16 (GPU), pel=2 (subpixel Wiener/bicubic), Pixel-flow synthesis (mode=2) | Target: Highest visual fidelity, subpixel precision, deterministic sustained 60fps
-   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 FPS** (19 frames) vs D3D12 GPU **60.00 FPS** (0 frames). 1% Lows: CPU NEON **53.58 FPS** vs D3D12 GPU **54.19 FPS**.
+   - **Configuration:** Full native analysis, Dual-pass 16x16 -> 8x8 (CPU) / 32x32 -> 16x16 (GPU), pel=2 (subpixel Wiener/bicubic), Pixel-flow synthesis (mode=2) | Target: Highest visual fidelity, subpixel precision, deterministic sustained 60 fps
+   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 fps** (19 frames) vs D3D12 GPU **60.00 fps** (0 frames). 1% Lows: CPU NEON **53.58 fps** vs D3D12 GPU **54.19 fps**.
    - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **3.3%** (from 13.8% down to 10.5%), utilizing 77.4% Adreno GPU compute.
    - **Memory Footprint:** PotPlayer working set: 511.6 MB (CPU) vs 455.0 MB (D3D12 GPU).
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** On **Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)**, the **Eco** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [Balanced, MaxQuality] exceeded real-time presentation budgets resulting in frame drops. **Eco** is therefore the optimal daily recommendation for this SoC.
+- **Stability & Real-Time Headroom:** On **Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)**, the **Eco** tier sustained steady 60.00 fps with zero dropped presentation frames. In contrast, higher-complexity passes in [Balanced, MaxQuality] exceeded real-time presentation budgets resulting in frame drops. **Eco** is therefore the optimal daily recommendation for this SoC.
 - **Compute Engine Trade-Off:** ARM64 CPU NEON remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the Adreno GPU compute shaders, freeing CPU headroom for background multi-tasking.

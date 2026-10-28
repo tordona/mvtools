@@ -1,9 +1,9 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Processor N100 (Profile 1: Eco)
-# Hardware: Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)
-# Memory: 16GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Processor N100 (Profile 1: Eco)
+# Hardware: Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD Graphics 24EU)
+# Memory: 16 GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Sub-4W Power Envelope, Fanless Operation, Single-Channel Bus Protection, 0 Drops
+# Target: Sub-4 W Power Envelope, Fanless Operation, Single-Channel Bus Protection, 0 Drops
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
@@ -38,7 +38,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames without vector scaling or proxy interpolation artifacts
 # mode=0: Fast block projection (minimal ALU load)
 # blend=false: Skips transparency alpha blending calculations
@@ -46,6 +46,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, sea
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
 # 4. Core Pinning: Strictly 2 Threads with 4-Frame Lookahead Queue
-# 2 threads ensures zero thermal throttling on passive 6W chassis
+# 2 threads ensures zero thermal throttling on passive 6 W chassis
 # 4 lookahead frames absorb thread scheduling jitter
 Prefetch(threads, 4)

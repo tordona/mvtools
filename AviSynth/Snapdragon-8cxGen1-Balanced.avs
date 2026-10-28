@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 1 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
-# Target: Fluid 1080p 60fps, Sharp Edge Tracking, Stable Thermal Ceiling
+# Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=4, Prefetch(4, 4), mem_limit=1024, D3D12 toggle
 # ==============================================================================
@@ -37,7 +37,7 @@ super = MSuper(pel=1, hpad=4, vpad=4, sharp=1)
 # 2. Motion Vector Search (Single-Pass 16x16 Blocks)
 # Evaluates directly in a single pass (2 GPU dispatches instead of 4).
 # Cuts GPU block evaluations by 60% (from 20,400 down to 8,160 blocks/frame), eliminating
-# the 40-60s thermal throttle while delivering sharp 16x16 object edge resolution.
+# the 40–60 s thermal throttle while delivering sharp 16x16 object edge resolution.
 # search=2: Hexagonal search with radius 1 keeps searches fast on Cortex-A76 cores
 # badrange=(-24): Early rejection of outlier vectors to prevent haloing
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, plevel=0, badrange=(-24))

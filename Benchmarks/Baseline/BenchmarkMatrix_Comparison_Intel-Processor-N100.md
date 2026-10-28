@@ -1,6 +1,6 @@
 ﻿# MVTools Benchmark Comparison Matrix - Intel-Processor-N100
 
-**Host Platform:** Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)  
+**Host Platform:** Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD Graphics 24EU)  
 **Platform Identifier:** Intel-Processor-N100  
 **PotPlayer Version:** 1.7.23164 (Build: 2026-10-23 02:59:00)  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
@@ -19,18 +19,18 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **55.61 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **55.61 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 37.3% (Peak: 43.9%) on x64 CPU SIMD with working set of 265.9 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **55.35 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **55.35 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 42.3% (Peak: 45.4%) on x64 CPU SIMD with working set of 279.7 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.79 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.79 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 63.6% (Peak: 67.8%) on x64 CPU SIMD with working set of 293.7 MB.
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)**. **Eco** minimized CPU compute load (37.3%), while **Eco** delivered the smoothest frame consistency (55.61 FPS 1% low).
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD Graphics 24EU)**. **Eco** minimized CPU compute load (37.3%), while **Eco** delivered the smoothest frame consistency (55.61 fps 1% low).
 - **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.98 Hz** (Primary Display (59.984 Hz, 14780000/246400)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

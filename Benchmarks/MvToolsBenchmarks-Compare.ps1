@@ -25,7 +25,7 @@
     Revision History:
     - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication tracking.
                            Parses profile worker threads, thread compute ceilings, and saturation ratios.
-                           Flags suspected swapchain frame duplication (saturation >= 88% while reporting ~60 FPS)
+                           Flags suspected swapchain frame duplication (saturation >= 88% while reporting ~60 fps)
                            with warning indicators in console output, CSV exports, and Markdown matrices.
     - v2.4.1 (2026-10-25): Added -AutoInstallVcRedist forwarding for unattended matrix benchmarks.
                            Prevents PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies.
@@ -247,7 +247,7 @@ function Get-BenchmarkReportData([string]$FilePath) {
     $platform = if ($raw -match '(?m)^\s*-\s*Host Platform:\s*(.+)$') { $Matches[1].Trim() } else { "Unknown" }
     $potVersion = if ($raw -match '(?m)^\s*-\s*PotPlayer Version:\s*(.+)$') { $Matches[1].Trim() } else { "N/A" }
     $videoSha = if ($raw -match '(?m)^\s*-\s*Target Video SHA-256:\s*(.+)$') { $Matches[1].Trim() } else { "N/A" }
-    $targetVideo = if ($raw -match '(?m)^\s*-\s*Target Video:\s*(.+)$') { [System.IO.Path]::GetFileName($Matches[1].Trim()) } else { "1080p 24fps -> 60fps Interpolation" }
+    $targetVideo = if ($raw -match '(?m)^\s*-\s*Target Video:\s*(.+)$') { [System.IO.Path]::GetFileName($Matches[1].Trim()) } else { "1080p 24 fps -> 60 fps Interpolation" }
 
     # Parse Tier
     $tier = if ($profile -match '(?i)Eco') { "Eco" }
@@ -564,7 +564,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
     $tiersWithDrops = @()
     foreach ($r in $Entries) {
         if ($r.DroppedFrames -ne "0" -and $r.DroppedFrames -notmatch '^0\b') {
-            # If the platform has vsync drift / non-integer display and this run achieved >= 58.0 FPS,
+            # If the platform has vsync drift / non-integer display and this run achieved >= 58.0 fps,
             # drops are provoked by physical panel scanout rate discrepancy rather than compute bottlenecks.
             if ($hasVsyncDrift -and $r.AvgFps -ge 58.0) {
                 continue
@@ -581,14 +581,14 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
             $recTier = if ($cleanTiers.Contains("Balanced")) { "Balanced" } else { $cleanTiers[0] }
             $droppedStr = $tiersWithDrops -join ", "
             $platformEntity = if ($platformName -match '(?i)Snapdragon|ARM64') { "SoC" } else { "platform" }
-            $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 FPS with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this $platformEntity."
+            $Lines += "- **Stability & Real-Time Headroom:** On **$platformName**, the **$recTier** tier sustained steady 60.00 fps with zero dropped presentation frames. In contrast, higher-complexity passes in [$droppedStr] exceeded real-time presentation budgets resulting in frame drops. **$recTier** is therefore the optimal daily recommendation for this $platformEntity."
         } elseif ($hasVsyncDrift -and (@($Entries | Where-Object { $_.AvgFps -lt 58.0 }).Count -eq 0)) {
-            $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 FPS with minimal render latency (<0.5 ms). The 2-3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
+            $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained full real-time 60.00 fps with minimal render latency (<0.5 ms). The 2-3 dropped frames across all tiers were mathematically verified as DXGI flip discards caused by physical display panel scanout timing (~59.86 Hz panel clock) rather than compute bottlenecks. Pacing and compute budgets remained well within real-time limits across all tiers. **$($bestPacing.Tier)** delivered the smoothest overall frame pacing."
         } else {
             $Lines += "- **Stability & Real-Time Headroom:** Frame drops and reduced presentation rates were recorded on compute-constrained passes ($($tiersWithDrops -join ', ')). Only lower-overhead tiers (e.g. Eco) or lighter search parameters approach real-time presentation deadlines on this hardware."
         }
     } else {
-        $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **$platformName**. **$($lowestCpu.Tier)** minimized CPU compute load ($($lowestCpu.AvgCpuPct.ToString('N1'))%), while **$($bestPacing.Tier)** delivered the smoothest frame consistency ($($bestPacing.Low1PctFps.ToString('N2')) FPS 1% low)."
+        $Lines += "- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **$platformName**. **$($lowestCpu.Tier)** minimized CPU compute load ($($lowestCpu.AvgCpuPct.ToString('N1'))%), while **$($bestPacing.Tier)** delivered the smoothest frame consistency ($($bestPacing.Low1PctFps.ToString('N2')) FPS 1% low)."
     }
 
     $hasBothEngines = @($Entries | Where-Object { $_.ModeShort -like "CPU*" }).Count -gt 0 -and @($Entries | Where-Object { $_.ModeShort -eq "D3D12 GPU" }).Count -gt 0
@@ -612,7 +612,7 @@ function Get-DynamicArchitecturalFindings($Entries, [string]$ScriptDir) {
         $hzDiff = [math]::Abs(60.0 - $actualHz)
         $driftSec = if ($hzDiff -gt 0.001) { [math]::Round(1.0 / $hzDiff, 1) } else { 7.3 }
         if ($hasRecordedDrops) {
-            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Because the AviSynth profile generates strictly 60.000 FPS, an excess frame accumulates every ~$($driftSec)s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck."
+            $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Because the AviSynth profile generates strictly 60.000 fps, an excess frame accumulates every ~$($driftSec)s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck."
         } else {
             $Lines += "- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **$($actualHz.ToString('N2')) Hz** ($($firstNonInt.DisplayDevice)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards."
         }
@@ -695,7 +695,7 @@ foreach ($pk in $PlatformGroups.Keys) {
     $potVersionsEvaluated = ($SortedEntries | Select-Object -ExpandProperty PotPlayerVersion -Unique | Where-Object { $_ -and $_ -ne "N/A" -and $_ -ne "Unknown" }) -join "; "
     if (-not $potVersionsEvaluated) { $potVersionsEvaluated = "Unknown / Legacy Report" }
     $hasConstrained = @($SortedEntries | Where-Object { $_.MemoryConstrained -eq "Yes" }).Count -gt 0
-    $memTag = if ($hasConstrained) { " | Memory: Constrained (<= 4GB / Low Headroom)" } else { "" }
+    $memTag = if ($hasConstrained) { " | Memory: Constrained (<= 4 GB / Low Headroom)" } else { "" }
     Write-Host "`n==========================================================================================" -ForegroundColor Cyan
     Write-Host " MVTOOLS COMPARATIVE BENCHMARK MATRIX (v$Script:CompareVersion): $platformDisplayName" -ForegroundColor Cyan
     Write-Host " Platform Identifier: $pk$memTag | PotPlayer: $potVersionsEvaluated" -ForegroundColor Cyan
@@ -771,12 +771,12 @@ foreach ($pk in $PlatformGroups.Keys) {
     $MdLines += "**Host Platform:** $platformDisplayName  "
     $MdLines += "**Platform Identifier:** $pk  "
     if ($hasConstrained) {
-        $MdLines += "**Memory Environment:** Memory-Constrained Hardware (<= 4GB RAM or low physical memory headroom)  "
+        $MdLines += "**Memory Environment:** Memory-Constrained Hardware (<= 4 GB RAM or low physical memory headroom)  "
     }
     $MdLines += "**PotPlayer Version:** $potVersionsEvaluated  "
     $MdLines += "**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v$Script:CompareVersion)  "
     $MdLines += "**Generated:** $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))  "
-    $targetVideoDisplay = if ($SortedEntries.Count -gt 0 -and $SortedEntries[0].TargetVideo) { $SortedEntries[0].TargetVideo } else { "1080p 24fps -> 60fps Interpolation" }
+    $targetVideoDisplay = if ($SortedEntries.Count -gt 0 -and $SortedEntries[0].TargetVideo) { $SortedEntries[0].TargetVideo } else { "1080p 24 fps -> 60 fps Interpolation" }
     $MdLines += "**Reference Target:** $targetVideoDisplay  "
     $MdLines += ""
     $MdLines += "| Tier | Motion Engine | Avg FPS | 1% Low FPS | 0.1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | PotPlayer GPU | RAM Working Set | Dropped Frames |"
@@ -817,7 +817,7 @@ foreach ($pk in $PlatformGroups.Keys) {
         $actualHz = if ($nonIntRow.EmpiricalScanoutHz -gt 0) { $nonIntRow.EmpiricalScanoutHz } elseif ($nonIntRow.DisplayRefreshHz -gt 0) { $nonIntRow.DisplayRefreshHz } else { 59.86 }
         $MdLines += ""
         $MdLines += "> [!WARNING]"
-        $MdLines += "> **Display Panel Scanout Rate Notice ($($actualHz.ToString('N2')) Hz):** Benchmark telemetry for this platform was captured on a display running at an empirical panel scanout rate of $($actualHz.ToString('N2')) Hz ($($nonIntRow.DisplayDevice)). The recorded dropped frames were provoked by VSync phase drift between the 60.000 FPS video clock and the physical display scanout (1 frame discarded by DXGI Flip Discard every ~7.3s; frame render latency was <0.5 ms), rather than compute or GPU bottlenecks. Testing on an external integer 60.00 Hz / 120.00 Hz monitor will verify 0 dropped frames."
+        $MdLines += "> **Display Panel Scanout Rate Notice ($($actualHz.ToString('N2')) Hz):** Benchmark telemetry for this platform was captured on a display running at an empirical panel scanout rate of $($actualHz.ToString('N2')) Hz ($($nonIntRow.DisplayDevice)). The recorded dropped frames were provoked by VSync phase drift between the 60.000 fps video clock and the physical display scanout (1 frame discarded by DXGI Flip Discard every ~7.3s; frame render latency was <0.5 ms), rather than compute or GPU bottlenecks. Testing on an external integer 60.00 Hz / 120.00 Hz monitor will verify 0 dropped frames."
     }
 
     $dupRows = @($SortedEntries | Where-Object { $_.FrameDuplicationSuspected -eq "Yes" })
@@ -826,7 +826,7 @@ foreach ($pk in $PlatformGroups.Keys) {
         $firstDup = $dupRows[0]
         $MdLines += ""
         $MdLines += "> [!WARNING]"
-        $MdLines += "> **Thread Capacity Saturation & Suspected Swapchain Duplication ($dupTiers):** Telemetry indicates AviSynth worker threads operated at $($firstDup.CpuSaturationPct)% of their theoretical compute ceiling ($($firstDup.AvgCpuPct)% CPU on $($firstDup.ScriptThreads) threads). When worker threads are compute-saturated, the PotPlayer D3D11 video renderer may repeat previous backbuffers on VSync ticks to maintain a 60 FPS swapchain presentation rate while the filter graph falls behind. Verify real-time filter delivery rate in PotPlayer OSD ('Tab' key) during active playback (FPS: 24 -> XX.XX)."
+        $MdLines += "> **Thread Capacity Saturation & Suspected Swapchain Duplication ($dupTiers):** Telemetry indicates AviSynth worker threads operated at $($firstDup.CpuSaturationPct)% of their theoretical compute ceiling ($($firstDup.AvgCpuPct)% CPU on $($firstDup.ScriptThreads) threads). When worker threads are compute-saturated, the PotPlayer D3D11 video renderer may repeat previous backbuffers on VSync ticks to maintain a 60 fps swapchain presentation rate while the filter graph falls behind. Verify real-time filter delivery rate in PotPlayer OSD ('Tab' key) during active playback (FPS: 24 -> XX.XX)."
     }
 
     $MdLines += ""
@@ -852,7 +852,7 @@ if ($PlatformGroups.Count -gt 1) {
     $CombinedLines += ""
     $CombinedLines += "**Generated:** $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))  "
     $CombinedLines += "**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v$Script:CompareVersion)  "
-    $CombinedLines += "**Reference Target:** 1080p 24fps -> 60fps Interpolation  "
+    $CombinedLines += "**Reference Target:** 1080p 24 fps -> 60 fps Interpolation  "
     $CombinedLines += "**Platforms Evaluated:** $(($PlatformGroups.Keys) -join ', ')  "
     $allPotVersions = ($Entries | Select-Object -ExpandProperty PotPlayerVersion -Unique | Where-Object { $_ -and $_ -ne "N/A" -and $_ -ne "Unknown" }) -join "; "
     if ($allPotVersions) {

@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Highest visual fidelity, subpixel precision, deterministic sustained 60fps
+# Target: Highest visual fidelity, subpixel precision, deterministic sustained 60 fps
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=6, Prefetch(6, 4), mem_limit=2048, D3D12 toggle
 # ==============================================================================
@@ -24,7 +24,7 @@ mem_limit   = USE_GPU ? 2048 : 4096
 # Subpixel & Block Parameters:
 # pel_val: Dynamic based on USE_GPU (pel=1 on GPU cuts memory bandwidth and compute by 75% for 4K; pel=2 on CPU Oryon cores)
 pel_val     = USE_GPU ? 1 : 2
-# sharp=1 (bicubic) eliminates the 18ms CPU scalar bottleneck of sharp=2 (Wiener filter)
+# sharp=1 (bicubic) eliminates the 18 ms CPU scalar bottleneck of sharp=2 (Wiener filter)
 sharp_mode  = USE_GPU ? 1 : 2
 pad_size    = USE_GPU ? 8 : 16
 # Dual-pass coarse-to-fine: 32x32 coarse -> 16x16 fine with pel=2 half-pixel precision
@@ -60,7 +60,7 @@ backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_co
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=search_rad, chroma=use_chroma, plevel=plevel_val, badrange=(-24))
 
 # 3. High-Definition Subpixel Micro-Block Refinement (MRecalculate)
-# blksize=blk_fine: 16x16 on GPU (8,160 blocks @ pel=2) gives subpixel accuracy at continuous 60fps
+# blksize=blk_fine: 16x16 on GPU (8,160 blocks @ pel=2) gives subpixel accuracy at continuous 60 fps
 # search=search_alg, searchparam=1: Precision vector refinement around previous candidates
 # chroma=use_chroma: Dynamic based on USE_GPU
 # divide=0: Smooth continuous motion field

@@ -1,6 +1,6 @@
-# Quick Start Guide: 60fps Playback in Daum PotPlayer
+# Quick Start Guide: 60 fps Playback in Daum PotPlayer
 
-> **Achieve real-time 24fps → 60fps video motion interpolation in Daum PotPlayer on Windows 11 on ARM64 and x86-64 with zero frame drops.**
+> **Achieve real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows 11 on ARM64 and x86-64 with zero frame drops.**
 
 Choose between the **Automated 1-Click PowerShell Setup** (recommended) or the **Manual Step-by-Step Setup** for your architecture.
 
@@ -30,7 +30,7 @@ irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvTo
 > [!NOTE]
 > To pass automated parameters (such as `-AutoInstall` and `-Launch` for zero-touch setup):
 > ```powershell
-> & ([scriptblock]::Create((irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1))) -AutoInstall -Launch
+> irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1 -OutFile $env:TEMP\install.ps1; & $env:TEMP\install.ps1 -AutoInstall -Launch
 > ```
 
 #### Option B: From Cloned / Downloaded Repository
@@ -92,7 +92,7 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60fps Balanced Script (Qualcomm Snapdragon ARM64)
+# MVTools2 60 fps Balanced Script (Qualcomm Snapdragon ARM64)
 # ==============================================================================
 USE_GPU = false
 
@@ -162,7 +162,7 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60fps Balanced Script (x86-64 AMD Ryzen / Intel Core)
+# MVTools2 60 fps Balanced Script (x86-64 AMD Ryzen / Intel Core)
 # ==============================================================================
 threads   = 4
 mem_limit = 1024

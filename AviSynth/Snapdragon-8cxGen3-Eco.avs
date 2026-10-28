@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 3 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Ultra-Low Power, Maximum Battery Longevity, 0 Dropped Frames
 # Revision: 2.1.0 (2026-10-19)
@@ -45,7 +45,7 @@ super = MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Block-Based 60fps Synthesis
+# 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)
 # blend=false: Avoids calculating blend transparency masks on fast motion
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes

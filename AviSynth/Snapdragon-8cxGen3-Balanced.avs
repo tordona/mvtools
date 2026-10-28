@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
-# Target: Fluid 1080p 60fps, Refined 16x16 Edges, Stable Thermal Ceiling
+# Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
 # Revision: 2.1.0 (2026-10-19)
 # Changelog: Coarse 32x32 -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1024, D3D12 toggle
 # ==============================================================================
@@ -50,7 +50,7 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-# 4. Direct Block-Based 60fps Synthesis with Refined Vectors
+# 4. Direct Block-Based 60 fps Synthesis with Refined Vectors
 # mode=0: Fast block projection using refined 16x16 vector grid (crisp, zero block tearing)
 # blend=false: Skips blend transparency calculations to eliminate ALU latency spikes
 # thSCD1=350, thSCD2=120: Balanced scene change detection cleanly cuts camera transitions

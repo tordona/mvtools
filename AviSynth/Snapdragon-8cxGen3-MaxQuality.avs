@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 3 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
-# Target: Highest Achievable Quality, Wide-Radius Refinement, Sustained 60fps
+# Target: Highest Achievable Quality, Wide-Radius Refinement, Sustained 60 fps
 # Revision: 2.1.0 (2026-10-19)
 # Changelog: Coarse 32x32 (searchparam=2) -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1536, D3D12 toggle
 # ==============================================================================
@@ -52,7 +52,7 @@ forward_dense  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, s
 backward_fine = MRecalculate(super, backward_dense, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, divide=0)
 forward_fine  = MRecalculate(super, forward_dense,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, divide=0)
 
-# 4. Direct Block-Based 60fps Synthesis with Refined Vectors
+# 4. Direct Block-Based 60 fps Synthesis with Refined Vectors
 # mode=0: Fast block projection using refined 16x16 vector grid (crisp, zero block tearing)
 # blend=false: Skips blend transparency calculations to eliminate ALU latency spikes
 # thSCD1=320, thSCD2=115: Strict scene-change detection to prevent cross-cut morphing

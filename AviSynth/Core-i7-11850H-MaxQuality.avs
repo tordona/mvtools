@@ -1,15 +1,15 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Core i7-11850H (Profile 3: MaxQuality)
-# Hardware: Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45W TDP, Intel UHD Graphics 32EU)
-# Memory: 16GB-64GB Dual-Channel DDR4-3200 (51.2 GB/s Bandwidth, 24MB Shared L3 Cache)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Core i7-11850H (Profile 3: MaxQuality)
+# Hardware: Intel Core i7-11850H (8C/16T Tiger Lake-H @ 45 W TDP, Intel UHD Graphics 32EU)
+# Memory: 16 GB-64 GB Dual-Channel DDR4-3200 (51.2 GB/s Bandwidth, 24 MB Shared L3 Cache)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: High-Fidelity 60fps Presentation, Native 16x16 with 4px Overlap (14,151 Blocks), 45W High-Headroom
+# Target: High-Fidelity 60 fps Presentation, Native 16x16 with 4 px Overlap (14,151 Blocks), 45 W High-Headroom
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
 # 8 worker threads mapped 1:1 across all 8 physical Willow Cove cores with zero hyperthread contention.
-# Fully utilizes 24MB shared L3 cache and AVX-512 vector execution without SMT thread stalls.
+# Fully utilizes 24 MB shared L3 cache and AVX-512 vector execution without SMT thread stalls.
 # Leaves all 8 logical hyperthreads completely free for Intel UHD DXVA decode and Windows DWM.
 threads     = 8
 mem_limit   = 1536                # Generous cache allocation for dense overlapping vector grid
@@ -39,7 +39,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis with Directional Alpha Blending
+# 3. Direct Native 60 fps Frame Synthesis with Directional Alpha Blending
 # Directly warps native frames using overlapping vector fields
 # mode=0: Fast 2-stream block projection
 # blend=true: Smooths occlusion boundaries and disocclusion edges

@@ -1,10 +1,10 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 7c Gen 2 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
-# Test Device: Samsung Galaxy Book Go (14", Fanless 5W Chassis)
-# Target: Highest Achievable Motion Precision at Sustained 60fps (Zero Throttling)
+# Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
+# Target: Highest Achievable Motion Precision at Sustained 60 fps (Zero Throttling)
 # Revision: 2.0.0 (2026-10-18)
-# Changelog: Memory-constrained 4GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=2, Prefetch(2, 4), mem_limit=768
+# Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=2, Prefetch(2, 4), mem_limit=768
 # ==============================================================================
 
 # Strictly 2 worker threads locks computation to the 2 Cortex-A76 Gold cores.
@@ -43,7 +43,7 @@ forward_scaled  = forward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
 
 # 4. Native Frame Synthesis (ZERO RESOLUTION LOSS)
 # levels=1: Eliminates generating 9 downscaled pyramid images on full source frames!
-# mode=0: Fast 2-stream block projection sustains 60fps without CPU pipeline stalls
+# mode=0: Fast 2-stream block projection sustains 60 fps without CPU pipeline stalls
 # blend=false: Skips blend transparency calculations to conserve ALU cycles
 # thSCD1=350, thSCD2=120: Balanced scene-change detection cleanly cuts camera transitions
 super_src = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)

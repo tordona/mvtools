@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 850 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
-# Target: Highest Quality Motion Flow within 5W Snapdragon 850 Thermal Budget
+# Target: Highest Quality Motion Flow within 5 W Snapdragon 850 Thermal Budget
 # Architecture: Native 1080p Quad-Core Saturation (Zero Resizing Overhead)
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=3, Prefetch(3, 4), mem_limit=1024
@@ -40,7 +40,7 @@ backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, se
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
 # 4. Direct Frame Synthesis
-# mode=0: Fast 2-stream block projection sustains 60fps without CPU pipeline stalls
+# mode=0: Fast 2-stream block projection sustains 60 fps without CPU pipeline stalls
 # blend=false: Skips blend transparency calculations to conserve ALU cycles
 # thSCD1=350, thSCD2=120: Balanced scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false, thSCD1=350, thSCD2=120)

@@ -1,20 +1,20 @@
-# PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 8cx Gen 2 / Microsoft SQ2
+# PotPlayer & AviSynth 60 fps Configuration Guide: Snapdragon 8cx Gen 2 / Microsoft SQ2
 
 > **Hardware Target:** Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (SC8180XP)  
 > **Integrated GPU:** Qualcomm Adreno 680 (1.3 TFLOPS FP32)  
 > **CPU Topology:** 4x Kryo 495 Gold (Cortex-A76 @ up to 3.00–3.15 GHz) + 4x Kryo 495 Silver (Cortex-A55 @ up to 1.80 GHz)  
 > **Memory Subsystem:** 8-Channel LPDDR4x-2133 (68 GB/s Unified Bandwidth)  
-> **Thermal Profile:** 7W–10W Fanless Design *(e.g., Microsoft Surface Pro X SQ2, Acer Spin 7, HP Elite Folio)*
+> **Thermal Profile:** 7 W – 10 W Fanless Design *(e.g., Microsoft Surface Pro X SQ2, Acer Spin 7, HP Elite Folio)*
 
 ---
 
 ## Overview & Thermal Strategy
 
-The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7W to 10W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
+The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7 W to 10 W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
 
-When performing real-time 60fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
+When performing real-time 60 fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
 
-Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60fps video playback with zero dropped frames.
+Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60 fps video playback with zero dropped frames.
 
 > [!NOTE]
 > **Microsoft SQ2 Compatibility:**  
@@ -93,10 +93,10 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, deterministic 60fps with zero dropped frames.  
+> All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, deterministic 60 fps with zero dropped frames.  
 > Setting `USE_GPU = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`mvtools2_d3d12.dll`) to offload motion search to the Adreno 680 GPU:
-> - **Balanced (`USE_GPU = true`):** Sustains 60fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), maintaining low package temperatures and high thermal margin.
-> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) to prevent L1/L2 texture cache thrashing, sustaining continuous 60fps.
+> - **Balanced (`USE_GPU = true`):** Sustains 60 fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), maintaining low package temperatures and high thermal margin.
+> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) to prevent L1/L2 texture cache thrashing, sustaining continuous 60 fps.
 >
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
 
@@ -112,7 +112,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |
 | **Frame Synthesis** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
 | **Worker Threads** | `Prefetch(3, 4)` | `Prefetch(4, 4)` | `Prefetch(4, 4)` |
-| **Target Power** | 4.5W – 5.5W | 6.5W – 7.5W | 7.5W – 8.8W |
+| **Target Power** | 4.5 W – 5.5 W | 6.5 W – 7.5 W | 7.5 W – 8.8 W |
 
 ---
 
@@ -133,9 +133,9 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 ## Verification & OSD Diagnostic
 
-To verify that the Adreno 680 hardware decoder and 60fps interpolation are active during playback:
+To verify that the Adreno 680 hardware decoder and 60 fps interpolation are active during playback:
 
-1. Open and play any 24fps/30fps video in PotPlayer.
+1. Open and play any 24 fps/30 fps video in PotPlayer.
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).
 3. Confirm the following real-time metrics:
    - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(not Software / ffmpeg)*.

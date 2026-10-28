@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
 # Revision: 2.0.0 (2026-10-18)
@@ -19,8 +19,8 @@ threads     = USE_GPU ? 3 : 4     # GPU: 3 threads keeps queue full; CPU: 4 Gold
 mem_limit   = USE_GPU ? 1536 : 2048
 
 # Dynamic parameter adaptation:
-# GPU DirectCompute: pel=1, single-pass dense 16x16 with searchparam=2 (2 dispatches prevents 7W thermal throttling)
-# CPU NEON: pel=2 half-pixel precision, dual-pass 16x16 -> 8x8 micro-blocks, blend=true (sustained 60fps on 4 Gold cores).
+# GPU DirectCompute: pel=1, single-pass dense 16x16 with searchparam=2 (2 dispatches prevents 7 W thermal throttling)
+# CPU NEON: pel=2 half-pixel precision, dual-pass 16x16 -> 8x8 micro-blocks, blend=true (sustained 60 fps on 4 Gold cores).
 pel_val     = USE_GPU ? 1 : 2
 search_rad  = USE_GPU ? 2 : 2
 blend_mode  = USE_GPU ? false : true
@@ -48,7 +48,7 @@ backward_dense = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, s
 forward_dense  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=search_rad, chroma=false, plevel=0, badrange=(-24))
 
 # 3. Motion Vector Refinement (CPU only)
-# GPU skips MRecalculate to stay within the 7W thermal envelope; CPU executes 8x8 micro-block refinement
+# GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes 8x8 micro-block refinement
 backward_vec = USE_GPU ? backward_dense : MRecalculate(super, backward_dense, blksize=8, blksizev=8, search=2, searchparam=1, chroma=false, divide=0)
 forward_vec  = USE_GPU ? forward_dense  : MRecalculate(super, forward_dense,  blksize=8, blksizev=8, search=2, searchparam=1, chroma=false, divide=0)
 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 1: Eco / Lowest CPU)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 1: Eco / Lowest CPU)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Ultra-low CPU usage, zero dropped frames, cool & quiet / battery saver
 # Revision: 2.0.0 (2026-10-18)
@@ -43,7 +43,7 @@ super = MSuper(pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
 
-# 3. Direct Block-Based 60fps Synthesis
+# 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)
 # blend=false: Avoids calculating blend masks on fast motion
 # thSCD1=400, thSCD2=130: Robust scene-change detection to avoid artifacts on cuts

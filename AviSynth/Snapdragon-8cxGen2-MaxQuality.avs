@@ -1,5 +1,5 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 3: Max Quality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Gen 2 Thermal Ceiling
 # Revision: 2.0.0 (2026-10-18)
@@ -19,9 +19,9 @@ threads     = USE_GPU ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: 
 mem_limit   = USE_GPU ? 1536 : 2048
 
 # Dynamic parameter adaptation:
-# GPU DirectCompute: pel=1 prevents 8.3MB texture cache thrashing on Adreno 680 (which is at 60-70% load);
+# GPU DirectCompute: pel=1 prevents 8.3 MB texture cache thrashing on Adreno 680 (which is at 60-70% load);
 #                    32x32 -> 16x16 blocks prevents command list serialization; blend=false avoids ALU stalls.
-# CPU NEON: pel=2 half-pixel precision, 16x16 -> 8x8 fine micro-blocks, blend=true (sustained 60fps on 4 Gold cores).
+# CPU NEON: pel=2 half-pixel precision, 16x16 -> 8x8 fine micro-blocks, blend=true (sustained 60 fps on 4 Gold cores).
 pel_val     = USE_GPU ? 1 : 2
 blk_coarse  = USE_GPU ? 32 : 16
 blk_fine    = USE_GPU ? 16 : 8

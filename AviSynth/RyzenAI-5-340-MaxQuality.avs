@@ -1,14 +1,14 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: AMD Ryzen AI 5 340 (Profile 3: MaxQuality)
+# PotPlayer AviSynth 60 fps Interpolation: AMD Ryzen AI 5 340 (Profile 3: MaxQuality)
 # Hardware: AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)
-# Memory: 16GB-32GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
+# Memory: 16 GB-32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: High-Fidelity 60fps Presentation, Native 16x16 with 4px Overlap (14,151 Blocks), 20W Envelope
+# Target: High-Fidelity 60 fps Presentation, Native 16x16 with 4 px Overlap (14,151 Blocks), 20 W Envelope
 # Revision: 2.0.0 (2026-10-25)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
-# 6 worker threads mapped 1:1 across all 6 physical cores (3x Zen 5 + 3x Zen 5c) on the unified 16MB L3 CCX.
+# 6 worker threads mapped 1:1 across all 6 physical cores (3x Zen 5 + 3x Zen 5c) on the unified 16 MB L3 CCX.
 # Zero hyperthread contention; leaves all 6 SMT logical threads free for VCN decode and Windows DWM.
 threads     = 6
 mem_limit   = 1024                # Generous cache allocation for dense overlapping vector grid
@@ -38,7 +38,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis with Directional Alpha Blending
+# 3. Direct Native 60 fps Frame Synthesis with Directional Alpha Blending
 # Directly warps native frames using overlapping vector fields
 # mode=0: Fast 2-stream block projection
 # blend=true: Smooths occlusion boundaries and disocclusion edges

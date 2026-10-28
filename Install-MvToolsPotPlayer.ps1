@@ -1,12 +1,12 @@
 # ==============================================================================
-# MVTools2 + Daum PotPlayer 60fps Automated Setup & Profile Deployment
+# MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools_d3d12)
 # ==============================================================================
 <#
 .SYNOPSIS
     Automated zero-touch installer and dependency configurator for real-time 
-    60fps video motion interpolation in Daum PotPlayer using native MVTools2.
+    60 fps video motion interpolation in Daum PotPlayer using native MVTools2.
 
 .DESCRIPTION
     1. Detects system architecture (ARM64 vs. x86-64) and system hardware (Qualcomm Snapdragon vs. Intel/AMD).
@@ -1194,31 +1194,37 @@ function Get-MvToolsLatestReleaseAsset {
 
             $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
             if ($targetArch -eq "x64") {
-                # x64: match mvtools-*.7z or mvtools-*.zip
-                $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools-.*\.7z$' } | Select-Object -First 1
+                # x64: match explicit x64 archives first, then generic non-arm64 fallbacks
+                $asset = $release.assets | Where-Object { $_.name -match '(?i)x64.*\.7z$' } | Select-Object -First 1
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)x64.*\.zip$' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools-.*\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.zip$' -and $_.name -notmatch '(?i)arm64' } | Select-Object -First 1
                 }
             } else {
                 # ARM64: match arm64 release archives
                 $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
-                }
-                if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' } | Select-Object -First 1
-                }
-                if (-not $asset) {
                     $asset = $release.assets | Where-Object { $_.name -match '(?i)arm64.*\.zip$' } | Select-Object -First 1
                 }
                 if (-not $asset) {
-                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' } | Select-Object -First 1
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)mvtools.*\.7z$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.7z$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
+                }
+                if (-not $asset) {
+                    $asset = $release.assets | Where-Object { $_.name -match '(?i)\.zip$' -and $_.name -notmatch '(?i)x64' } | Select-Object -First 1
                 }
             }
 
@@ -1275,14 +1281,16 @@ function Get-MvToolsLatestReleaseAsset {
 
             $selectedUrl = $null
             if ($targetArch -eq "x64") {
-                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.zip$' } | Select-Object -First 1 }
+                $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)x64.*\.7z$' } | Select-Object -First 1
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)x64.*\.zip$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.zip$' -and $_ -notmatch '(?i)arm64' } | Select-Object -First 1 }
             } else {
                 $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.7z$' } | Select-Object -First 1
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' } | Select-Object -First 1 }
-                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' } | Select-Object -First 1 }
                 if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)arm64.*\.zip$' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)mvtools.*\.7z$' -and $_ -notmatch '(?i)x64' } | Select-Object -First 1 }
+                if (-not $selectedUrl) { $selectedUrl = $foundUrls | Where-Object { $_ -match '(?i)\.7z$' -and $_ -notmatch '(?i)x64' } | Select-Object -First 1 }
             }
 
             if ($selectedUrl) {
@@ -1972,7 +1980,7 @@ function Copy-AiAgentHardwarePrompt {
     }
 
     $promptText = @"
-I need a hardware-tailored AviSynth+ profile set for real-time 24fps -> 60fps video motion interpolation in Daum PotPlayer using MVTools2.
+I need a hardware-tailored AviSynth+ profile set for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer using MVTools2.
 
 My Target Hardware Specifications:
 - CPU: $($HardwareInfo.CpuName)
@@ -2023,7 +2031,7 @@ Please generate the complete 3-tier profile set following these exact rules:
 # MAIN INSTALLATION WORKFLOW
 # =========================================================
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host " MVTools2 + Daum PotPlayer 60fps Automated Setup" -ForegroundColor Cyan
+Write-Host " MVTools2 + Daum PotPlayer 60 fps Automated Setup" -ForegroundColor Cyan
 Write-Host " https://tordona.github.io/mvtools/" -ForegroundColor Gray
 Write-Host "================================================================`n" -ForegroundColor Cyan
 
@@ -2233,7 +2241,7 @@ $allStagesSuccessful = ($potExe -and $isAviSynthReady -and $isMvToolsReady -and 
 
 if ($allStagesSuccessful) {
     Write-Host "`n================================================================" -ForegroundColor Green
-    Write-Host " SETUP COMPLETE! 60fps Motion Interpolation Ready" -ForegroundColor Green
+    Write-Host " SETUP COMPLETE! 60 fps Motion Interpolation Ready" -ForegroundColor Green
     Write-Host " PotPlayer Executable: $potExe" -ForegroundColor Gray
     Write-Host " Active Profile:       $($selectedMatch.Name)" -ForegroundColor Gray
     Write-Host "================================================================`n" -ForegroundColor Green

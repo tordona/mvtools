@@ -1,9 +1,9 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Core i5-1135G7 (Profile 3: MaxQuality)
-# Hardware: Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)
-# Memory: 16GB Dual-Channel LPDDR4x/DDR4 (51.2-68.2 GB/s Bandwidth)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Core i5-1135G7 (Profile 3: MaxQuality)
+# Hardware: Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12 W TDP, Intel Iris Xe Graphics 80EU)
+# Memory: 16 GB Dual-Channel LPDDR4x/DDR4 (51.2-68.2 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: High-Fidelity 60fps Presentation, Native 16x16 with 4px Overlap (14,151 Blocks), 12W Envelope
+# Target: High-Fidelity 60 fps Presentation, Native 16x16 with 4 px Overlap (14,151 Blocks), 12 W Envelope
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
@@ -38,7 +38,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis with Directional Alpha Blending
+# 3. Direct Native 60 fps Frame Synthesis with Directional Alpha Blending
 # Directly warps native frames using overlapping vector fields
 # mode=0: Fast 2-stream block projection
 # blend=true: Smooths occlusion boundaries and disocclusion edges

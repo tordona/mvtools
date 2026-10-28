@@ -1,8 +1,8 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 1: Eco)
 # Hardware: Generic 64-bit x86 (Intel Pentium/Celeron / Atom / Core / AMD Quad+ Cores)
 # Architecture: Native 1080p x86-64 SSE4.2 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: Ultra-Low Compute Load, Fanless & Battery Safety, Guaranteed Real-Time 60fps
+# Target: Ultra-Low Compute Load, Fanless & Battery Safety, Guaranteed Real-Time 60 fps
 # Revision: 3.0.0 (2026-10-25)
 # Changelog: Native 1080p 64x32 blocks (~1,020 blocks) with search=0 (OneTime predictor).
 #            Eliminated 0.5x proxy downscaling blur. Single-level geometry (levels=1).
@@ -10,7 +10,7 @@
 
 # Core Allocation & Threading Strategy:
 # 3 worker threads on quad-core CPUs leaves 1 core completely free for DXVA2 decode and DWM.
-# Native 64x32 blocks with search=0 guarantees smooth 60fps even on 6W low-power silicon.
+# Native 64x32 blocks with search=0 guarantees smooth 60 fps even on 6 W low-power silicon.
 threads     = 3
 mem_limit   = 512                 # Lean working set tailored for low-power and budget memory
 
@@ -39,7 +39,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=64, blksizev=32, search=0, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=64, blksizev=32, search=0, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps original source frames without proxy scaling quantization artifacts
 # mode=0: Fast block projection (minimal ALU load)
 # blend=false: Skips transparency alpha blending calculations

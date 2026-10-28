@@ -1,15 +1,15 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Core i5-8259U (Profile 3: MaxQuality)
-# Hardware: Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)
-# Memory: 16GB-32GB Dual-Channel DDR4/LPDDR3 (128MB Embedded eDRAM L4 Cache)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Core i5-8259U (Profile 3: MaxQuality)
+# Hardware: Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28 W TDP, Intel Iris Plus Graphics 655)
+# Memory: 16 GB-32 GB Dual-Channel DDR4/LPDDR3 (128 MB Embedded eDRAM L4 Cache)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: High-Fidelity 60fps Presentation, Native 16x16 with 4px Overlap (14,151 Blocks), 28W Envelope
+# Target: High-Fidelity 60 fps Presentation, Native 16x16 with 4 px Overlap (14,151 Blocks), 28 W Envelope
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
 # 4 worker threads mapped 1:1 to the 4 physical Coffee Lake cores.
-# Avoids SMT context switching penalty while fully exploiting the 28W TDP and 128MB eDRAM cache.
+# Avoids SMT context switching penalty while fully exploiting the 28 W TDP and 128 MB eDRAM cache.
 # Leaves all 4 logical hyperthreads free for Iris Plus 655 DXVA decode and Windows DWM.
 threads     = 4
 mem_limit   = 1024                # Generous cache allocation for dense overlapping vector grid
@@ -39,7 +39,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis with Directional Alpha Blending
+# 3. Direct Native 60 fps Frame Synthesis with Directional Alpha Blending
 # Directly warps native frames using overlapping vector fields
 # mode=0: Fast 2-stream block projection
 # blend=true: Smooths occlusion boundaries and disocclusion edges
@@ -47,6 +47,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, ov
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=true, thSCD1=350, thSCD2=115)
 
 # 4. Core Pinning: 4 Threads with 6-Frame Lookahead Queue
-# 4 worker threads on 4 physical cores delivers sustained AVX2 throughput on 28W TDP
+# 4 worker threads on 4 physical cores delivers sustained AVX2 throughput on 28 W TDP
 # 6 lookahead frames absorb thread scheduling jitter for zero dropped frames
 Prefetch(threads, 6)

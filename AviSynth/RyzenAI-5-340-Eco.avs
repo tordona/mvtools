@@ -1,9 +1,9 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: AMD Ryzen AI 5 340 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: AMD Ryzen AI 5 340 (Profile 1: Eco)
 # Hardware: AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)
-# Memory: 16GB-32GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
+# Memory: 16 GB-32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
-# Target: Sub-8W Package Envelope, Silent / Cool Battery Playback, 0 Dropped Frames
+# Target: Sub-8 W Package Envelope, Silent / Cool Battery Playback, 0 Dropped Frames
 # Revision: 2.0.0 (2026-10-25)
 # ==============================================================================
 
@@ -39,7 +39,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames without vector scaling or proxy interpolation artifacts
 # mode=0: Fast block projection (minimal ALU load)
 # blend=false: Skips transparency alpha blending calculations

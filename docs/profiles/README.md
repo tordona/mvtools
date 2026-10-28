@@ -1,8 +1,8 @@
 # AviSynth Profile Library & Specifications
 
-> **Curated, hardware-tailored AviSynth+ profiles for real-time 24fps → 60fps video motion interpolation in Daum PotPlayer on Windows on ARM64 and x86-64.**
+> **Curated, hardware-tailored AviSynth+ profiles for real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows on ARM64 and x86-64.**
 
-All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`)**, eliminating memory thrashing on unified memory architectures while sustaining consistent 60fps frame delivery without frame drops.
+All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`)**, eliminating memory thrashing on unified memory architectures while sustaining consistent 60 fps frame delivery without frame drops.
 
 ---
 
@@ -14,7 +14,7 @@ In traditional AviSynth MVTools implementations (`levels=0`, default 7–8 level
 **The Rev 3.0.0 Solution:**
 * Setting `levels=1` (or `plevel=0`) restricts motion estimation to native 1080p single-level evaluation.
 * Eliminates over 60% of unnecessary memory read/write traffic.
-* Prevents cache pollution and stabilizes CPU/GPU temperatures under 15W/5W envelopes.
+* Prevents cache pollution and stabilizes CPU/GPU temperatures under 15 W/5 W envelopes.
 
 ### 2. Two-Pass Coarse-to-Fine Block Refinement
 Instead of relying on deep pyramid levels for macro-motion tracking, Rev 3.0.0 uses a two-pass block refinement strategy:
@@ -71,7 +71,7 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 ### Snapdragon X Plus: Balanced Profile *(Recommended)*
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
 # Revision: 2.0.0
@@ -105,7 +105,7 @@ Prefetch(threads, 4)
 ### Snapdragon X Plus: MaxQuality Profile
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon X Plus (Profile 3: MaxQuality)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: MaxQuality)
 # Target: Maximum visual fidelity, subpixel precision (pel=2), 16x16 -> 8x8 blocks
 # Revision: 2.0.0
 # ==============================================================================
@@ -145,7 +145,7 @@ Prefetch(threads, 4)
 ### Snapdragon 8cx Gen 3: Balanced Profile *(Recommended)*
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Pinned to 4x Cortex-X1 Prime cores (threads=4) to prevent asymmetric core stalls
 # Revision: 2.1.0
 # ==============================================================================
@@ -185,7 +185,7 @@ Prefetch(threads, 4)
 ### Snapdragon 8cx Gen 2: Balanced Profile *(Recommended)*
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Pinned to 4x Kryo 495 Gold cores (threads=4)
 # Revision: 2.0.0
 # ==============================================================================
@@ -222,7 +222,7 @@ Prefetch(threads, 4)
 ### Snapdragon 850: Balanced Profile *(Recommended)*
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
 # Pinned to 3x Kryo 385 Gold cores (threads=3) to preserve headroom for D3D11 present
 # Revision: 2.0.0
 # ==============================================================================
@@ -253,13 +253,13 @@ Prefetch(threads, 4)
 
 ## 5. Qualcomm Snapdragon 7c Gen 2
 
-> **Hardware Target:** 2x Kryo 468 Gold Cores (Cortex-A76 @ 2.55 GHz) + 6x Kryo 468 Silver, Adreno 618, Fanless 5W.  
-> **Tested Chassis:** Samsung Galaxy Book Go (4GB RAM, fanless).
+> **Hardware Target:** 2x Kryo 468 Gold Cores (Cortex-A76 @ 2.55 GHz) + 6x Kryo 468 Silver, Adreno 618, Fanless 5 W.  
+> **Tested Chassis:** Samsung Galaxy Book Go (4 GB RAM, fanless).
 
 ### Snapdragon 7c Gen 2: Balanced Profile *(Recommended)*
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 7c Gen 2 (Profile 2: Balanced)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 2: Balanced)
 # Dynamic 0.5x proxy search + 2x vector scale + zero-loss native synthesis
 # Pinned to 2x Cortex-A76 Gold cores (threads=2) for whisper-cool fanless playback
 # Revision: 2.0.0
@@ -299,31 +299,31 @@ Prefetch(threads, 4)
 <span id="part-ii-x86-64-hardware-profiles-amd-ryzen-intel-core"></span>
 ## Part II: x86-64 Hardware Profiles (AMD Ryzen & Intel Core)
 
-Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, preserving memory bandwidth on integrated GPUs (AMD Radeon RDNA, Intel Iris Xe, and Intel Arc) while maintaining fluid 60fps frame delivery.
+Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, preserving memory bandwidth on integrated GPUs (AMD Radeon RDNA, Intel Iris Xe, and Intel Arc) while maintaining fluid 60 fps frame delivery.
 
 ### x86-64 Profile Matrix
 
 | Platform / CPU | Topology & TDP | Tier | Block Size | Threads | Memory | Download |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15W–28W | `Eco` | 32×32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
+| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
 | | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
 | | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-MaxQuality.avs) |
-| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45W | `Eco` | 32×32 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
+| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45 W | `Eco` | 32×32 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
 | | Intel UHD Graphics 32EU | `Balanced` | 32 → 16 | 8 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-Balanced.avs) |
 | | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-MaxQuality.avs) |
-| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12W–28W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
+| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12 W – 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
 | | Intel Iris Xe 80EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-MaxQuality.avs) |
-| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
-| | Intel Iris Plus 655 (128MB eDRAM) | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
+| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
+| | Intel Iris Plus 655 (128 MB eDRAM) | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-MaxQuality.avs) |
-| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5W (Fanless) | `Eco` | 32×16 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
+| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5 W (Fanless) | `Eco` | 32×16 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
 | | Intel HD Graphics 615 | `Balanced` | 16×16 (Proxy) | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-MaxQuality.avs) |
-| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
+| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
 | | Intel UHD Graphics 64EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-MaxQuality.avs) |
-| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6W (Fanless) | `Eco` | 32×32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-Eco.avs) |
+| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-Eco.avs) |
 | | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
 | **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 32×32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Generic-x64-Eco.avs) |
@@ -336,7 +336,7 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60fps Balanced Interpolation Script (Generic x86-64)
+# MVTools2 60 fps Balanced Interpolation Script (Generic x86-64)
 # Hardware: AMD Ryzen / Intel Core (4+ Physical Cores)
 # Revision: 3.0.0
 # ==============================================================================
@@ -361,7 +361,7 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-# 4. Pixel-Level Motion Interpolation to 60fps
+# 4. Pixel-Level Motion Interpolation to 60 fps
 MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
 
 Prefetch(threads, 4)

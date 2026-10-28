@@ -1,9 +1,9 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Core i5-8259U (Profile 1: Eco)
-# Hardware: Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28W TDP, Intel Iris Plus Graphics 655)
-# Memory: 16GB-32GB Dual-Channel DDR4/LPDDR3 (128MB Embedded eDRAM L4 Cache)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Core i5-8259U (Profile 1: Eco)
+# Hardware: Intel Core i5-8259U (4C/8T Coffee Lake-U @ 28 W TDP, Intel Iris Plus Graphics 655)
+# Memory: 16 GB-32 GB Dual-Channel DDR4/LPDDR3 (128 MB Embedded eDRAM L4 Cache)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Sub-10W Power Envelope, Minimal Fan Noise, Cool Battery Playback, 0 Drops
+# Target: Sub-10 W Power Envelope, Minimal Fan Noise, Cool Battery Playback, 0 Drops
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
@@ -38,7 +38,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames without vector scaling or proxy interpolation artifacts
 # mode=0: Fast block projection (minimal ALU load)
 # blend=false: Skips transparency alpha blending calculations
@@ -46,6 +46,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, sea
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
 # 4. Core Pinning: 3 Threads with 4-Frame Lookahead Queue
-# 3 threads keeps package power well below 10W and prevents thermal fan spin-up
+# 3 threads keeps package power well below 10 W and prevents thermal fan spin-up
 # 4 lookahead frames absorb thread scheduling jitter
 Prefetch(threads, 4)

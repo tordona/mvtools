@@ -1,7 +1,7 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Snapdragon 850 (Profile 1: Eco)
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
-# Target: 5W Fanless Thermal Envelope, Maximum Battery Life, 0 Thermal Throttling
+# Target: 5 W Fanless Thermal Envelope, Maximum Battery Life, 0 Thermal Throttling
 # Architecture: Native 1080p Single-Super Wide-Block (Zero Resizing Overhead)
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Native 1080p, levels=1, single MSuper, threads=3, Prefetch(3, 4), mem_limit=512
@@ -36,7 +36,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=64, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=64, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Block-Based 60fps Synthesis
+# 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)
 # blend=false: Avoids calculating blend transparency masks on fast motion
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes

@@ -1,9 +1,9 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Processor N100 (Profile 2: Balanced)
-# Hardware: Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD Graphics 24EU)
-# Memory: 16GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Processor N100 (Profile 2: Balanced)
+# Hardware: Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD Graphics 24EU)
+# Memory: 16 GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Fluid 1080p 60fps, Native 16x16 Vectors (8,160 Blocks), 6W Sustained Envelope
+# Target: Fluid 1080p 60 fps, Native 16x16 Vectors (8,160 Blocks), 6 W Sustained Envelope
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
@@ -33,15 +33,15 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 # 2. Native 1080p Fine Motion Vector Search (No Proxy / Zero Downscale)
 # blksize=16, blksizev=16: 16x16 blocks at native 1080p (~8,160 blocks total)
 # 4x vector density compared to 32x32 without proxy scaling quantization
-# search=2, searchparam=1: Radius-1 hexagonal search stays cache-resident in 2MB L2
+# search=2, searchparam=1: Radius-1 hexagonal search stays cache-resident in 2 MB L2
 # chroma=false: Luma-only search cuts vector computation by 50%
 # levels=1: Single-level search matching super's levels=1
 backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames with 1:1 pixel accuracy
-# mode=0: Fast 2-stream block projection (sustains 60fps without CPU pipeline stalls)
+# mode=0: Fast 2-stream block projection (sustains 60 fps without CPU pipeline stalls)
 # blend=false: Clean block projection avoiding blur on fast motion
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)

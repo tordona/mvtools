@@ -1,24 +1,24 @@
-# PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon X Plus
+# PotPlayer & AviSynth 60 fps Configuration Guide: Snapdragon X Plus
 
 > **Hardware Target:** Qualcomm Snapdragon X Plus (X1P-42-100 / X1P-46-100 / X1P-64-100)  
 > **Integrated GPU:** Qualcomm Adreno X1-85 (3.8 TFLOPS FP32)  
 > **CPU Topology:** 8x Uniform High-IPC Qualcomm Oryon Cores @ up to 3.4 GHz *(No E-cores)*  
 > **Memory Subsystem:** 8-Channel LPDDR5x-8448 MHz (135 GB/s Unified Bandwidth)  
-> **Thermal Profile:** 15W–30W Active / High-Efficiency Passive Designs
+> **Thermal Profile:** 15 W – 30 W Active / High-Efficiency Passive Designs
 
 ---
 
 ## Overview & Thermal Strategy
 
-The **Qualcomm Snapdragon X Plus** platform operates across a configurable **15W–30W thermal envelope**, scaling from high-efficiency passive/convertible designs to actively cooled laptop chassis:
+The **Qualcomm Snapdragon X Plus** platform operates across a configurable **15 W – 30 W thermal envelope**, scaling from high-efficiency passive/convertible designs to actively cooled laptop chassis:
 
 1. **Uniform Oryon CPU Cores:** Unlike heterogeneous big.LITTLE architectures, the Snapdragon X Plus features **8 uniform high-performance Oryon CPU cores** (up to 3.4 GHz). Eliminating in-order efficiency cores removes asymmetric worker thread bottlenecks.
-2. **Thermal Budget Preservation via Adreno X1 VPU:** Software decoding of modern high-bitrate codecs (such as 4K AV1 or 10-bit HEVC) can draw over 6W–8W on the CPU cores alone, elevating package temperatures and triggering cooling fans or thermal stepping. Offloading decode entirely to the Adreno X1 VPU reduces CPU decode overhead to 0%, preserving thermal headroom for MVTools synthesis.
+2. **Thermal Budget Preservation via Adreno X1 VPU:** Software decoding of modern high-bitrate codecs (such as 4K AV1 or 10-bit HEVC) can draw over 6 W – 8 W on the CPU cores alone, elevating package temperatures and triggering cooling fans or thermal stepping. Offloading decode entirely to the Adreno X1 VPU reduces CPU decode overhead to 0%, preserving thermal headroom for MVTools synthesis.
 3. **High Memory Bandwidth (135 GB/s):** The unified 8-channel LPDDR5x memory bus provides 135 GB/s of bandwidth, accommodating multi-level subpixel pyramids (`pel=2`) and high-resolution frame buffers without memory bus throttling.
 4. **Thermal Profile Scaling:** 
-   - **Eco (5W–8W):** `Prefetch(4)` keeps 4 Oryon cores completely idle, ensuring minimal thermal dissipation and silent fanless operation.
-   - **Balanced (12W–16W):** `Prefetch(6)` provides 60fps interpolation with 2 idle cores reserved for OS processes and thermal dissipation.
-   - **MaxQuality (22W–28W):** `Prefetch(8)` utilizes all 8 cores for fine-grid motion vectors within active cooling thermal ceilings.
+   - **Eco (5 W – 8 W):** `Prefetch(4)` keeps 4 Oryon cores completely idle, ensuring minimal thermal dissipation and silent fanless operation.
+   - **Balanced (12 W – 16 W):** `Prefetch(6)` provides 60 fps interpolation with 2 idle cores reserved for OS processes and thermal dissipation.
+   - **MaxQuality (22 W – 28 W):** `Prefetch(8)` utilizes all 8 cores for fine-grid motion vectors within active cooling thermal ceilings.
 
 ---
 
@@ -108,7 +108,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | **Interpolation Mode** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
 | **Threading (`Prefetch`)** | `Prefetch(4)` *(4 cores idle)* | `Prefetch(6)` *(Leaves 2 cores for OS)* | `Prefetch(8)` *(Full 8-core saturation)* |
 | **Memory Allocation** | `SetMemoryMax(1024)` | `SetMemoryMax(2048)` | `SetMemoryMax(4096)` |
-| **Estimated SoC Power** | 5W – 8W | 12W – 16W | 22W – 28W |
+| **Estimated SoC Power** | 5 W – 8 W | 12 W – 16 W | 22 W – 28 W |
 
 ---
 
@@ -129,9 +129,9 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 ## Verification & OSD Diagnostic
 
-To confirm that the Adreno X1 hardware decoder and 60fps AviSynth interpolation pipeline are functioning properly:
+To confirm that the Adreno X1 hardware decoder and 60 fps AviSynth interpolation pipeline are functioning properly:
 
-1. Open and play any 24fps/30fps video in PotPlayer.
+1. Open and play any 24 fps/30 fps video in PotPlayer.
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).
 3. Confirm the following real-time metrics:
    - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(confirming GPU decode)*.

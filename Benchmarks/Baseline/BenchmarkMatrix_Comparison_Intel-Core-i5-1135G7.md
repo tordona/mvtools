@@ -1,6 +1,6 @@
 ﻿# MVTools Benchmark Comparison Matrix - Intel-Core-i5-1135G7
 
-**Host Platform:** Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)  
+**Host Platform:** Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12 W TDP, Intel Iris Xe Graphics 80EU)  
 **Platform Identifier:** Intel-Core-i5-1135G7  
 **PotPlayer Version:** 1.7.23164 (Build: 2026-10-23 02:59:00)  
 **Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.1)  
@@ -19,18 +19,18 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **55.32 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **55.32 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 4.9% (Peak: 5.3%) on x64 CPU SIMD with working set of 282.0 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.22 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.22 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 6.2% (Peak: 6.4%) on x64 CPU SIMD with working set of 291.3 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **60.00 FPS** (1% Low: **54.79 FPS**, Dropped: 0 frames).
+   - **Frame Rate & Pacing:** Sustained **60.00 fps** (1% Low: **54.79 fps**, Dropped: 0 frames).
    - **Compute Load:** System CPU averaged 10.5% (Peak: 11.0%) on x64 CPU SIMD with working set of 310.9 MB.
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 FPS with zero dropped presentation frames on **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12W TDP, Intel Iris Xe Graphics 80EU)**. **Eco** minimized CPU compute load (4.9%), while **Eco** delivered the smoothest frame consistency (55.32 FPS 1% low).
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **Intel Core i5-1135G7 (4C/8T Tiger Lake-U @ 12 W TDP, Intel Iris Xe Graphics 80EU)**. **Eco** minimized CPU compute load (4.9%), while **Eco** delivered the smoothest frame consistency (55.32 fps 1% low).
 - **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.96 Hz** (Primary Display (59.959 Hz, 32575000/543289)). Across the evaluated duration, presentation synchronized continuously without accumulating frame discards.

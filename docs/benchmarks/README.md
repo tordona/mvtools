@@ -2,7 +2,7 @@
 
 Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows on ARM64 (Qualcomm Snapdragon SoCs) and x64 (AMD Ryzen / Intel Core).
 
-This test suite rigorously measures, validates, and compares motion estimation and 60fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2_d3d12.dll`).
+This test suite rigorously measures, validates, and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2_d3d12.dll`).
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
@@ -42,25 +42,25 @@ Benchmarks/
 
 ## Reference Baseline Matrices (`Baseline/`)
 
-Golden reference benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/):
+Verified baseline benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/):
 
 | Platform / SoC | Baseline Report | Tested Chassis / Target Hardware |
 | :--- | :--- | :--- |
 | **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
-| **AMD Ryzen AI 5 340** | [**`BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) | AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c @ 15W TDP, Radeon 840M RDNA 3.5) |
-| **Intel Core i7-11850H** | [**`BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) | Intel Core i7-11850H (8C/16T @ 45W TDP, Intel UHD 32EU, 24MB L3) |
-| **Intel Core i5-8259U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) | Intel Core i5-8259U (4C/8T @ 28W TDP, Iris Plus 655, 128MB eDRAM) |
-| **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12W TDP, Iris Xe 80EU, 16GB Dual-Channel) |
-| **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15W TDP, Intel UHD 64EU, 16GB Dual-Channel) |
-| **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6W TDP, Intel UHD 24EU, 16GB Single-Channel) |
-| **Intel Core i5-7Y54** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54...md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615.md) | Intel Core i5-7Y54 (2C/4T @ 10W TDP, Intel HD 615, 8GB LPDDR3-1866) |
-| **Intel Pentium Silver N5030** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030...md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) | Intel Pentium Silver N5030 @ 1.10GHz, Intel UHD Graphics 605, 8GB RAM |
+| **AMD Ryzen AI 5 340** | [**`BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) | AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c @ 15 W TDP, Radeon 840M RDNA 3.5) |
+| **Intel Core i7-11850H** | [**`BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) | Intel Core i7-11850H (8C/16T @ 45 W TDP, Intel UHD 32EU, 24 MB L3) |
+| **Intel Core i5-8259U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) | Intel Core i5-8259U (4C/8T @ 28 W TDP, Iris Plus 655, 128 MB eDRAM) |
+| **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12 W TDP, Iris Xe 80EU, 16 GB Dual-Channel) |
+| **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15 W TDP, Intel UHD 64EU, 16 GB Dual-Channel) |
+| **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD 24EU, 16 GB Single-Channel) |
+| **Intel Core i5-7Y54** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54...md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Core-i5-7Y54-CPU---1-20GHz--Intel-HD-Graphics-615.md) | Intel Core i5-7Y54 (2C/4T @ 10 W TDP, Intel HD 615, 8 GB LPDDR3-1866) |
+| **Intel Pentium Silver N5030** | [**`BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030...md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605.md) | Intel Pentium Silver N5030 @ 1.10GHz, Intel UHD Graphics 605, 8 GB RAM |
 | **Snapdragon X Plus** | [**`BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) | Surface Pro 11th Edition (Qualcomm Oryon, Adreno X1-85) |
 | **Snapdragon 8cx Gen 3** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md) | Lenovo ThinkPad X13s (4x Cortex-X1 + 4x A78, Adreno 690) |
 | **Snapdragon 8cx Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md) | Microsoft Surface Pro X SQ2 (Kryo 495, Adreno 680) |
 | **Snapdragon 8cx Gen 1** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md) | Microsoft Surface Pro X SQ1 (Kryo 495, Adreno 675) |
-| **Snapdragon 850** | [**`BenchmarkMatrix_Comparison_Snapdragon-850.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-850.md) | Samsung Galaxy Book2 (Kryo 385, Adreno 630, 5W Fanless) |
-| **Snapdragon 7c Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md) | Samsung Galaxy Book Go (Kryo 468, Adreno 618, 4GB Fanless) |
+| **Snapdragon 850** | [**`BenchmarkMatrix_Comparison_Snapdragon-850.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-850.md) | Samsung Galaxy Book2 (Kryo 385, Adreno 630, 5 W Fanless) |
+| **Snapdragon 7c Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md`**](https://github.com/tordona/mvtools/blob/mvtools_d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md) | Samsung Galaxy Book Go (Kryo 468, Adreno 618, 4 GB Fanless) |
 
 ---
 
@@ -123,9 +123,9 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
    - Enforces always on top during playback (`TopMost=2`) to prevent foreground occlusion and DWM compositing fallback.
    - Forces fullscreen keep-aspect-ratio presentation, hides playlist dock, detaches side panels, and terminates any duplicate background player instances.
 5. **[5/7] Physical RAM & UMA Headroom Verification:**
-   Evaluates profile `SetMemoryMax`, allocates 1024 MB UMA/player buffer headroom, triggers GC, and checks available physical RAM. On memory-constrained devices (e.g. 4GB RAM), surfaces a non-fatal warning and prompts interactively (or bypasses with `-IgnoreRamWarning`) rather than aborting unconditionally.
+   Evaluates profile `SetMemoryMax`, allocates 1024 MB UMA/player buffer headroom, triggers GC, and checks available physical RAM. On memory-constrained devices (e.g. 4 GB RAM), surfaces a non-fatal warning and prompts interactively (or bypasses with `-IgnoreRamWarning`) rather than aborting unconditionally.
 6. **[6/7] Environmental Stabilization & Load Normalization:**
-   - Inspects physical display hardware refresh rate via native Win32 `QueryDisplayConfig`. Surfaces a prominent warning if a non-integer rate (e.g. 59.86 Hz or 59.94 Hz) is detected, explaining that VSync phase drift between the 60.000 FPS video clock and panel scanout will artificially inflate dropped frames.
+   - Inspects physical display hardware refresh rate via native Win32 `QueryDisplayConfig`. Surfaces a prominent warning if a non-integer rate (e.g. 59.86 Hz or 59.94 Hz) is detected, explaining that VSync phase drift between the 60.000 fps video clock and panel scanout will artificially inflate dropped frames.
    - Verifies AC power connection (blocks run on battery to avoid dynamic clock downthrottling).
    - Activates Windows High Performance power plan (`8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c`).
    - Quiesces noisy background applications (browsers, Discord, Teams, Slack, Steam).
@@ -186,7 +186,7 @@ powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps
 powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps1" -Profile MaxQuality -GpuMode CPU
 ```
 
-#### Example 4: Quick 30-Second Verification Run (5s Warmup)
+#### Example 4: Quick 30-Second Verification Run (5 s Warmup)
 ```powershell
 powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps1" -Profile Balanced -GpuMode D3D12 -WarmupSeconds 5 -TestDurationSeconds 30 -SkipNetworkDisable
 ```
@@ -255,11 +255,11 @@ powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare
 When analyzing the comparison matrix, focus on the following key performance indicators:
 
 ### 1. Motion Fluidity & Pacing
-- **Average FPS:** Target is solid **60.00 FPS**. Any lower indicates dropped or skipped frames.
+- **Average FPS:** Target is solid **60.00 fps**. Any lower indicates dropped or skipped frames.
 - **1% Low FPS (Microstutter Indicator):**
-  - **≥ 52.0 FPS:** Stable presentation; frame time variance is within ±2.5 ms.
-  - **< 45.0 FPS:** Visible stutter; frame rendering variance exceeds display refresh sync windows.
-  - *Observation:* ARM64 CPU NEON typically achieves tighter 1% Lows (53-54 FPS) than D3D12 GPU because it avoids command queue contention with PotPlayer's Direct3D 11 presentation swapchain.
+  - **≥ 52.0 fps:** Stable presentation; frame time variance is within ±2.5 ms.
+  - **< 45.0 fps:** Visible stutter; frame rendering variance exceeds display refresh sync windows.
+  - *Observation:* ARM64 CPU NEON typically achieves tighter 1% Lows (53-54 fps) than D3D12 GPU because it avoids command queue contention with PotPlayer's Direct3D 11 presentation swapchain.
 - **Dropped Frames:** In Windows DWM Composed Flip mode, PotPlayer presents directly to the desktop window manager swapchain. Clean runs present zero dropped presentation frames.
 
 ### 2. Compute Load & Efficiency

@@ -1,8 +1,8 @@
-# PotPlayer & AviSynth 60fps Configuration Guide: Snapdragon 7c Gen 2
+# PotPlayer & AviSynth 60 fps Configuration Guide: Snapdragon 7c Gen 2
 
 > **Hardware Target:** Qualcomm Snapdragon 7c Gen 2 (SC7180)  
 > **Integrated GPU:** Qualcomm Adreno 618  
-> **Test Device:** Samsung Galaxy Book Go (14", Fanless Passive 5W Chassis)  
+> **Test Device:** Samsung Galaxy Book Go (14", Fanless Passive 5 W Chassis)  
 > **CPU Topology:** 2x Kryo 468 Gold (Cortex-A76 @ 2.55 GHz) + 6x Kryo 468 Silver (Cortex-A55 @ 1.80 GHz)
 
 ---
@@ -11,7 +11,7 @@
 
 The **Samsung Galaxy Book Go** is a lightweight, completely fanless Windows on ARM64 laptop with a nominal package thermal design power (TDP) of **5 Watts**. 
 
-Under full 1080p video playback, software decoding alone on the 2 Gold cores can consume up to 2.5–3.0W. If MVTools full-resolution 1080p motion search is added, total system power spikes past 7W, quickly causing **thermal throttling down to approx. 1.2 GHz** within 10–20 seconds and dropping frame rates from 60 fps to 8–12 fps.
+Under full 1080p video playback, software decoding alone on the 2 Gold cores can consume up to 2.5–3.0 W. If MVTools full-resolution 1080p motion search is added, total system power spikes past 7 W, quickly causing **thermal throttling down to approx. 1.2 GHz** within 10–20 seconds and dropping frame rates from 60 fps to 8–12 fps.
 
 To achieve continuous, sustained 60 fps without thermal throttling:
 1. **Adreno 618 Hardware Decoding:** Offload H.264/HEVC decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back (reducing CPU decode load to 0%).
@@ -70,8 +70,8 @@ To achieve continuous, sustained 60 fps without thermal throttling:
    - **Buffer Back** (first box): Set to **`10`** to **`12`** frames.
    - **Buffer Ahead** (second box): Set to **`16`** to **`20`** frames.
 5. Under **Load script:**, browse and select your preferred Snapdragon 7c Gen 2 profile:
-   - [**`Snapdragon-7cGen2-Balanced.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60fps watching)*
-   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(Low-power operation, extended battery longevity, 3.0W)*
+   - [**`Snapdragon-7cGen2-Balanced.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60 fps watching)*
+   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(Low-power operation, extended battery longevity, 3.0 W)*
    - [**`Snapdragon-7cGen2-MaxQuality.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) *(Hierarchical pyramid search for fast action scenes)*
 6. Click **Apply** and **OK**.
 
@@ -89,8 +89,8 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 | **Frame Synthesis** | Native 1080p `mode=0` | Native 1080p `mode=0` | Native 1080p `mode=0` |
 | **Worker Threads** | `Prefetch(2, 4)` | `Prefetch(2, 4)` | `Prefetch(2, 4)` |
 | **Memory Limit** | 384 MB | 512 MB | 512 MB |
-| **Package Power** | **2.8W – 3.2W** | **3.4W – 3.8W** | **4.2W – 4.7W** |
-| **Thermal Headroom** | Maximum (>15°C margin) | High (>10°C margin) | Sustained at 5W ceiling |
+| **Package Power** | **2.8 W – 3.2 W** | **3.4 W – 3.8 W** | **4.2 W – 4.7 W** |
+| **Thermal Headroom** | Maximum (>15°C margin) | High (>10°C margin) | Sustained at 5 W ceiling |
 
 ---
 
@@ -123,7 +123,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 
 ## Verification & OSD Diagnostic
 
-To confirm that the Adreno 618 hardware decoder and 60fps AviSynth processing are active during playback:
+To confirm that the Adreno 618 hardware decoder and 60 fps AviSynth processing are active during playback:
 
 1. Play a video in PotPlayer.
 2. Press **`Tab`** to toggle the On-Screen Display (OSD).

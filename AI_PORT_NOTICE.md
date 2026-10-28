@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.47.121-arm64`**. 
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.47.122`**. 
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
@@ -13,7 +13,7 @@ Historically, MVTools was tightly coupled to x86/x64 assembly and MSVC/GCC x86 i
 2. Reliance on x86-specific inline assembly and x86 SIMD (`emmintrin.h`, `smmintrin.h`, etc.).
 3. Fundamental **C++ ABI calling convention and vtable layout mismatches** between host **MinGW GCC** binaries (such as PotPlayer's bundled `AviSynth.dll`) and **MSVC ARM64** plugins.
 
-This port resolves all three tiers of incompatibilities, delivering **native ARM64 execution**, **128-bit NEON SIMD vectorization**, **zero-crash lifecycle stability**, and **tuned real-time 60fps profiles**.
+This port resolves all three tiers of incompatibilities, delivering **native ARM64 execution**, **128-bit NEON SIMD vectorization**, **zero-crash lifecycle stability**, and **tuned real-time 60 fps profiles**.
 
 ---
 
@@ -65,38 +65,48 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Zero-CPU Motion Estimation**: Dispatches parallel compute shaders (`CSMain`, `[numthreads(8, 8, 1)]`) directly on Adreno GPU wave cores to evaluate block SAD, hexagonal/diamond search, and cost minimization entirely in hardware.
 - **Unified Memory Architecture (UMA) Fast Path**: Leverages Snapdragon's shared physical LPDDR4x/LPDDR5x memory subsystem between CPU and Adreno GPU, eliminating PCIe transfer overhead and enabling zero-copy host-visible readback.
 - **Dual-Pass Search Offload**: Accelerates both coarse motion vector search (`MAnalyse`) and fine block refinement (`MRecalculate`).
-- **Dramatic CPU Relief**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
+- **Substantial CPU Load Reduction**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
 - **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsGPUAvailable()` and `MEnableGPU(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
 
 ---
 
 ## 3. Hardware Profiles & Deployment Guides
 
-Custom real-time 60fps AviSynth motion interpolation scripts and PotPlayer iGPU offload guides were engineered for Qualcomm Snapdragon platforms:
+Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Qualcomm Snapdragon platforms:
 
-- **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15W–30W TDP)**:
+- **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15 W – 30 W TDP)**:
   - [`Snapdragon-X-Plus-Eco.avs`](AviSynth/Snapdragon-X-Plus-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
   - [`Snapdragon-X-Plus-Balanced.avs`](AviSynth/Snapdragon-X-Plus-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 target.
   - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` → `8x8` micro-blocks, UMH motion search, `Prefetch(8)`. Maximum fidelity for plugged-in operation.
   - Guide: [`Documentation/guides/SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md).
 
-- **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7W–15W)**:
+- **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7 W – 15 W)**:
   - [`Snapdragon-8cxGen3-Eco.avs`](AviSynth/Snapdragon-8cxGen3-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low power and cool operating thermals.
   - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 on Adreno 690 GPU or 6 out-of-order performance cores.
   - [`Snapdragon-8cxGen3-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` → `8x8` micro-blocks on CPU / `32x32` → `16x16` on Adreno 690 GPU, `mode=2` with `blend=true`, `Prefetch(7)`. Full utilization of 4x Cortex-X1 prime cores + Adreno 690 compute shader.
   - Guide: [`Documentation/guides/Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md).
 
-- **Snapdragon 8cx Gen 1 & Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7W–10W Fanless)**:
+- **Snapdragon 8cx Gen 1 & Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7 W – 10 W Fanless)**:
   - **Snapdragon 8cx Gen 2 / Microsoft SQ2**: [`Snapdragon-8cxGen2-Eco.avs`](AviSynth/Snapdragon-8cxGen2-Eco.avs), [`Snapdragon-8cxGen2-Balanced.avs`](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [`Snapdragon-8cxGen2-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs). *(Microsoft SQ2 is identical silicon to 8cx Gen 2).*
   - **Snapdragon 8cx Gen 1 / Microsoft SQ1**: [`Snapdragon-8cxGen1-Eco.avs`](AviSynth/Snapdragon-8cxGen1-Eco.avs), [`Snapdragon-8cxGen1-Balanced.avs`](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [`Snapdragon-8cxGen1-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs). *(Microsoft SQ1 is identical silicon to 8cx Gen 1).*
   - Adaptive Direct3D 12 DirectCompute GPU offload (`USE_GPU = true`) and pure CPU NEON fallback with strict `Prefetch <= 4` core pinning.
   - Guides: [`Documentation/guides/Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) (Snapdragon 8cx Gen 2 / SQ2) and [`Documentation/guides/Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) (Snapdragon 8cx Gen 1 / SQ1).
 
-- **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5W Fanless)**:
-  - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5W fanless designs.
+- **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5 W Fanless)**:
+  - [`Snapdragon-850-Eco.avs`](AviSynth/Snapdragon-850-Eco.avs): Wide `64x32` rectangular blocks (~1,020 blocks for 1080p), `pel=1`, `mode=0` block projection, `Prefetch(2)`. Runs strictly on 2 Gold cores for minimal heat and zero throttling in ~5 W fanless designs.
   - [`Snapdragon-850-Balanced.avs`](AviSynth/Snapdragon-850-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `pel=1`, `mode=0` block projection, `Prefetch(3)`. Crisp boundary tracking while preserving 1 Gold core for OS and Adreno GPU drivers.
   - [`Snapdragon-850-MaxQuality.avs`](AviSynth/Snapdragon-850-MaxQuality.avs): `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow interpolation, `Prefetch(4)`. Full Gold core saturation without spilling onto Cortex-A55 cores.
   - Guide: [`Documentation/guides/Snapdragon850.md`](Documentation/guides/Snapdragon850.md) (Covers Adreno 630 VPU hardware decode offload and Direct3D 11 rendering).
+
+- **Snapdragon 7c Gen 2 (2x Kryo 468 Gold Cortex-A76 + 6x Silver Cortex-A55, Adreno 618, 5 W Fanless)**:
+  - [`Snapdragon-7cGen2-Eco.avs`](AviSynth/Snapdragon-7cGen2-Eco.avs): `32x16` blocks at 540p (`pel=1`, `mode=0`), `Prefetch(2, 4)`. Minimal package power draw (~2.8 W – 3.2 W) for extended battery life.
+  - [`Snapdragon-7cGen2-Balanced.avs`](AviSynth/Snapdragon-7cGen2-Balanced.avs): `16x16` blocks at 540p (`pel=1`, `mode=0`), `Prefetch(2, 4)`. Clean boundary tracking strictly within the 5 W passive thermal envelope.
+  - [`Snapdragon-7cGen2-MaxQuality.avs`](AviSynth/Snapdragon-7cGen2-MaxQuality.avs): `16x16` blocks with `badrange=(-24)`, `mode=0`, `Prefetch(2, 4)`. High-fidelity motion estimation for fast action sequences.
+  - Guide: [`Documentation/guides/Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md).
+
+- **Hardware-Tailored x86-64 Profiles & Benchmark Baselines**:
+  - Native 1080p single-level (`levels=1`) profiles tailored for AMD Ryzen AI (Zen 5/5c) and Intel Core architectures (Core i7-11850H, i5-8259U, Core i3-1215U, i5-1135G7, N100).
+  - Guides & Baselines: [`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) and [`Benchmarks/Baseline/`](Benchmarks/Baseline/).
 
 ---
 
@@ -114,7 +124,8 @@ msbuild mvtools.sln /p:Configuration=Release /p:Platform=ARM64
 ```
 
 ### Output Binaries
-- `Sources\ARM64\Release\mvtools2.dll`
+- `Sources\ARM64\Release\mvtools2.dll` (Native ARM64 NEON reference engine)
+- `Sources\ARM64\Release\mvtools2_d3d12.dll` (Direct3D 12 GPU compute engine)
 - `DePan\ARM64\Release\DePan.dll`
 - `DePanEstimate\ARM64\Release\DePanEstimate.dll`
 
@@ -149,7 +160,7 @@ This port was executed using Google Antigravity, leveraging both platform agent 
   - Replaced x86-specific inline assembly with portable C++ and SIMD equivalents.
 - **Heterogeneous SoC Optimization & Thermal Tuning**:
   - Analyzed Qualcomm Snapdragon big.LITTLE / heterogeneous core topologies (Qualcomm Oryon, Kryo Gold/Silver) to eliminate thread starvation caused by inappropriate thread pool oversizing.
-  - Formulated real-time 60fps AviSynth profiles and PotPlayer iGPU hardware-decoding offload recommendations for Snapdragon X Plus, 8cx Gen 2, and 850.
+  - Formulated real-time 60 fps AviSynth profiles and PotPlayer GPU hardware-decoding offload recommendations for Snapdragon X Plus, 8cx Gen 3, 8cx Gen 1/2, 850, and 7c Gen 2.
 - **Build System Engineering & Modernization**:
   - Integrated MSVC ARM64 platform definitions across multi-project Visual Studio solution files (`.sln`, `.vcxproj`).
   - Preserved strict backward compatibility for legacy x86 and x64 builds through preprocessor guards.
@@ -158,8 +169,9 @@ This port was executed using Google Antigravity, leveraging both platform agent 
 
 ## 6. Upstream Credits & Licensing
 
-- **MVTools Original Authors & Contributors**: Manao, Fizick, Trombettista, TSPlayer, SEt, Vit, DTL, and pinterf.
+- **MVTools Original Authors & Contributors**: Manao, Fizick, Trombettista, TSPlayer, SEt, Vit, DTL, pinterf, Firesledge, cretindesalpes, and TSchniede.
+- **Intel Corporation**: Intel® PresentMon (MIT License; see [`Benchmarks/PresentMon-LICENSE.txt`](Benchmarks/PresentMon-LICENSE.txt)) for sub-millisecond ETW frame timing.
 - **sse2neon**: The sse2neon project authors for the SSE-to-NEON translation library.
 - **AviSynth+ Project**: The AviSynth+ team and contributors.
-- **License**: GNU General Public License v2 (GPL-2.0) as inherited from original MVTools.
+- **License**: GNU General Public License v2 (GPL-2.0) as inherited from original MVTools (see [`Documentation/gpl.txt`](Documentation/gpl.txt)).
 

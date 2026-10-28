@@ -1,17 +1,17 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Intel Core i3-1215U (Profile 1: Eco)
-# Hardware: Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15W TDP, Intel UHD Graphics 64EU)
-# Memory: 16GB Dual-Channel DDR4/LPDDR5 (51.2-83.2 GB/s Bandwidth)
+# PotPlayer AviSynth 60 fps Interpolation: Intel Core i3-1215U (Profile 1: Eco)
+# Hardware: Intel Core i3-1215U (2P+4E/8T Alder Lake-U @ 15 W TDP, Intel UHD Graphics 64EU)
+# Memory: 16 GB Dual-Channel DDR4/LPDDR5 (51.2-83.2 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Sub-8W Power Envelope, Minimal Heat, Silent Fan / Passive Playback, 0 Drops
+# Target: Sub-8 W Power Envelope, Minimal Heat, Silent Fan / Passive Playback, 0 Drops
 # Revision: 1.0.0 (2026-10-25)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
 # 2 worker threads locks computation strictly to the 2 Golden Cove P-cores (1 thread per P-core).
-# Avoids hyperthread contention and E-core scheduling jitter, keeping package draw sub-8W.
+# Avoids hyperthread contention and E-core scheduling jitter, keeping package draw sub-8 W.
 threads     = 2
-mem_limit   = 512                 # Generous memory pool for 16GB dual-channel RAM
+mem_limit   = 512                 # Generous memory pool for 16 GB dual-channel RAM
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -38,7 +38,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames without vector scaling or proxy interpolation artifacts
 # mode=0: Fast block projection (minimal ALU load)
 # blend=false: Skips transparency alpha blending calculations

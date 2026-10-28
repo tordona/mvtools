@@ -1,8 +1,8 @@
 # ==============================================================================
-# PotPlayer AviSynth 60fps Interpolation: Generic x86-64 (Profile 2: Balanced)
-# Hardware: Generic 64-bit x86 (Intel Core i3/i5/i7 / AMD Ryzen Quad+ Cores, 15W-28W TDP)
+# PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 2: Balanced)
+# Hardware: Generic 64-bit x86 (Intel Core i3/i5/i7 / AMD Ryzen Quad+ Cores, 15 W – 28 W TDP)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Fluid 1080p 60fps, Native 32x32 Vectors (2,040 Blocks), Recommended Default
+# Target: Fluid 1080p 60 fps, Native 32x32 Vectors (2,040 Blocks), Recommended Default
 # Revision: 3.0.0 (2026-10-25)
 # Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks).
 #            Added radius-1 hexagonal search (search=2, searchparam=1) and levels=1.
@@ -39,9 +39,9 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60fps Frame Synthesis
+# 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames with 1:1 native pixel coordinate accuracy
-# mode=0: Fast 2-stream block projection (sustains 60fps without CPU pipeline stalls)
+# mode=0: Fast 2-stream block projection (sustains 60 fps without CPU pipeline stalls)
 # blend=false: Clean block projection avoiding blur on fast motion
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)

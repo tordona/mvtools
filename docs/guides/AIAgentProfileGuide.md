@@ -1,6 +1,6 @@
 # AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
 
-This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
+This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
 
 ---
 
@@ -18,7 +18,7 @@ Tool-enabled IDE agents have direct access to your local workspace, terminal she
 
 #### The 1-Step Prompt:
 ```text
-Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/blob/mvtools_d3d12/docs/guides/AIAgentProfileGuide.md). Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/blob/mvtools_d3d12/docs/guides/AIAgentProfileGuide.md). Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
 ```
 
 #### What the IDE Agent Does Autonomously:
@@ -26,7 +26,7 @@ Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/b
 2. **Deterministic Script Writing:** Synthesizes `<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, and `<Platform>-MaxQuality.avs` directly into `AviSynth/` following the Step 1 & Step 2 architectural constraints.
 3. **Automated Benchmark Execution:** Executes `.\Benchmarks\MvToolsBenchmark-Start.ps1` with `-AutoInstallPotPlayer` and `-AutoInstallVcRedist` in the background.
 4. **Telemetry & Log Auditing:** Reads the resulting `Benchmarks/BenchmarkResults/report_*.txt` and PresentMon frame logs directly from disk.
-5. **Closed-Loop Self-Tuning:** If dropped frames, thread capacity saturation (≥ 88%), or thermal throttling are detected, the agent references the [Step 4 Telemetry Diagnosis Matrix](#step-4-telemetry-diagnosis--tuning-matrix-when-performance-fails-60fps), modifies the `.avs` scripts in-place, and re-tests until 60.00 FPS / 0 drops is empirically achieved.
+5. **Closed-Loop Self-Tuning:** If dropped frames, thread capacity saturation (≥ 88%), or thermal throttling are detected, the agent references the [Step 4 Telemetry Diagnosis Matrix](#step-4-telemetry-diagnosis--tuning-matrix-when-performance-fails-60-fps), modifies the `.avs` scripts in-place, and re-tests until 60.00 fps / 0 drops is empirically achieved.
 6. **Git Version Control:** Verifies syntax, formats line endings, GPG-signs, and commits the validated profile set.
 
 ---
@@ -38,13 +38,13 @@ When using a web-based AI assistant (e.g. `gemini.google.com`, ChatGPT, or Claud
 #### Step 1: Collect Your Hardware Details
 Gather three basic pieces of information about your machine:
 1. **CPU Model, Core Layout & TDP:** 
-   * Example: *Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45W TDP, 24MB L3)*.
-   * Example: *AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c cores @ 15W–28W TDP, 16MB L3)*.
-   * Example: *Intel Core i5-8259U (4 Coffee Lake cores / 8 threads @ 28W TDP, 128MB eDRAM L4)*.
-   * Example: *Intel Core i5-1135G7 (4 Willow Cove cores / 8 threads @ 12W TDP, Iris Xe 80EU)*.
-   * Example: *Intel Core i3-1215U (2 Performance cores, 4 Efficient cores @ 15W TDP)*.
-   * Example: *Intel Processor N100 (4 Gracemont E-cores @ 6W TDP)*.
-   * Example: *Qualcomm Snapdragon X Plus (8 Oryon cores @ 12W–28W TDP, Adreno X1-85)*.
+   * Example: *Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W TDP, 24 MB L3)*.
+   * Example: *AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c cores @ 15 W – 28 W TDP, 16 MB L3)*.
+   * Example: *Intel Core i5-8259U (4 Coffee Lake cores / 8 threads @ 28 W TDP, 128 MB eDRAM L4)*.
+   * Example: *Intel Core i5-1135G7 (4 Willow Cove cores / 8 threads @ 12 W TDP, Iris Xe 80EU)*.
+   * Example: *Intel Core i3-1215U (2 Performance cores, 4 Efficient cores @ 15 W TDP)*.
+   * Example: *Intel Processor N100 (4 Gracemont E-cores @ 6 W TDP)*.
+   * Example: *Qualcomm Snapdragon X Plus (8 Oryon cores @ 12 W – 28 W TDP, Adreno X1-85)*.
 2. **Integrated / Dedicated GPU Model:** 
    * Example: *Intel Iris Xe / Intel UHD Graphics*, *Radeon 840M / 780M*, or *Adreno X1*.
 3. **System Memory (RAM):** 
@@ -71,7 +71,7 @@ AviSynth/<Platform>-MaxQuality.avs
 ```
 
 #### Step 4: Validate with the Automated Benchmark Harness
-Run the automated benchmark harness to verify real-time 60fps stability and zero frame drops:
+Run the automated benchmark harness to verify real-time 60 fps stability and zero frame drops:
 ```powershell
 Set-Location Benchmarks
 .\MvToolsBenchmark-Start.ps1 -Profile "<Platform>-Balanced.avs" -AutoInstallPotPlayer -AutoInstallVcRedist -TestDurationSeconds 90 -WarmupSeconds 10
@@ -80,7 +80,7 @@ Set-Location Benchmarks
 > The `-AutoInstallVcRedist` switch automatically diagnoses, acquires, and silently installs official Microsoft Visual C++ 2015–2022 runtimes if missing, preventing the common PotPlayer error *"AviSynth.dll not found"* (Win32 126).
 
 #### Step 5: Tuning Loop (If Frame Drops or Stutter Occur)
-If the benchmark reports dropped frames or under 60 FPS:
+If the benchmark reports dropped frames or under 60 fps:
 1. Open the generated audit report: `Benchmarks/BenchmarkResults/report_<Profile>_<Timestamp>.txt`.
 2. Copy the **`FRAME RATE & PACING TELEMETRY`**, **`PERFORMANCE TELEMETRY SUMMARY`**, and **`MEMORY & PAGING INTEGRITY`** sections.
 3. Paste them back to your AI assistant with this prompt:
@@ -97,10 +97,10 @@ If the benchmark reports dropped frames or under 60 FPS:
 Copy the text inside the block below and paste it into your AI assistant:
 
 ````markdown
-You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (1080p 24fps -> 60fps real-time playback in PotPlayer).
+You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (1080p 24 fps -> 60 fps real-time playback in PotPlayer).
 
 Your task is to generate and iteratively tune a complete, production-grade 3-tier AviSynth profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) for the following target hardware platform:
-[INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c, Radeon 840M, 16GB LPDDR5x) or Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45W, Intel UHD 32EU, 24MB L3)]
+[INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c, Radeon 840M, 16 GB LPDDR5x) or Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W, Intel UHD 32EU, 24 MB L3)]
 
 ---
 
@@ -137,7 +137,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    backward_vec = MAnalyse(super, isb=true,  blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
    forward_vec  = MAnalyse(super, isb=false, blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
 
-   # 3. Direct Native 60fps Frame Synthesis (MBlockFps)
+   # 3. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy
    MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
@@ -154,18 +154,18 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * 8-Core CPU (e.g. i7-11850H, 8C/16T): `threads = 4` (Eco), `threads = 6` (Balanced), `threads = 8` (MaxQuality).
    * **Heterogeneous / Hybrid Cores (Intel Alder Lake/Raptor Lake P+E, AMD Zen 5+Zen 5c, ARM big.LITTLE):**
      * **Intel Hybrid (P+E Cores):** Pin worker threads strictly to high-performance P-cores (e.g. on 2P+4E `i3-1215U`, set `threads = 3`). Never let AviSynth worker threads spill into low-throughput E-cores where the slowest thread stalls the frame presentation deadline.
-     * **AMD Zen 5 + Zen 5c (Kraken Point / Strix Point):** Both Zen 5 and Zen 5c share the unified 16MB L3 cache with full AVX-512 support. Set `threads = 3` (Eco, P-cores only), `threads = 4` (Balanced), `threads = 6` (MaxQuality, all physical cores).
+     * **AMD Zen 5 + Zen 5c (Kraken Point / Strix Point):** Both Zen 5 and Zen 5c share the unified 16 MB L3 cache with full AVX-512 support. Set `threads = 3` (Eco, P-cores only), `threads = 4` (Balanced), `threads = 6` (MaxQuality, all physical cores).
      * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 3` (Eco), `threads = 4` (Balanced & MaxQuality).
 
 4. **Lookahead Queue Sizing (`Prefetch(threads, Lookahead)`):**
    * **Eco Tier:** `Prefetch(threads, 4)` (4 lookahead frames).
    * **Balanced & MaxQuality Tiers:** `Prefetch(threads, 6)` (or `8` on 8-core CPUs).
-   * A deeper lookahead queue (6–8 frames) absorbs transient Windows DWM/audio scheduling spikes, locking 1% Low frame rates above **52.0–55.5 FPS**.
+   * A deeper lookahead queue (6–8 frames) absorbs transient Windows DWM/audio scheduling spikes, locking 1% Low frame rates above **52.0–55.5 fps**.
 
 5. **Lean Memory Ceiling (`SetMemoryMax`):**
    * Because single-level search (`levels=1`) eliminates redundant pyramid buffers, memory requirements are streamlined to preserve UMA DRAM bandwidth for integrated graphics:
      * **Eco:** `mem_limit = 512`
-     * **Balanced:** `mem_limit = 768` (or `1024` on 32GB systems)
+     * **Balanced:** `mem_limit = 768` (or `1024` on 32 GB systems)
      * **MaxQuality:** `mem_limit = 1024` (or `1536` on 8-core systems)
 
 ---
@@ -173,7 +173,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 ### Step 2: Profile Tier Definitions & Tuning Parameters
 
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
-* **Objective:** Sub-8W to 10W package power, low-thermal battery playback, 0 dropped frames.
+* **Objective:** Sub-8 W to 10 W package power, low-thermal battery playback, 0 dropped frames.
 * **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=0, vpad=0` (zero padding overhead), `sharp=0` (bilinear).
 * **MAnalyse:** Coarse 32x32 blocks (`blksize=32, blksizev=32`, approx. 2,040 blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
 * **MBlockFps:** `mode=0` (fast 2-stream block projection), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
@@ -189,7 +189,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 * **Expected CPU Load:** Typically **4.5% to 20.8%** on modern processors.
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
-* **Objective:** Highest visual fidelity, dense 4px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
+* **Objective:** Highest visual fidelity, dense 4 px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
 * **MSuper:** `levels=1`, `pel=1`, `hpad=0, vpad=0`, `sharp=1` (bicubic subpixel sharpness enhances fine detail edge contrast).
 * **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing.
 * **MBlockFps:** `mode=0`, `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
@@ -207,7 +207,7 @@ For the requested platform, output:
    * `<Platform>-Balanced.avs`
    * `<Platform>-MaxQuality.avs`
    Each file must include a standardized header comment:
-   * `# PotPlayer AviSynth 60fps Interpolation: <Platform> (Profile N: <Tier>)`
+   * `# PotPlayer AviSynth 60 fps Interpolation: <Platform> (Profile N: <Tier>)`
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
@@ -216,16 +216,16 @@ For the requested platform, output:
 
 ---
 
-### Step 4: Telemetry Diagnosis & Tuning Matrix (When Performance Fails 60fps)
+### Step 4: Telemetry Diagnosis & Tuning Matrix (When Performance Fails 60 fps)
 
-If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showing dropped frames or under 60fps, diagnose the root cause and adjust parameters strictly according to this matrix:
+If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showing dropped frames or under 60 fps, diagnose the root cause and adjust parameters strictly according to this matrix:
 
 | Telemetry Symptom in Audit Report | Root Cause Diagnosis | Prescribed Parameter Adjustment |
 | :--- | :--- | :--- |
 | **"AviSynth.dll not found"** dialog in PotPlayer (Win32 Error 126 / `ERROR_MOD_NOT_FOUND`) | **Missing Visual C++ 2015–2022 CRT runtimes:** `vcruntime140.dll`, `msvcp140.dll`, or `vcruntime140_1.dll` missing in `System32`. | Instruct the user to run the benchmark with `-AutoInstallVcRedist`, which automatically downloads and silently installs the official Microsoft redistributable from `https://aka.ms/vc14/vc_redist.x64.exe` (or `arm64.exe`). |
-| **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 FPS presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
+| **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
 | **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (>85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. Increase block size (e.g. 16x16 → 32x32).<br>3. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>4. Ensure `blend=false` in `MBlockFps`. |
-| **FPS degrades over time** (starts at 60 FPS, drops to 45–50 FPS by 60s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
-| **Severe Microstutter (1% Low < 45 FPS)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Increase lookahead queue to `Prefetch(threads, 6)`.<br>2. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
+| **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
+| **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Increase lookahead queue to `Prefetch(threads, 6)`.<br>2. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 1024 → 768, or 768 → 512).<br>2. Ensure single-level geometry `levels=1` is enabled. |
 | **1–2 dropped frames with Render Latency <0.5 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (e.g. 60.02 Hz or 60.15 Hz panel clock), not a computational bottleneck. |
