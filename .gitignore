@@ -307,6 +307,7 @@ Benchmarks/*.7z
 Benchmarks/*.zip
 Benchmarks/*.exe
 !Benchmarks/PresentMon-arm64.exe
+!Benchmarks/PresentMon-x64.exe
 Benchmarks/*.dll
 Benchmarks/*.mov
 Benchmarks/*.mp4
