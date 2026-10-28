@@ -130,10 +130,11 @@ if ($RunMatrix) {
         exit 1
     }
 
-    $compareArch = if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir) -and (Test-Path (Join-Path $PotPlayerDir "PotPlayer64.exe"))) {
+    $effectivePotDir = if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir)) { $PotPlayerDir } elseif ($env:ProgramFiles) { Join-Path ${env:ProgramFiles} "DAUM\PotPlayer" } else { "" }
+    $compareArch = if ($effectivePotDir -and (Test-Path (Join-Path $effectivePotDir "PotPlayer64.exe"))) {
         $archFound = "x64"
         try {
-            $stream = [System.IO.File]::OpenRead((Join-Path $PotPlayerDir "PotPlayer64.exe"))
+            $stream = [System.IO.File]::OpenRead((Join-Path $effectivePotDir "PotPlayer64.exe"))
             $binReader = New-Object System.IO.BinaryReader($stream)
             $stream.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
             $peOffset = $binReader.ReadInt32()
@@ -144,7 +145,7 @@ if ($RunMatrix) {
             if ($machine -eq 0xAA64) { $archFound = "arm64" }
         } catch {}
         $archFound
-    } elseif ($env:PROCESSOR_ARCHITECTURE -match '(?i)ARM64' -or $env:PROCESSOR_ARCHITEW6432 -match '(?i)ARM64') {
+    } elseif ($env:PROCESSOR_ARCHITECTURE -match '(?i)ARM64' -or $env:PROCESSOR_ARCHITEW6432 -match '(?i)ARM64' -or $env:PROCESSOR_IDENTIFIER -match '(?i)ARM|Qualcomm|Snapdragon|Oryon') {
         "arm64"
     } else {
         "x64"

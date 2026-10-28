@@ -1883,7 +1883,7 @@ function Set-PotPlayerActiveProfile {
 
         if (-not (Test-Path $iniPath)) {
             try {
-                "[Settings]`r`nAutoIni=0`r`n[Positions]`r`nMainWindowState=128`r`n" | Set-Content -Path $iniPath -Encoding Unicode
+                "[Settings]`r`nAutoIni=0`r`nAutoDownloadFile=0`r`nCheckAutoUpdate=0`r`n[Positions]`r`nMainWindowState=128`r`n" | Set-Content -Path $iniPath -Encoding Unicode
             } catch {}
         }
 
@@ -1893,6 +1893,8 @@ function Set-PotPlayerActiveProfile {
                 $newLines = [System.Collections.Generic.List[string]]::new()
                 $inSettings = $false
                 $keysToSet = [ordered]@{
+                    "AutoDownloadFile"       = "0"     # Disable automatic download of update files
+                    "CheckAutoUpdate"        = "0"     # Disable checking for auto updates
                     "VideoRen2"              = "15"    # Direct3D 11 Video Renderer
                     "UseSelfDxva"            = "1001"  # D3D11 Copy-Back Hardware Decode
                     "AvisynthUse"            = "1"     # Enable AviSynth processing

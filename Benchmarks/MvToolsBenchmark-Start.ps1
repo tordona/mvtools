@@ -323,7 +323,7 @@ function Initialize-PotPlayerIniFiles {
             if (-not (Test-Path $target)) {
                 try {
                     $autoIniVal = if ($isDefault) { "0" } else { "1" }
-                    $initialContent = "[Settings]`r`nAutoIni=$autoIniVal`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n"
+                    $initialContent = "[Settings]`r`nAutoIni=$autoIniVal`r`nAutoDownloadFile=0`r`nCheckAutoUpdate=0`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n"
                     [System.IO.File]::WriteAllText($target, $initialContent, [System.Text.Encoding]::Unicode)
                     Write-Host "     Created clean baseline INI: $target" -ForegroundColor Gray
                 } catch {
@@ -3960,6 +3960,8 @@ function Set-PotPlayerSettings {
         }
         "Settings" = [ordered]@{
             "AutoIni"               = if ($isDefault) { "0" } else { "1" }
+            "AutoDownloadFile"      = "0"      # Disable automatic download of update files
+            "CheckAutoUpdate"       = "0"      # Disable checking for auto updates
             "AttachWindowIndex"     = "0"      # Detach/close side panel (playlist dock)
             "UseSideWindow"         = "0"      # Disable side docking window
             "StartScreenSize"       = "4"      # Start screen size: Fullscreen
@@ -3997,7 +3999,7 @@ function Set-PotPlayerSettings {
             }
             try {
                 $autoVal = if ($isDefault) { "0" } else { "1" }
-                "[Settings]`r`nAutoIni=$autoVal`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n" | Set-Content -Path $IniPath -Encoding Unicode
+                "[Settings]`r`nAutoIni=$autoVal`r`nAutoDownloadFile=0`r`nCheckAutoUpdate=0`r`nMultipleRunning=0`r`n[Positions]`r`nMainWindowState=128`r`n" | Set-Content -Path $IniPath -Encoding Unicode
             } catch {}
         }
 
@@ -4456,7 +4458,7 @@ if ($CurrentFreeRamMb -lt $TotalRequiredRamMb) {
     Write-Host "  -> Available Free RAM: $CurrentFreeRamMb MB | Recommended Free RAM: $TotalRequiredRamMb MB" -ForegroundColor Yellow
     Write-Host "  POTENTIAL BENCHMARK IMPACT:" -ForegroundColor Yellow
     Write-Host "  Insufficient physical RAM can cause Windows memory compression and SSD pagefile swapping," -ForegroundColor White
-    Write-Host "  introducing hard latency spikes (5–25 ms) that may artificially skew 60 fps frame pacing." -ForegroundColor White
+    Write-Host "  introducing hard latency spikes (5-25 ms) that may artificially skew 60 fps frame pacing." -ForegroundColor White
     Write-Host "  On memory-constrained devices (e.g. 4 GB RAM), benchmarks can proceed but results should" -ForegroundColor White
     Write-Host "  be evaluated with memory pressure in mind.`n" -ForegroundColor White
 
@@ -4861,6 +4863,7 @@ try {
 - Fullscreen & Aspect Ratio: Enforced Keep AR (FullScreenFitMode=0, FullScreenFitOverride=0, ScreenFitMode=0, ScreenFitBySize=0, IsZoomFull=0, MainWindowState=128)
 - Playlist & Side Panels: Hidden on open (AttachWindowIndex=0, UseSideWindow=0, VideoWindowState1=0, PlayListWindowVisible=0)
 - Single-Instance Mode: MultipleRunning=0 (Forced)
+- Auto-Update Disabled: CheckAutoUpdate=0, AutoDownloadFile=0 (Forced)
 - Single-Instance Status: $InstanceStatus
 
 4. MEMORY & PAGING INTEGRITY
