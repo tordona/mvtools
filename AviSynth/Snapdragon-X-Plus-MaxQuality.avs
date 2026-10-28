@@ -33,7 +33,6 @@ blk_coarse  = USE_GPU ? 32 : 16
 blk_fine    = USE_GPU ? 16 : 8
 search_alg  = USE_GPU ? 2 : 3
 search_rad  = USE_GPU ? 2 : 3
-plevel_val  = USE_GPU ? 0 : 1
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -46,18 +45,20 @@ potplayer_source()
 LoadPlugin(plugin_file)
 
 # 1. High-Precision Subpixel Motion Super Clip (Half-Pixel Accuracy)
+# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel: True half-pixel subpixel interpolation for ultra-fine motion vectors
 # hpad, vpad: Edge padding prevents border distortion
 # sharp: 1 for bicubic (fast), 2 for Wiener (CPU heavy)
-super = MSuper(pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
+super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
 
 # 2. Coarse Motion Vector Field Analysis
 # blksize=blk_coarse: Fast macro-motion detection
 # search=search_alg, searchparam=search_rad: Wide search tracking fast pans and action
 # chroma=use_chroma: Dynamic based on USE_GPU
+# levels=1: Strictly searches base Level 0
 # badrange=(-24): Strict outlier suppression
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=search_rad, chroma=use_chroma, plevel=plevel_val, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=search_rad, chroma=use_chroma, plevel=plevel_val, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=search_rad, chroma=use_chroma, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=search_rad, chroma=use_chroma, levels=1, badrange=(-24))
 
 # 3. High-Definition Subpixel Micro-Block Refinement (MRecalculate)
 # blksize=blk_fine: 16x16 on GPU (8,160 blocks @ pel=2) gives subpixel accuracy at continuous 60 fps

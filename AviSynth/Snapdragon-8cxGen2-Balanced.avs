@@ -29,16 +29,18 @@ potplayer_source()
 LoadPlugin(plugin_file)
 
 # 1. Motion Super Clip with Lightweight Edge Guard
+# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Whole-pixel estimation paired with MRecalculate keeps CPU low while tracking details
 # hpad=4, vpad=4: Minimal boundary padding prevents edge tearing without cache thrashing
 # sharp=1: Bicubic interpolation for cleaner motion vectors
-super = MSuper(pel=1, hpad=4, vpad=4, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=1)
 
 # 2. Coarse Motion Vector Search (32x32 blocks)
 # search=2: Hexagonal search with radius 1 keeps searches fast on Cortex-A76 cores
 # badrange=(-24): Early rejection of outlier vectors to prevent haloing
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0, badrange=(-24))
+# levels=1: Strictly searches base Level 0
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate to 16x16)
 # blksize=16, blksizev=16: Refines vectors down to 16x16 blocks at object boundaries

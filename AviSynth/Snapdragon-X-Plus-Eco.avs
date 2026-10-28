@@ -29,19 +29,20 @@ potplayer_source()
 LoadPlugin(plugin_file)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
+# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Full-pixel precision only (skips subpixel math, cutting memory bandwidth by ~75%)
 # hpad=0, vpad=0: No padding overhead
 # sharp=0: Fast bilinear interpolation for minimal ALU load
-super = MSuper(pel=1, hpad=0, vpad=0, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Ultra-Lightweight Coarse Motion Analysis
 # blksize=32, blksizev=32: Large 32x32 blocks drastically reduce block count
 # search=2: Hexagonal search pattern (extremely fast and stable)
 # searchparam=1: Minimal search radius to limit vector comparisons
 # chroma=false: Evaluates luminance only, saving 50% vector math
-# plevel=0: Direct search without multi-level pyramid overhead
-backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
-forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, plevel=0)
+# levels=1: Strictly searches base Level 0 without multi-level pyramid overhead
+backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
+forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
 
 # 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)

@@ -89,10 +89,10 @@ potplayer_source()
 
 LoadPlugin(plugin_file)
 
-super = MSuper(pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
@@ -122,10 +122,10 @@ potplayer_source()
 
 LoadPlugin(plugin_file)
 
-super = MSuper(pel=2, hpad=16, vpad=16, sharp=2)
+super = MSuper(levels=1, pel=2, hpad=16, vpad=16, sharp=2)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=8, blksizev=8, search=3, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=8, blksizev=8, search=3, searchparam=1, chroma=false)
@@ -162,10 +162,10 @@ potplayer_source()
 
 LoadPlugin(plugin_file)
 
-super = MSuper(pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
@@ -201,8 +201,8 @@ LoadPlugin("mvtools2.dll")
 
 super = src.MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
@@ -238,8 +238,8 @@ LoadPlugin("mvtools2.dll")
 
 super = src.MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
@@ -351,11 +351,11 @@ potplayer_source()
 LoadPlugin("mvtools2.dll")
 
 # 1. Native 1080p Single-Level Super Clip
-super = MSuper(pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
 
 # 2. Coarse Motion Vector Estimation (32x32)
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, plevel=0, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (16x16)
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)

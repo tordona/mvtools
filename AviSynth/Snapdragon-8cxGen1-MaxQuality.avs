@@ -36,16 +36,18 @@ potplayer_source()
 LoadPlugin(plugin_file)
 
 # 1. Subpixel Motion Super Clip
+# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel: Dynamic based on USE_GPU (pel=1 avoids Adreno 680 texture cache thrashing; pel=2 on CPU)
 # hpad=8, vpad=8: Boundary padding stabilizes edge vector calculation
 # sharp=1: Bicubic filtering (lighter than sharp=2, preventing thermal throttling)
-super = MSuper(pel=pel_val, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=pel_val, hpad=8, vpad=8, sharp=1)
 
 # 2. Dense Motion Vector Field Analysis
 # GPU: Evaluates in a single pass of dense 16x16 blocks (only 2 dispatches), eliminating thermal throttling
 # CPU: Coarse pass before 8x8 micro-block refinement
-backward_dense = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=search_rad, chroma=false, plevel=0, badrange=(-24))
-forward_dense  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=search_rad, chroma=false, plevel=0, badrange=(-24))
+# levels=1: Strictly searches base Level 0
+backward_dense = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=search_rad, chroma=false, levels=1, badrange=(-24))
+forward_dense  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=search_rad, chroma=false, levels=1, badrange=(-24))
 
 # 3. Motion Vector Refinement (CPU only)
 # GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes 8x8 micro-block refinement
