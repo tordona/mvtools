@@ -57,7 +57,7 @@ The host `AviSynth.dll` bundled with ARM64 video players (e.g., PotPlayer) is ty
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`mvtools2_d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+> Direct3D 12 GPU acceleration (`mvtools2-d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
 >
 > For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
 
@@ -125,7 +125,7 @@ msbuild mvtools.sln /p:Configuration=Release /p:Platform=ARM64
 
 ### Output Binaries
 - `Sources\ARM64\Release\mvtools2.dll` (Native ARM64 NEON reference engine)
-- `Sources\ARM64\Release\mvtools2_d3d12.dll` (Direct3D 12 GPU compute engine)
+- `Sources\ARM64\Release\mvtools2-d3d12.dll` (Direct3D 12 GPU compute engine)
 - `DePan\ARM64\Release\DePan.dll`
 - `DePanEstimate\ARM64\Release\DePanEstimate.dll`
 

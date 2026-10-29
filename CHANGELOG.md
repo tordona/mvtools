@@ -1,6 +1,7 @@
 Change log
 - 2.7.47.122-arm64 (20261028)
   - Direct3D 12 Compute & Pipeline Optimizations:
+    - Renamed Direct3D 12 acceleration plugin binary from mvtools2_d3d12.dll to mvtools2-d3d12.dll, aligning binary naming with repository branch convention (mvtools-d3d12).
     - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loop and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
     - Extended D3D12FlowSynthesis 3-texture ring caching with consecutive source/reference pair matching (m_lastSrcRingIdx), eliminating redundant frame re-uploads during fractional rate conversions (such as 24 fps -> 60 fps intermediate sub-frames).
     - Resolved texture cache mismatch edge cases to prevent cache invalidation errors and eliminate intro logo flicker during scene transitions.
@@ -52,7 +53,7 @@ Change log
     - Persistently mapped constant buffer, readback buffer, and predictor buffers to eliminate per-frame OS kernel Map/Unmap transitions.
     - Optimized compute shader refinement (`MRecalculate`): uses tight 8-point 3x3 local subpixel grid with early-exit on near-perfect coarse matches (`bestSAD <= 128`), cutting per-block refinement cycles by up to 71%.
     - Supports both coarse motion search (`MAnalyse`) and fine micro-block refinement (`MRecalculate`).
-    - Direct output binary naming configured to `mvtools2_d3d12.dll` across MSBuild (`mvtools.vcxproj`) and CMake targets for side-by-side comparative testing against baseline CPU `mvtools2.dll`.
+    - Direct output binary naming configured to `mvtools2-d3d12.dll` across MSBuild (`mvtools.vcxproj`) and CMake targets for side-by-side comparative testing against baseline CPU `mvtools2.dll`.
     - Added runtime GPU status queries and controls (`MIsGPUAvailable()`, `MEnableGPU(bool)`).
   - Native Windows on ARM64 support:
     - Added native ARM64 Release and Debug targets across mvtools, DePan, and DePanEstimate.
@@ -88,7 +89,7 @@ Change log
     - Explicit Download Confirmation Prompts: requires explicit user authorization (`Confirm-DownloadPermission`) displaying source URL, destination, and file size before downloading external packages.
     - Background Process Quiescence & Interactive Prompt: inspects running noisy processes (browsers, Slack, Teams, etc.), displays a clear warning, and offers an interactive `[Y/n]` prompt defaulting to Yes on Enter, with `-SkipProcessKill` CLI bypass.
     - Automated AviSynth+ Acquisition: downloads and extracts official native `AviSynth.dll` from GitHub releases (`AviSynth/AviSynthPlus`, latest tag `filesonly.7z`) directly to the PotPlayer directory.
-    - Automated MVTools ARM64 Acquisition: downloads and extracts official release binaries (`mvtools2.dll`, `mvtools2_d3d12.dll`, `DePan.dll`, `DePanEstimate.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`).
+    - Automated MVTools ARM64 Acquisition: downloads and extracts official release binaries (`mvtools2.dll`, `mvtools2-d3d12.dll`, `DePan.dll`, `DePanEstimate.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`).
     - Automated Official PotPlayer ARM64 Setup: downloads and silently installs official native PotPlayer ARM64 from Kakao CDN with live speed/ETA progress and safety watchdog (`-AutoInstallPotPlayer`).
     - Reference Baseline Comparison Matrices: preserved across 6 Snapdragon SoC generations under `Benchmarks/Baseline/`.
     - PresentMon ARM64 Telemetry: integrated empirical panel scanout ETW analysis, integer VSync drift detection, render latency tracking, and profile revision reporting.

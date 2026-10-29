@@ -8,13 +8,13 @@
 
 # ------------------------------------------------------------------------------
 # User Configuration: Toggle Adreno GPU Offload
-# Set to true for Direct3D 12 Adreno GPU offload (mvtools2_d3d12.dll)
+# Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
 # Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
 # ------------------------------------------------------------------------------
 USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 # GPU: 3 worker threads prevents GPU queue lock contention;
 # CPU: Exactly 4 worker threads pinned to the 4x Cortex-X1 Prime cores (zero asymmetric core stalls)
 threads     = USE_GPU ? 3 : 4

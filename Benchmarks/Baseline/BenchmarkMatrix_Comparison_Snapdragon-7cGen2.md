@@ -15,7 +15,7 @@
 | **MaxQuality** | CPU NEON | **60.01** | **54.65** | 52.12 | 10.8% / 12.7% | 51.3% / 52.3% | 42.5% | 228.0 MB | 1 frames |
 
 > [!NOTE]
-> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (mvtools2_d3d12.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
+> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (mvtools2-d3d12.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
 
 > [!NOTE]
 > **Memory-Constrained Hardware Notice:** Benchmark telemetry for this platform was captured on a memory-constrained device (Yes (Total RAM: 3767 MB, Available: 1571 MB)). Microstutter metrics (1% and 0.1% Low FPS) and memory working sets should be interpreted with memory pressure in mind.

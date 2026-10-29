@@ -32,7 +32,7 @@ Modern chipsets feature heterogeneous CPU topologies (e.g. Oryon, Cortex-X1/A78/
 ### 4. Direct3D 12 DirectCompute GPU Offload Toggle (ARM64)
 Snapdragon X Plus and 8cx Gen 3 profiles include an inline toggle:
 ```avisynth
-USE_GPU = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2_d3d12.dll)
+USE_GPU = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
 ```
 When enabled, motion vector estimation executes on the Adreno iGPU command queue while keeping CPU utilization minimal.
 
@@ -80,7 +80,7 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 threads     = USE_GPU ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
 mem_limit   = USE_GPU ? 1536 : 2048
 
@@ -124,7 +124,7 @@ Prefetch(threads)
 USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 use_chroma  = USE_GPU ? false : true
 threads     = USE_GPU ? 4 : 8
 mem_limit   = USE_GPU ? 2048 : 4096
@@ -177,7 +177,7 @@ Prefetch(threads)
 # ==============================================================================
 USE_GPU = false
 
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 threads     = USE_GPU ? 3 : 4
 mem_limit   = USE_GPU ? 1024 : 1024
 
@@ -219,7 +219,7 @@ Prefetch(threads)
 USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 threads     = USE_GPU ? 3 : 4
 mem_limit   = USE_GPU ? 1024 : 1536
 

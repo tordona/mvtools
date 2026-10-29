@@ -802,7 +802,7 @@ foreach ($pk in $PlatformGroups.Keys) {
     if ($isX64) {
         $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the active production motion estimation engine on x64 platforms."
     } else {
-        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2_d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
+        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2-d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
     }
 
     if ($hasConstrained) {

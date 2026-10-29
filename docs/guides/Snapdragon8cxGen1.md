@@ -93,7 +93,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> All 8cx Gen 1 profiles default to pure CPU NEON execution (`USE_GPU = false`), which serves as the production reference. Setting `USE_GPU = true` engages the **experimental Direct3D 12 preview engine** (`mvtools2_d3d12.dll`) to offload motion search to the Adreno 675 GPU:
+> All 8cx Gen 1 profiles default to pure CPU NEON execution (`USE_GPU = false`), which serves as the production reference. Setting `USE_GPU = true` engages the **experimental Direct3D 12 preview engine** (`mvtools2-d3d12.dll`) to offload motion search to the Adreno 675 GPU:
 > - **Balanced (`USE_GPU = true`):** Sustains 60 fps with zero dropped frames, utilizing 57.6% Adreno GPU compute and lowering CPU load to **14.9%**.
 > - **MaxQuality (`USE_GPU = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and Dynamic Median blending (`blend=true`), completing with zero dropped presentation frames and reducing host CPU load to **24.0%**.  
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*

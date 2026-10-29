@@ -77,7 +77,7 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 
 > [!TIP]
 > **Adreno 690 Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> Set `USE_GPU = true` at the top of any 8cx Gen 3 script to engage the Adreno 690 compute shader (`mvtools2_d3d12.dll`). The 8cx Gen 3's 136 GB/s bus and 2.2 TFLOPS compute engine easily sustain 60 fps at low power:
+> Set `USE_GPU = true` at the top of any 8cx Gen 3 script to engage the Adreno 690 compute shader (`mvtools2-d3d12.dll`). The 8cx Gen 3's 136 GB/s bus and 2.2 TFLOPS compute engine easily sustain 60 fps at low power:
 > - **MaxQuality (`USE_GPU = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and radius-2 fine refinement (`fine_rad = 2`) with Dynamic Median synthesis (`mode=2, blend=true`), sustaining **54.79 fps 1% Low** pacing and **6.0% CPU load**.
 > - **Balanced (`USE_GPU = true`):** Runs Dynamic Median synthesis (`mode=2, blend=false`) at **6.4% CPU load** and **39.8% GPU load**.
 > - **Eco (`USE_GPU = true`):** Reduces CPU load to **5.7%** and GPU load to **30.9%**.  

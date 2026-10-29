@@ -8,13 +8,13 @@
 
 # ------------------------------------------------------------------------------
 # User Configuration: Toggle Adreno GPU Offload
-# Set to true for Direct3D 12 Adreno GPU offload (mvtools2_d3d12.dll)
+# Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
 # Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
 # ------------------------------------------------------------------------------
 USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
 threads     = USE_GPU ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: all 4 Gold cores
 mem_limit   = USE_GPU ? 1536 : 2048
 

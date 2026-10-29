@@ -5,7 +5,7 @@
     Fully portable benchmark harness with zero hardcoded paths:
     1. Detects system-installed PotPlayer ('%ProgramFiles%\DAUM\PotPlayer') or local sibling 'PotPlayer'.
     2. Supports automated official native PotPlayer download (ARM64 or x64) and silent installation from Kakao CDN (-AutoInstallPotPlayer).
-    3. Audits mvtools2.dll and mvtools2_d3d12.dll version, SHA-256, and PE header linker compile timestamp.
+    3. Audits mvtools2.dll and mvtools2-d3d12.dll version, SHA-256, and PE header linker compile timestamp.
     4. Automatically acquires AviSynth.dll from GitHub releases (AviSynth/AviSynthPlus) when not found locally.
     5. Injects deterministic PotPlayer configuration (D3D11 DXVA, AviSynth profile, subtitler off, audio pitch off, MultipleRunning=0).
     6. Enforces single-instance integrity: verifies and guarantees only one PotPlayer instance runs at any time.
@@ -27,7 +27,7 @@
     vcruntime140_1.dll) are missing or mismatched, preventing PotPlayer 'AviSynth.dll not found' errors.
 .PARAMETER AutoDownloadMvTools
     Automatically downloads and extracts official MVTools release archives (ARM64 and x64)
-    (mvtools2.dll, mvtools2_d3d12.dll) from GitHub releases (pinterf/mvtools on x64, tordona/mvtools on ARM64).
+    (mvtools2.dll, mvtools2-d3d12.dll) from GitHub releases (pinterf/mvtools on x64, tordona/mvtools on ARM64).
     Version-agnostic asset discovery with live streaming progress and 7-Zip/bsdtar decompression.
 .PARAMETER MvToolsRepo
     GitHub repository slug for downloading release packages (default: dynamic - "pinterf/mvtools" on x64, "tordona/mvtools" on ARM64).
@@ -1537,7 +1537,7 @@ function Install-MvToolsRelease {
         }
 
         $cpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
-        $gpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2_d3d12.dll" } | Select-Object -First 1
+        $gpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2-d3d12.dll" } | Select-Object -First 1
         $depanDll = $archPool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
         $depanEstDll = $archPool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
 
@@ -1555,10 +1555,10 @@ function Install-MvToolsRelease {
         Write-Host ("  -> Deployed mvtools2.dll ({0} CPU SIMD) to: {1}" -f $archLabel, $deployDir) -ForegroundColor Green
 
         if ($gpuDll) {
-            Copy-Item -Path $gpuDll.FullName -Destination (Join-Path $deployDir "mvtools2_d3d12.dll") -Force
-            Write-Host "  -> Deployed mvtools2_d3d12.dll (Direct3D 12 GPU) to: $deployDir" -ForegroundColor Green
+            Copy-Item -Path $gpuDll.FullName -Destination (Join-Path $deployDir "mvtools2-d3d12.dll") -Force
+            Write-Host "  -> Deployed mvtools2-d3d12.dll (Direct3D 12 GPU) to: $deployDir" -ForegroundColor Green
         } else {
-            Write-Host "  -> mvtools2_d3d12.dll not present in archive (CPU-only build package)." -ForegroundColor Gray
+            Write-Host "  -> mvtools2-d3d12.dll not present in archive (CPU-only build package)." -ForegroundColor Gray
         }
 
         if ($depanDll) {
@@ -2622,7 +2622,7 @@ function Install-MvToolsToPotPlayer {
     # 2. Deploy MVTools DLLs directly into PotPlayer directory
     $deployedCount = 0
     if ($resolvedSourceDir) {
-        $binaries = if ($targetArch -eq "x64") { @("mvtools2.dll", "DePan.dll", "DePanEstimate.dll") } else { @("mvtools2.dll", "mvtools2_d3d12.dll", "DePan.dll", "DePanEstimate.dll") }
+        $binaries = if ($targetArch -eq "x64") { @("mvtools2.dll", "DePan.dll", "DePanEstimate.dll") } else { @("mvtools2.dll", "mvtools2-d3d12.dll", "DePan.dll", "DePanEstimate.dll") }
         foreach ($bin in $binaries) {
             $src = Join-Path $resolvedSourceDir $bin
             $dst = Join-Path $TargetPotPlayerDir $bin
@@ -3171,7 +3171,7 @@ function Select-ProfileAndModeInteractive {
     if ($targetArch -ne "x64" -and $selectedProfile.SupportsGpu) {
         Write-Host "`nSelect Motion Vector Acceleration Engine:" -ForegroundColor Yellow
         $cpuEngineName = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON" } else { "x64 CPU SIMD" }; Write-Host ("  [1] {0} (mvtools2.dll)         [RECOMMENDED: Highest 1% Low FPS, uniform frame pacing]" -f $cpuEngineName) -ForegroundColor Green
-        Write-Host "  [2] Direct3D 12 GPU (mvtools2_d3d12.dll)  [EXPERIMENTAL PREVIEW: CPU offload, performance/quality not guaranteed]" -ForegroundColor Cyan
+        Write-Host "  [2] Direct3D 12 GPU (mvtools2-d3d12.dll)  [EXPERIMENTAL PREVIEW: CPU offload, performance/quality not guaranteed]" -ForegroundColor Cyan
         Write-Host "Select Acceleration Mode [1-2] (Press Enter for default [1]): " -NoNewline -ForegroundColor Cyan
         $modeChoice = Read-Host
         if ($modeChoice -eq "2") {
@@ -3870,7 +3870,7 @@ function Set-PotPlayerSettings {
     $TargetAvs = Join-Path $AvsDir "BenchmarkProfile.avs"
 
     $CpuDll = if ($MvToolsDir) { (Join-Path $MvToolsDir "mvtools2.dll").Replace('\', '/') } else { "mvtools2.dll" }
-    $GpuDll = if ($MvToolsDir) { (Join-Path $MvToolsDir "mvtools2_d3d12.dll").Replace('\', '/') } else { "mvtools2_d3d12.dll" }
+    $GpuDll = if ($MvToolsDir) { (Join-Path $MvToolsDir "mvtools2-d3d12.dll").Replace('\', '/') } else { "mvtools2-d3d12.dll" }
 
     $RawAvs = Get-Content -Path $ProfilePath -Raw
 
@@ -3878,7 +3878,7 @@ function Set-PotPlayerSettings {
     $activeGpu = $false
     $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
     if ($targetArch -eq "x64") {
-        # On x64 platforms, mvtools2_d3d12.dll is not available; always enforce CPU SIMD
+        # On x64 platforms, mvtools2-d3d12.dll is not available; always enforce CPU SIMD
         if ($RawAvs -match '(?m)^\s*USE_GPU\s*=') {
             $RawAvs = $RawAvs -replace '(?m)^\s*USE_GPU\s*=.*$', 'USE_GPU = false'
         }
@@ -3896,13 +3896,13 @@ function Set-PotPlayerSettings {
                 $activeGpu = $true
             }
         }
-    } elseif ($RawAvs -match '(?i)mvtools2_d3d12') {
+    } elseif ($RawAvs -match '(?i)mvtools2-d3d12') {
         $activeGpu = $true
     }
 
     $engineLabel = if ((Get-TargetBinaryArchitecture) -eq "arm64") { "ARM64 CPU NEON (mvtools2.dll)" } else { "x64 CPU SIMD (mvtools2.dll)" }
     $script:ActiveMotionEngine = if ($activeGpu) {
-        "Direct3D 12 GPU (mvtools2_d3d12.dll)"
+        "Direct3D 12 GPU (mvtools2-d3d12.dll)"
     } else {
         $engineLabel
     }
@@ -3910,10 +3910,10 @@ function Set-PotPlayerSettings {
     # Substitute relative DLL paths with verified absolute paths
     $cleanCpuDll = if ($CpuDll) { $CpuDll.Replace('\', '/') } else { "" }
     $cleanGpuDll = if ($GpuDll) { $GpuDll.Replace('\', '/') } else { $cleanCpuDll }
-    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$cleanGpuDll`""
+    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2-d3d12\.dll"', "`"$cleanGpuDll`""
     $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$cleanCpuDll`""
     if ($targetArch -eq "x64") {
-        $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2_d3d12\.dll"', "`"$cleanCpuDll`""
+        $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2-d3d12\.dll"', "`"$cleanCpuDll`""
     }
 
     # Write without BOM using ASCII encoding so AviSynth parses line 1 cleanly
@@ -4284,7 +4284,7 @@ if ($Interactive -or ([string]::IsNullOrWhiteSpace($AviSynthProfile) -and $isCon
     }
     $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $PotPlayerDir
     if ($targetArch -eq "x64" -and ($ChosenGpuMode -in @("GPU", "D3D12"))) {
-        Write-Warning "Direct3D 12 GPU offload ('mvtools2_d3d12.dll') is not available on x64 platforms. Overriding engine selection to CPU SIMD mode."
+        Write-Warning "Direct3D 12 GPU offload ('mvtools2-d3d12.dll') is not available on x64 platforms. Overriding engine selection to CPU SIMD mode."
         $ChosenGpuMode = "CPU"
     }
 }
@@ -4333,7 +4333,7 @@ if ([string]::IsNullOrWhiteSpace($ExplicitMvToolsDir)) {
 }
 Write-Host "`n[3/7] Auditing MVTools Plugins in: $MvToolsDir..." -ForegroundColor Yellow
 $MvToolsCpuPath = Join-Path $MvToolsDir "mvtools2.dll"
-$MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
+$MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2-d3d12.dll"
 
 # Check if binaries are missing or if automated download was requested
 $cpuMissing = -not (Test-Path $MvToolsCpuPath)
@@ -4358,7 +4358,7 @@ if ($AutoDownloadMvTools -or $cpuMissing -or $gpuNeededAndMissing) {
         if ($dlResult) {
             $MvToolsDir = $dlResult
             $MvToolsCpuPath = Join-Path $MvToolsDir "mvtools2.dll"
-            $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2_d3d12.dll"
+            $MvToolsGpuPath = Join-Path $MvToolsDir "mvtools2-d3d12.dll"
             # Ensure newly acquired binaries and profiles are synced to PotPlayer
             Install-MvToolsToPotPlayer -TargetPotPlayerDir $PotPlayerDir -MvToolsSourceDir $MvToolsDir -RepoRoot $RepoRoot -ScriptDir $ScriptDir -MvToolsRepo $MvToolsRepo -AviSynthRepo $AviSynthRepo -AutoInstallVcRedist:$AutoInstallVcRedist | Out-Null
         }
@@ -4373,8 +4373,8 @@ if (-not (Test-Path $MvToolsCpuPath)) {
 
 if ($targetArch -ne "x64" -and ($ResolvedGpuMode -eq "GPU" -or $ResolvedGpuMode -eq "D3D12")) {
     if (-not (Test-Path $MvToolsGpuPath)) {
-        Write-Host "`n[FATAL ERROR] Direct3D 12 GPU mode requested, but 'mvtools2_d3d12.dll' was not found in '$MvToolsDir'!" -ForegroundColor Red
-        Write-Host "Please build or place 'mvtools2_d3d12.dll' in '$MvToolsDir', or pass -AutoDownloadMvTools to fetch from GitHub releases.`n" -ForegroundColor Yellow
+        Write-Host "`n[FATAL ERROR] Direct3D 12 GPU mode requested, but 'mvtools2-d3d12.dll' was not found in '$MvToolsDir'!" -ForegroundColor Red
+        Write-Host "Please build or place 'mvtools2-d3d12.dll' in '$MvToolsDir', or pass -AutoDownloadMvTools to fetch from GitHub releases.`n" -ForegroundColor Yellow
         exit 1
     }
 }
@@ -4391,12 +4391,12 @@ if ($CpuMeta) {
 }
 
 if ($targetArch -ne "x64" -and $GpuMeta) {
-    Write-Host "  -> mvtools2_d3d12.dll (Direct3D 12 GPU - Experimental Preview):" -ForegroundColor White
+    Write-Host "  -> mvtools2-d3d12.dll (Direct3D 12 GPU - Experimental Preview):" -ForegroundColor White
     Write-Host "     Version: $($GpuMeta.FileVersion) | Product: $($GpuMeta.ProductVersion)" -ForegroundColor Gray
     Write-Host "     PE Linker Build Date: $($GpuMeta.PeBuildDate)" -ForegroundColor Gray
     Write-Host "     SHA-256: $($GpuMeta.SHA256)" -ForegroundColor Gray
 } else {
-    Write-Host "  -> mvtools2_d3d12.dll: Not found in $MvToolsDir (CPU-only execution)" -ForegroundColor Gray
+    Write-Host "  -> mvtools2-d3d12.dll: Not found in $MvToolsDir (CPU-only execution)" -ForegroundColor Gray
 }
 
 # ---------------------------------------------------------
@@ -4847,7 +4847,7 @@ try {
     Version:        $($CpuMeta.FileVersion)
     PE Build Date:  $($CpuMeta.PeBuildDate)
     SHA-256:        $($CpuMeta.SHA256)
-- mvtools2_d3d12.dll (Direct3D 12 GPU - Experimental Preview):
+- mvtools2-d3d12.dll (Direct3D 12 GPU - Experimental Preview):
     Version:        $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.FileVersion } else { "N/A" })
     PE Build Date:  $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.PeBuildDate } else { "N/A" })
     SHA-256:        $(if ($targetArch -ne "x64" -and $GpuMeta) { $GpuMeta.SHA256 } else { "N/A" })
