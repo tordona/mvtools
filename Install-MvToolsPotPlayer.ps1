@@ -65,8 +65,13 @@ if ([Console]::OutputEncoding) {
     try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 }
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ([string]::IsNullOrWhiteSpace($ScriptDir)) { $ScriptDir = (Get-Location).Path }
+$ScriptDir = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $PSScriptRoot
+} elseif ($MyInvocation.MyCommand -and -not [string]::IsNullOrWhiteSpace($MyInvocation.MyCommand.Path)) {
+    Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    (Get-Location).Path
+}
 $RepoRoot = $ScriptDir
 
 # ---------------------------------------------------------
