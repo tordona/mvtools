@@ -92,10 +92,10 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > The Snapdragon 8cx Gen 1 / SQ1 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided scripts strictly cap `Prefetch` to **3 or 4 threads** so that MVTools runs exclusively on the Gold performance cores. Never increase `Prefetch` beyond 4, as dispatching work to the slow Silver cores will cause pipeline stalls and video stutter.
 
 > [!TIP]
-> **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> All 8cx Gen 1 profiles default to pure CPU NEON execution (`USE_GPU = false`), which serves as the production reference. Setting `USE_GPU = true` engages the **experimental Direct3D 12 preview engine** (`mvtools2-d3d12.dll`) to offload motion search to the Adreno 675 GPU:
-> - **Balanced (`USE_GPU = true`):** Sustains 60 fps with zero dropped frames, utilizing 57.6% Adreno GPU compute and lowering CPU load to **14.9%**.
-> - **MaxQuality (`USE_GPU = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and Dynamic Median blending (`blend=true`), completing with zero dropped presentation frames and reducing host CPU load to **24.0%**.  
+> **Direct3D 12 GPU Offload (`USE_D3D12 = true` - Experimental Preview)**  
+> All 8cx Gen 1 profiles default to pure CPU NEON execution (`USE_D3D12 = false`), which serves as the production reference. Setting `USE_D3D12 = true` engages the **experimental Direct3D 12 preview engine** (`MEnableD3D12(true)`) to offload motion search to the Adreno 675 GPU:
+> - **Balanced (`USE_D3D12 = true`):** Sustains 60 fps with zero dropped frames, utilizing 57.6% Adreno GPU compute and lowering CPU load to **14.9%**.
+> - **MaxQuality (`USE_D3D12 = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and Dynamic Median blending (`blend=true`), completing with zero dropped presentation frames and reducing host CPU load to **24.0%**.  
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
 
 ---
@@ -109,7 +109,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2`) | Exhaustive (`search=3` GPU) / Hexagonal (`search=2` CPU) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` (CPU) |
 | **Frame Synthesis** | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) |
-| **Worker Threads** | `threads = USE_GPU ? 3 : 3`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 3`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` |
+| **Worker Threads** | `threads = USE_D3D12 ? 3 : 3`, `Prefetch(threads)` | `threads = USE_D3D12 ? 3 : 3`, `Prefetch(threads)` | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` |
 | **Memory Limit** | 512 MB | 768 MB | 1024 MB |
 | **Target Power** | 4.0 W – 4.5 W | 5.2 W – 5.8 W | 6.2 W – 6.8 W |
 

@@ -90,11 +90,11 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 6. Click **Apply** → **OK**.
 
 > [!TIP]
-> **Direct3D 12 GPU Acceleration (`mvtools2-d3d12.dll` - Experimental Preview)**  
+> **Direct3D 12 GPU Acceleration (`mvtools2.dll` - Experimental Preview)**  
 > On Snapdragon X Plus / Elite platforms, the 8–12 Oryon CPU cores easily sustain the Balanced and Eco tiers with native NEON SIMD (`mvtools2.dll`), serving as the production reference engine.  
-> Direct3D 12 GPU offload via `mvtools2-d3d12.dll` is engaged by setting `USE_GPU = true` at the top of the profile scripts. When enabled, the profile dynamically adapts:
-> - **MaxQuality (`USE_GPU = true`):** Executes full 2D exhaustive grid motion search (`search=3, searchparam=3`, 49 coarse candidate points) and 5x5 fine grid refinement (`fine_rad=2`, 25 refinement points) entirely in Adreno X1 compute shaders (`motion_search_cs.hlsl`). Coupled with hardware bilinear texture warping (`pel=1`), host CPU load is reduced from 10.6% down to **6.0%** (a 43.4% CPU overhead reduction).
-> - **Balanced (`USE_GPU = true`):** Reduces host CPU load to **6.3%** and working set RAM to **335.9 MB** while sustaining **55.53 fps 1% Low** pacing and zero dropped frames.  
+> Direct3D 12 GPU offload via `mvtools2.dll` is engaged by setting `USE_D3D12 = true` at the top of the profile scripts. When enabled, the profile dynamically adapts:
+> - **MaxQuality (`USE_D3D12 = true`):** Executes full 2D exhaustive grid motion search (`search=3, searchparam=3`, 49 coarse candidate points) and 5x5 fine grid refinement (`fine_rad=2`, 25 refinement points) entirely in Adreno X1 compute shaders (`motion_search_cs.hlsl`). Coupled with hardware bilinear texture warping (`pel=1`), host CPU load is reduced from 10.6% down to **6.0%** (a 43.4% CPU overhead reduction).
+> - **Balanced (`USE_D3D12 = true`):** Reduces host CPU load to **6.3%** and working set RAM to **335.9 MB** while sustaining **55.53 fps 1% Low** pacing and zero dropped frames.  
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis).*
 
 ---

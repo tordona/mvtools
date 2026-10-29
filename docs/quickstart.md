@@ -64,7 +64,7 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 ### Step 1: Place MVTools2 Binaries (ARM64)
 1. Navigate to the [Latest MVTools2 Release](https://github.com/tordona/mvtools/releases/latest).
 2. Download **`mvtools2-arm64-v...zip`** under Assets.
-3. Extract **`mvtools2.dll`** (and optionally `mvtools2-d3d12.dll` for GPU testing) directly into:
+3. Extract **`mvtools2.dll`** (and optionally `mvtools2.dll` for GPU testing) directly into:
    ```text
    C:\Program Files\DAUM\PotPlayer\
    ```
@@ -94,18 +94,18 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 # ==============================================================================
 # MVTools2 60 fps Balanced Script (Qualcomm Snapdragon ARM64)
 # ==============================================================================
-USE_GPU = false
+USE_D3D12 = false
 
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 4 : 6
-mem_limit   = USE_GPU ? 1536 : 2048
+threads     = USE_D3D12 ? 4 : 6
+mem_limit   = USE_D3D12 ? 1536 : 2048
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
-LoadPlugin(plugin_file)
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
@@ -210,4 +210,4 @@ Prefetch(threads)
 | **"LoadPlugin: unable to find mvtools2.dll"** | `mvtools2.dll` is not in PotPlayer's working directory. | Verify `mvtools2.dll` is placed in `C:\Program Files\DAUM\PotPlayer\`, or specify the absolute path: `LoadPlugin("C:\Program Files\DAUM\PotPlayer\mvtools2.dll")`. |
 | **Audio out of sync or stuttering** | Video decoder is set to software decode, saturating CPU. | Verify that **DXVA2 Copy-Back (D3D11)** is active in Video Decoder settings. |
 | **Occasional micro-stutters** | System thermal throttle or high resolution load. | Switch from `MaxQuality` to `Balanced` or `Eco` profile in the [Profile Library](profiles/README.md). |
-| **Direct3D 12 GPU offload testing (ARM64)** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_GPU = true` at the top of the Snapdragon script and ensure `mvtools2-d3d12.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |
+| **Direct3D 12 GPU offload testing (ARM64)** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_D3D12 = true` at the top of the Snapdragon script and ensure `mvtools2.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |

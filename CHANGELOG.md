@@ -1,23 +1,33 @@
 Change log
-- 2.7.47.122-arm64 (20261028)
-  - Direct3D 12 Compute & Pipeline Optimizations:
-    - Renamed Direct3D 12 acceleration plugin binary from mvtools2_d3d12.dll to mvtools2-d3d12.dll, aligning binary naming with repository branch convention (mvtools-d3d12).
-    - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loop and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
+- 2.7.47.122-arm64 (20261029)
+  - Unified Dual-Engine Architecture & Runtime Direct3D 12 Toggle:
+    - Unified the native ARM64 CPU NEON engine and Direct3D 12 DirectCompute GPU engine into a single canonical binary (mvtools2.dll), eliminating dual-binary distribution (mvtools2-d3d12.dll).
+    - Reverted build outputs in MSBuild (mvtools.vcxproj), CMakeLists.txt, and copyall.bat from mvtools2-d3d12 directly back to mvtools2.dll.
+    - Added MEnableD3D12([enable]b) and MIsD3D12Available() runtime AviSynth functions to control Direct3D 12 compute offload directly from script profiles, accurately reflecting that the GPU is always active for decoding and display while this toggle specifically governs compute shader offload.
+    - Direct3D 12 compute offload defaults to false at DLL load, guaranteeing zero D3D12 queue or device allocation overhead until explicitly enabled in scripts.
+    - Dropped legacy function names (MEnableGPU, MIsGPUAvailable), eliminating redundant script entry points.
+    - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loops and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
     - Extended D3D12FlowSynthesis 3-texture ring caching with consecutive source/reference pair matching (m_lastSrcRingIdx), eliminating redundant frame re-uploads during fractional rate conversions (such as 24 fps -> 60 fps intermediate sub-frames).
     - Resolved texture cache mismatch edge cases to prevent cache invalidation errors and eliminate intro logo flicker during scene transitions.
     - Recompiled embedded shader bytecode header (motion_search_cso.h).
   - Snapdragon AviSynth Profiles (Revision 2.1.0):
-    - Updated profiles to Revision 2.1.0 across Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, 8cx Gen 1, 850, and 7c Gen 2.
-    - Added adaptive parameter scaling based on USE_GPU: configured sharp=0 with pel=1 on GPU compute paths to bypass redundant subpixel filtering, while leveraging hardware bilinear texture sampling in D3D12FlowSynthesis.
+    - Updated profiles to Revision 2.1.0 across Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, 8cx Gen 1, 850, and 7c Gen 2 to load the unified mvtools2.dll and configure offload via USE_D3D12 = false and MEnableD3D12(USE_D3D12).
+    - Added adaptive parameter scaling based on USE_D3D12: configured sharp=0 with pel=1 on GPU compute paths to bypass redundant subpixel filtering, while leveraging hardware bilinear texture sampling in D3D12FlowSynthesis.
     - Configured MBlockFps(mode=2, blend=true) across GPU profiles for dynamic median pixel-flow synthesis and linear occlusion fallback.
-    - Scaled memory allocation (SetMemoryMax) and worker threads dynamically between GPU and CPU NEON fallbacks.
-  - Benchmarking Suite & Baseline Synchronization:
+    - Scaled memory allocation (SetMemoryMax) and worker threads dynamically between Direct3D 12 compute and CPU NEON fallbacks.
+    - Cleaned all profile templates and quickstart documentation, removing deprecated plugin_file variables and redundant plugin loader statements.
+  - Benchmarking Suite & Deployment Automation:
+    - Updated Install-MvToolsPotPlayer.ps1, Benchmarks/MvToolsBenchmark-Start.ps1, and Benchmarks/MvToolsBenchmarks-Compare.ps1 to configure and detect USE_D3D12 and MEnableD3D12 with backward compatibility for legacy scripts.
+    - Streamlined deployment automation to manage the unified mvtools2.dll binary, removing dual-binary checks and cleaning legacy d3d12 binaries from player environments.
     - Updated baseline comparison matrices across all 6 Snapdragon platforms, recording D3D12 GPU optimizations (Snapdragon X Plus MaxQuality CPU load reduced from 10.6% to 6.0%, Snapdragon 8cx Gen 2 CPU load reduced from 15.3% to 8.2%).
     - Normalized baseline matrix filenames (e.g. BenchmarkMatrix_Comparison_Core-i5-7Y54.md) and removed legacy raw CPUID filename entries.
     - Added PresentMon frame-time capture to benchmark harness, with PowerShell 5.1 and 7 support across ARM64 and x64 environments.
-  - Documentation & Deployment:
+  - Documentation & Typography:
+    - Verified 1:1 documentation parity between Documentation/guides/ and docs/guides/ across all 7 platform and auto-tuning guides.
+    - Updated README.md primary plugin specifications to describe the unified canonical binary architecture.
     - Added Docsify documentation structure for GitHub Pages.
-    - Standardized all platform guides across Documentation/guides/ and docs/guides/ to Revision 2.1 profile specifications and standard NIST/SI unit typography.
+    - Standardized all platform guides and profile documentation across Documentation/guides/, docs/guides/, and docs/profiles/ to Revision 2.1 specifications and unified MEnableD3D12 / USE_D3D12 syntax.
+    - Standardized all technical documentation, scripts, and baseline tables to strict NIST SP 811 / BIPM SI unit spacing standards (e.g., 60 fps, 24 fps, 15 W, 16 GB, 18 ms, 4 px) and objective engineering tone.
 
 - 2.7.47.121-arm64 (20261023)
   - Synthesis Memory & NEON Blend Refinements (merged from mvtools-pfmod):

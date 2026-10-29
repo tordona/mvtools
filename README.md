@@ -28,21 +28,20 @@ This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **exper
 | Feature                                  | Implementation                                                                                                                   | Hardware & Compatibility Notes                                                                                         |
 |:---------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
 | **Native Windows on ARM64**              | Native ARM64 NEON SIMD vector implementation running without x86 emulation.                                                      | Provides real-time 60 fps interpolation on Windows on ARM, where software like SVP lacks native ARM64 support.          |
-| **Experimental Direct3D 12 GPU Offload** | DirectCompute shaders (`mvtools2-d3d12.dll`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                             |
+| **Experimental Direct3D 12 GPU Offload** | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                             |
 | **18 Tuned Snapdragon Profiles**         | Empirically verified `.avs` scripts for **Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen 2**.                           | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
 | **Sub-Millisecond Benchmark Harness**    | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                       |
 | **AI Agent Automated Profiling**         | Standardized prompt guide ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)) for closed-loop self-tuning. | Autonomous hardware autodetection and iterative tuning in Google Antigravity, Cursor, Gemini, or Claude.               |
 
 ---
 
-### Primary Plugin Binaries
+### Primary Plugin Binary
 
-* **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD vector-accelerated engine. Recommended for standard playback and consistent frame delivery.
-* **`mvtools2-d3d12.dll`** *(Experimental Preview)*: Native Direct3D 12 DirectCompute GPU-accelerated engine for exploratory GPU offload on supported Adreno and discrete GPUs.
+* **`mvtools2.dll`**: Unified canonical binary containing both the production native ARM64 CPU NEON engine (default) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`mvtools2-d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
 >
 > For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
 
@@ -95,7 +94,7 @@ See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for compl
   - [ARM64 Runtime Direct Download](https://aka.ms/vs/17/release/vc_redist.arm64.exe) (Qualcomm Snapdragon / Windows on ARM)
   - [x64 Runtime Direct Download](https://aka.ms/vs/17/release/vc_redist.x64.exe) (AMD / Intel x86-64 PCs)
 * **AviSynth+ Host**: AviSynth.dll (v3.7.2 or newer, matching target architecture).
-* **DirectX 12 Compatible GPU**: Required only when running the experimental Direct3D 12 engine (mvtools2-d3d12.dll).
+* **DirectX 12 Compatible GPU**: Required only when running the experimental Direct3D 12 engine (mvtools2.dll).
 
 ### Optional Dependencies
 * **libfftw3f-3.dll**: Only required if explicitly enabling frequency-domain DCT motion estimation modes (dct >= 5). All standard real-time 60 fps profiles in this repository default to spatial SAD/SATD (dct=0) and do not require FFTW.
@@ -129,7 +128,7 @@ Compilation is performed using **Microsoft Visual Studio 2022 or 2026** via [`mv
      - Platform: **`x64`**
 3. Build the solution (**`Build` -> `Build Solution`** or **`Ctrl+Shift+B`**).
 4. Output binaries are generated under `Sources\<Platform>\<Configuration>\`:
-   - `mvtools2-d3d12.dll` (Direct3D 12 GPU and SIMD motion estimation engine)
+   - `mvtools2.dll` (Direct3D 12 GPU and SIMD motion estimation engine)
    - `DePan.dll`
    - `DePanEstimate.dll`
 

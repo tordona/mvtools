@@ -92,11 +92,11 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > The Snapdragon 8cx Gen 2 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided 8cx Gen 2 scripts strictly cap `Prefetch` to **3 or 4 threads** so that MVTools runs exclusively on the Gold performance cores. Never increase `Prefetch` beyond 4, as dispatching work to the slow Silver cores will cause pipeline stalls and video stutter.
 
 > [!TIP]
-> **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, deterministic 60 fps with zero dropped frames.  
-> Setting `USE_GPU = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`mvtools2-d3d12.dll`) to offload motion search to the Adreno 680 GPU:
-> - **Balanced (`USE_GPU = true`):** Sustains 60 fps with CPU load dropping to just **8.2%** (peak 10.5%) and GPU load at **58.3%–60.9%**, maintaining low package temperatures and high thermal margin.
-> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) with full radius-2 hexagonal search (`searchparam=2`) and Dynamic Median blending (`blend=true`), reducing CPU load from 15.3% down to **8.2%** (a 46.4% CPU overhead reduction).
+> **Direct3D 12 GPU Offload (`USE_D3D12 = true` - Experimental Preview)**  
+> All 8cx Gen 2 profiles default to pure CPU execution (`USE_D3D12 = false`), which serves as the production reference and delivers continuous, deterministic 60 fps with zero dropped frames.  
+> Setting `USE_D3D12 = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`MEnableD3D12(true)`) to offload motion search to the Adreno 680 GPU:
+> - **Balanced (`USE_D3D12 = true`):** Sustains 60 fps with CPU load dropping to just **8.2%** (peak 10.5%) and GPU load at **58.3%–60.9%**, maintaining low package temperatures and high thermal margin.
+> - **MaxQuality (`USE_D3D12 = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) with full radius-2 hexagonal search (`searchparam=2`) and Dynamic Median blending (`blend=true`), reducing CPU load from 15.3% down to **8.2%** (a 46.4% CPU overhead reduction).
 >
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
 
@@ -111,7 +111,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2`) | Hexagonal (`search=2, searchparam=2`) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` (CPU) |
 | **Frame Synthesis** | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) |
-| **Worker Threads** | `threads = USE_GPU ? 3 : 3`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` |
+| **Worker Threads** | `threads = USE_D3D12 ? 3 : 3`, `Prefetch(threads)` | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` |
 | **Target Power** | 4.5 W – 5.5 W | 6.5 W – 7.5 W | 7.5 W – 8.8 W |
 
 ---
@@ -141,4 +141,4 @@ To verify that the Adreno 680 hardware decoder and 60 fps interpolation are acti
    - **Video Codec:** Displays **`D3D11 Native/CopyBack`** or **`DXVA2`** *(not Software / ffmpeg)*.
    - **Video Output:** Shows **`Direct3D 11 Video Renderer`**.
    - **Frame Rate:** Displays **`XX.XX fps -> 60.00 fps`**.
-   - **CPU Usage:** Remains low and stable (typically 12%–18% with `USE_GPU = true` or 20%–35% with `USE_GPU = false`).
+   - **CPU Usage:** Remains low and stable (typically 12%–18% with `USE_D3D12 = true` or 20%–35% with `USE_D3D12 = false`).

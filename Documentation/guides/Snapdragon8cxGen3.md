@@ -76,11 +76,11 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 6. Click **Apply** → **OK**.
 
 > [!TIP]
-> **Adreno 690 Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
-> Set `USE_GPU = true` at the top of any 8cx Gen 3 script to engage the Adreno 690 compute shader (`mvtools2-d3d12.dll`). The 8cx Gen 3's 136 GB/s bus and 2.2 TFLOPS compute engine easily sustain 60 fps at low power:
-> - **MaxQuality (`USE_GPU = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and radius-2 fine refinement (`fine_rad = 2`) with Dynamic Median synthesis (`mode=2, blend=true`), sustaining **54.79 fps 1% Low** pacing and **6.0% CPU load**.
-> - **Balanced (`USE_GPU = true`):** Runs Dynamic Median synthesis (`mode=2, blend=false`) at **6.4% CPU load** and **39.8% GPU load**.
-> - **Eco (`USE_GPU = true`):** Reduces CPU load to **5.7%** and GPU load to **30.9%**.  
+> **Adreno 690 Direct3D 12 GPU Offload (`USE_D3D12 = true` - Experimental Preview)**  
+> Set `USE_D3D12 = true` at the top of any 8cx Gen 3 script to engage the Adreno 690 compute shader (`MEnableD3D12(true)`). The 8cx Gen 3's 136 GB/s bus and 2.2 TFLOPS compute engine easily sustain 60 fps at low power:
+> - **MaxQuality (`USE_D3D12 = true`):** Dynamically enables exhaustive 2D grid motion search (`search_alg = 3`) and radius-2 fine refinement (`fine_rad = 2`) with Dynamic Median synthesis (`mode=2, blend=true`), sustaining **54.79 fps 1% Low** pacing and **6.0% CPU load**.
+> - **Balanced (`USE_D3D12 = true`):** Runs Dynamic Median synthesis (`mode=2, blend=false`) at **6.4% CPU load** and **39.8% GPU load**.
+> - **Eco (`USE_D3D12 = true`):** Reduces CPU load to **5.7%** and GPU load to **30.9%**.  
 > *(Note: Direct3D 12 GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis, with ARM64 CPU NEON remaining the recommended production default).*
 
 > [!NOTE]
@@ -95,9 +95,9 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 
 | Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
 | :--- | :--- | :--- | :--- | :--- |
-| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` |
-| **Balanced** | Fluid 1080p 60 fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
-| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`search=3` GPU / `search=2` CPU) → 16×16 | `mode=2` Dynamic Median (`blend=true`) | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
+| **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` |
+| **Balanced** | Fluid 1080p 60 fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
+| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`search=3` GPU / `search=2` CPU) → 16×16 | `mode=2` Dynamic Median (`blend=true`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
 
 ---
 

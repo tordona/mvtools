@@ -109,9 +109,9 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 1. **Architecture & Compute Engine Targeting:**
    * **x86-64 Platforms (Intel Core / AMD Ryzen):**
      * Active engine: Native x64 AVX-512 / AVX2 CPU SIMD via `mvtools2.dll`.
-     * **Do NOT generate dead `USE_GPU` code or reference `mvtools2-d3d12.dll` on x64 platforms.** `mvtools2-d3d12.dll` is an ARM64-only binary. x64 platforms run 100% native CPU SIMD.
+     * **Do NOT generate dead `USE_D3D12` code or reference `mvtools2.dll` on x64 platforms.** `mvtools2.dll` is an ARM64-only binary. x64 platforms run 100% native CPU SIMD.
    * **ARM64 Platforms (Qualcomm Snapdragon):**
-     * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`mvtools2-d3d12.dll`) via `USE_GPU = false/true`.
+     * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`MEnableD3D12(true)`) via `USE_D3D12 = false/true`.
 
 2. **Deterministic Filter Pipeline:**
    Every profile must strictly follow this AviSynth+ script structure:

@@ -57,7 +57,7 @@ The host `AviSynth.dll` bundled with ARM64 video players (e.g., PotPlayer) is ty
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`mvtools2-d3d12.dll`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
 >
 > For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
 
@@ -66,7 +66,7 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Unified Memory Architecture (UMA) Fast Path**: Leverages Snapdragon's shared physical LPDDR4x/LPDDR5x memory subsystem between CPU and Adreno GPU, eliminating PCIe transfer overhead and enabling zero-copy host-visible readback.
 - **Dual-Pass Search Offload**: Accelerates both coarse motion vector search (`MAnalyse`) and fine block refinement (`MRecalculate`).
 - **Substantial CPU Load Reduction**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
-- **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsGPUAvailable()` and `MEnableGPU(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
+- **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsD3D12Available()` and `MEnableD3D12(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
 
 ---
 
@@ -89,7 +89,7 @@ Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hard
 - **Snapdragon 8cx Gen 1 & Gen 2 (4x Kryo 495 Gold Cortex-A76 + 4x Silver Cortex-A55, Adreno 680, 7 W – 10 W Fanless)**:
   - **Snapdragon 8cx Gen 2 / Microsoft SQ2**: [`Snapdragon-8cxGen2-Eco.avs`](AviSynth/Snapdragon-8cxGen2-Eco.avs), [`Snapdragon-8cxGen2-Balanced.avs`](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [`Snapdragon-8cxGen2-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs). *(Microsoft SQ2 is identical silicon to 8cx Gen 2).*
   - **Snapdragon 8cx Gen 1 / Microsoft SQ1**: [`Snapdragon-8cxGen1-Eco.avs`](AviSynth/Snapdragon-8cxGen1-Eco.avs), [`Snapdragon-8cxGen1-Balanced.avs`](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [`Snapdragon-8cxGen1-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs). *(Microsoft SQ1 is identical silicon to 8cx Gen 1).*
-  - Adaptive Direct3D 12 DirectCompute GPU offload (`USE_GPU = true`) and pure CPU NEON fallback with strict `Prefetch <= 4` core pinning.
+  - Adaptive Direct3D 12 DirectCompute GPU offload (`USE_D3D12 = true`) and pure CPU NEON fallback with strict `Prefetch <= 4` core pinning.
   - Guides: [`Documentation/guides/Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) (Snapdragon 8cx Gen 2 / SQ2) and [`Documentation/guides/Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) (Snapdragon 8cx Gen 1 / SQ1).
 
 - **Snapdragon 850 (4x Kryo 385 Gold Cortex-A75 + 4x Silver Cortex-A55, Adreno 630, ~5 W Fanless)**:
@@ -125,7 +125,7 @@ msbuild mvtools.sln /p:Configuration=Release /p:Platform=ARM64
 
 ### Output Binaries
 - `Sources\ARM64\Release\mvtools2.dll` (Native ARM64 NEON reference engine)
-- `Sources\ARM64\Release\mvtools2-d3d12.dll` (Direct3D 12 GPU compute engine)
+- `Sources\ARM64\Release\mvtools2.dll` (Direct3D 12 GPU compute engine)
 - `DePan\ARM64\Release\DePan.dll`
 - `DePanEstimate\ARM64\Release\DePanEstimate.dll`
 

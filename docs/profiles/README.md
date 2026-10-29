@@ -32,7 +32,7 @@ Modern chipsets feature heterogeneous CPU topologies (e.g. Oryon, Cortex-X1/A78/
 ### 4. Direct3D 12 DirectCompute GPU Offload Toggle (ARM64)
 Snapdragon X Plus and 8cx Gen 3 profiles include an inline toggle:
 ```avisynth
-USE_GPU = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
+USE_D3D12 = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2.dll)
 ```
 When enabled, motion vector estimation executes on the Adreno iGPU command queue while keeping CPU utilization minimal.
 
@@ -40,7 +40,7 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 
 ## Part I: Qualcomm Snapdragon (ARM64) Profiles
 
-| Platform / SoC | Profile Tier | Architecture | Block Size | `pel` | Threads | `USE_GPU` | Raw Download |
+| Platform / SoC | Profile Tier | Architecture | Block Size | `pel` | Threads | `USE_D3D12` | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
@@ -77,12 +77,11 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 # Revision: 2.1.0 (2026-10-28)
 # Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
 # ==============================================================================
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
-mem_limit   = USE_GPU ? 1536 : 2048
+# Dynamic parameters adapted to USE_D3D12
+threads     = USE_D3D12 ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
+mem_limit   = USE_D3D12 ? 1536 : 2048
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -92,7 +91,8 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Load Native ARM64 MVTools2 plugin
-LoadPlugin(plugin_file)
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip with Edge Guard
 super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
@@ -108,7 +108,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, se
 # 4. Pixel-Level Motion Interpolation with Occlusion Handling
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
-# 5. Thread Pool (adapted dynamically to USE_GPU)
+# 5. Thread Pool (adapted dynamically to USE_D3D12)
 Prefetch(threads)
 ```
 
@@ -121,27 +121,29 @@ Prefetch(threads)
 # Revision: 2.1.0 (2026-10-28)
 # Changelog: Oryon architecture, levels=1, search=3 (Exhaustive 7x7 coarse / 5x5 GPU fine), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
 # ==============================================================================
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-use_chroma  = USE_GPU ? false : true
-threads     = USE_GPU ? 4 : 8
-mem_limit   = USE_GPU ? 2048 : 4096
+# Dynamic parameters adapted to USE_D3D12
+use_chroma  = USE_D3D12 ? false : true
+threads     = USE_D3D12 ? 4 : 8
+mem_limit   = USE_D3D12 ? 2048 : 4096
 
 # Subpixel, Block & Exhaustive Search Parameters:
-pel_val     = USE_GPU ? 1 : 2
-sharp_mode  = USE_GPU ? 0 : 2
-pad_size    = USE_GPU ? 8 : 16
-blk_coarse  = USE_GPU ? 32 : 16
-blk_fine    = USE_GPU ? 16 : 8
-fine_rad    = USE_GPU ? 2 : 1
+pel_val     = USE_D3D12 ? 1 : 2
+sharp_mode  = USE_D3D12 ? 0 : 2
+pad_size    = USE_D3D12 ? 8 : 16
+blk_coarse  = USE_D3D12 ? 32 : 16
+blk_fine    = USE_D3D12 ? 16 : 8
+fine_rad    = USE_D3D12 ? 2 : 1
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
-LoadPlugin(plugin_file)
+
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
 super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
@@ -175,18 +177,19 @@ Prefetch(threads)
 # Revision: 2.1.0 (2026-10-28)
 # Changelog: Fine 16x16 block refinement, mode=2 Dynamic Median synthesis, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024, D3D12 toggle
 # ==============================================================================
-USE_GPU = false
+USE_D3D12 = false
 
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 3 : 4
-mem_limit   = USE_GPU ? 1024 : 1024
+threads     = USE_D3D12 ? 3 : 4
+mem_limit   = USE_D3D12 ? 1024 : 1024
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
-LoadPlugin(plugin_file)
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
@@ -216,19 +219,20 @@ Prefetch(threads)
 # Revision: 2.1.0 (2026-10-28)
 # Changelog: Pinned Kryo 495 Gold cluster, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle
 # ==============================================================================
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 3 : 4
-mem_limit   = USE_GPU ? 1024 : 1536
+# Dynamic parameters adapted to USE_D3D12
+threads     = USE_D3D12 ? 3 : 4
+mem_limit   = USE_D3D12 ? 1024 : 1536
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
-LoadPlugin(plugin_file)
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 

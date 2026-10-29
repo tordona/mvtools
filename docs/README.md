@@ -12,7 +12,7 @@
 
 This documentation hub covers the key architectural additions developed in this fork:
 * **Native Windows on ARM64 Port:** Pure 64-bit ARM assembly (`ARM64 NEON`) with zero x86 emulation overhead.
-* **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`mvtools2-d3d12.dll`).
+* **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`MEnableD3D12(true)`).
 * **18 Tuned Snapdragon Profiles:** Empirically verified `.avs` scripts with single-level geometry (`levels=1`) preserving memory bus bandwidth.
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
@@ -54,4 +54,4 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 
 Download official pre-compiled releases from the [GitHub Releases Page](https://github.com/tordona/mvtools/releases):
 * **`mvtools2.dll`** *(Production Reference)*: Native ARM64 NEON SIMD engine for daily viewing and deterministic 60 fps frame delivery.
-* **`mvtools2-d3d12.dll`** *(Experimental Preview)*: Direct3D 12 DirectCompute GPU-accelerated engine.
+* **`mvtools2.dll`** *(Experimental Preview)*: Direct3D 12 DirectCompute GPU-accelerated engine.
