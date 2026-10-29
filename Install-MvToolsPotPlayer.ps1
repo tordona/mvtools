@@ -13,7 +13,7 @@
     2. Ensures Microsoft Visual C++ 2015-2022 Redistributable runtimes are installed.
     3. Acquires and silently installs official Daum PotPlayer 64-bit from Kakao CDN if not present.
     4. Acquires native 64-bit AviSynth.dll from AviSynth+ official releases and deploys to PotPlayer.
-    5. Acquires native MVTools2 binaries (mvtools2.dll, mvtools2-d3d12.dll on ARM64) and deploys to PotPlayer.
+    5. Acquires native MVTools2 binaries (mvtools2.dll with native CPU NEON and D3D12 GPU engine) and deploys to PotPlayer.
     6. Deploys architecture-filtered AviSynth profiles:
        - ARM64: Deploys strictly Snapdragon*.avs profiles.
        - x86-64: Deploys strictly non-Snapdragon profiles (Ryzen AI, Intel Core, N100, Generic-x64).
@@ -1518,7 +1518,6 @@ function Install-MvToolsRelease {
         }
 
         $cpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
-        $gpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2-d3d12.dll" } | Select-Object -First 1
         $depanDll = $archPool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
         $depanEstDll = $archPool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
 
@@ -1533,14 +1532,7 @@ function Install-MvToolsRelease {
 
         try {
             Copy-Item -Path $cpuDll.FullName -Destination (Join-Path $deployDir "mvtools2.dll") -Force -ErrorAction Stop
-            Write-Host ("  -> Deployed mvtools2.dll ({0} CPU SIMD) to: {1}" -f $archLabel, $deployDir) -ForegroundColor Green
-
-            if ($gpuDll) {
-                Copy-Item -Path $gpuDll.FullName -Destination (Join-Path $deployDir "mvtools2-d3d12.dll") -Force -ErrorAction Stop
-                Write-Host "  -> Deployed mvtools2-d3d12.dll (Direct3D 12 GPU) to: $deployDir" -ForegroundColor Green
-            } else {
-                Write-Host "  -> mvtools2-d3d12.dll not present in archive (CPU-only build package)." -ForegroundColor Gray
-            }
+            Write-Host ("  -> Deployed unified mvtools2.dll ({0} CPU NEON & D3D12 GPU) to: {1}" -f $archLabel, $deployDir) -ForegroundColor Green
 
             if ($depanDll) {
                 Copy-Item -Path $depanDll.FullName -Destination (Join-Path $deployDir "DePan.dll") -Force -ErrorAction Stop
@@ -1653,12 +1645,12 @@ function Install-ArchitectureFilteredProfiles {
     # Bake absolute plugin paths into deployed profiles to make them working-directory agnostic
     $cleanPotDir = $TargetPotPlayerDir.TrimEnd('\/').Replace('\', '/')
     $potMvTools = "$cleanPotDir/mvtools2.dll"
-    $potMvToolsD3d12 = "$cleanPotDir/mvtools2-d3d12.dll"
+    $potMvToolsD3d12 = $potMvTools
 
     Get-ChildItem -Path $potAvsDir -Filter "*.avs" | ForEach-Object {
         try {
             $avsContent = [System.IO.File]::ReadAllText($_.FullName)
-            $avsContent = $avsContent -replace '(?i)"mvtools2-d3d12\.dll"', "`"$potMvToolsD3d12`""
+            # Unified mvtools2.dll
             $avsContent = $avsContent -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
             [System.IO.File]::WriteAllText($_.FullName, $avsContent, [System.Text.Encoding]::ASCII)
         } catch {}
@@ -1855,10 +1847,10 @@ function Set-PotPlayerActiveProfile {
 
     $cleanPotDir = $TargetPotPlayerDir.TrimEnd('\/').Replace('\', '/')
     $potMvTools = "$cleanPotDir/mvtools2.dll"
-    $potMvToolsD3d12 = "$cleanPotDir/mvtools2-d3d12.dll"
+    $potMvToolsD3d12 = $potMvTools
 
     $rawAvs = Get-Content -Path $ProfilePath -Raw
-    $resolvedAvs = $rawAvs -replace '(?i)"mvtools2-d3d12\.dll"', "`"$potMvToolsD3d12`""
+    # Unified mvtools2.dll
     $resolvedAvs = $resolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
 
     Set-PotPlayerShortcutWorkingDirectory -TargetPotPlayerDir $TargetPotPlayerDir
@@ -1976,9 +1968,9 @@ function Copy-AiAgentHardwarePrompt {
     $isArm64 = ($TargetArch -eq "arm64")
     $archDesc = if ($isArm64) { "Windows 11 on ARM64 (AArch64)" } else { "Windows 11 x86-64" }
     $pluginRule = if ($isArm64) {
-        '2. Engine & Plugin Hook: MUST support dual-engine ARM64 via ``plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"`` and ``LoadPlugin(plugin_file)``. Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: MUST load unified binary via ``LoadPlugin("mvtools2.dll")`` and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)``. Hook video via ``src = potplayer_source()``.'
     } else {
-        '2. Engine & Plugin Hook: MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` (DO NOT reference USE_GPU or mvtools2-d3d12.dll on x64). Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` (DO NOT reference USE_D3D12 or MEnableD3D12 on x64). Hook video via ``src = potplayer_source()``.'
     }
 
     $promptText = @"

@@ -17,7 +17,7 @@
 | **MaxQuality** | D3D12 GPU | **60.00** | **54.85** | 53.15 | 8.5% / 9.0% | 54.0% / 56.8% | 50.9% | 327.9 MB | 0 frames |
 
 > [!NOTE]
-> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (mvtools2-d3d12.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
+> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (via MEnableD3D12(true) in mvtools2.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
 
 ### Key Architectural Findings & Trade-Offs
 

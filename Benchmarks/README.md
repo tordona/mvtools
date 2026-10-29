@@ -2,11 +2,11 @@
 
 Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows on ARM64 (Qualcomm Snapdragon SoCs) and x64 (AMD Ryzen / Intel Core).
 
-This test suite rigorously measures, validates, and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2-d3d12.dll`).
+This test suite rigorously measures, validates, and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2.dll`).
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`mvtools2-d3d12.dll`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
+> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
 
 ---
 
@@ -87,7 +87,7 @@ Both the benchmark test harness and all AviSynth interpolation profiles follow *
   # Changelog: Coarse 32x32 -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1024, D3D12 toggle
   ```
   - `MAJOR`: Fundamental architectural paradigm shifts (e.g. moving from 0.5x proxy estimation to native 1080p `levels=1`).
-  - `MINOR`: SoC-specific core cluster pinning, memory ceiling changes, or adding the Direct3D 12 `USE_GPU` engine toggle.
+  - `MINOR`: SoC-specific core cluster pinning, memory ceiling changes, or adding the Direct3D 12 `USE_D3D12` engine toggle.
   - `PATCH`: Parameter fine-tuning, search parameter calibration, or bug fixes.
 
 - **PowerShell Harness Scripts (`Benchmarks/*.ps1`):**
@@ -113,7 +113,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
    - Audits the target video's SHA-256 checksum (`99486359be7e3681168a0fe94e1cbb0284c48b57b2a3ce7df4fa75e185987a15`).
    - If missing or corrupted, provides direct download instructions and official Blender Mango URL.
 3. **[3/7] MVTools Plugin Presence & PE Linker Audit:**
-   - Validates existence of specific plugin binaries (`mvtools2.dll` for CPU NEON/SIMD, `mvtools2-d3d12.dll` for D3D12 GPU mode).
+   - Validates existence of the unified canonical plugin binary (`mvtools2.dll`), containing both native CPU NEON/SIMD and Direct3D 12 compute engines.
    - If missing (or when `-AutoDownloadMvTools` is specified), automatically queries GitHub Releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64) using dynamic REST API discovery with HTML fallback (zero hardcoded filenames/versions), downloads the latest release archive with live streaming progress, and decompresses binaries using native 7-Zip or Windows bsdtar.
    - Synchronizes MVTools binaries and AviSynth profiles into PotPlayer's application directory. If benchmark profiles are missing, acquires them directly from `tordona/mvtools` repository.
    - Queries and logs FileVersion, ProductVersion, PE Linker Build Date, and SHA-256 hashes.
@@ -161,7 +161,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
 | `-MemoryConstrained` | | `switch` | `$false` | Explicitly tags the test run as conducted on a memory-constrained device (also auto-detected if total RAM <= 4.5 GB or free RAM is below headroom). |
 | `-AutoInstallPotPlayer` | | `switch` | `$false` | Automatically downloads and silently installs official native PotPlayer (`PotPlayerSetupARM64.exe` or `PotPlayerSetup64.exe`) from Kakao CDN if not found on the machine. |
 | `-AutoInstallVcRedist` | `AutoInstallVC`, `InstallVcRedist` | `switch` | `$false` | Automatically downloads and silently installs official Microsoft Visual C++ 2015-2022 Redistributables (`VC_redist.arm64.exe` or `VC_redist.x64.exe`) via aka.ms permalinks if required runtime DLLs are missing or architecture-mismatched. |
-| `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools binaries (`mvtools2.dll`, `mvtools2-d3d12.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
+| `-AutoDownloadMvTools` | `DownloadMvTools`, `UpdateMvTools` | `switch` | `$false` | Automatically downloads and extracts latest official MVTools binaries (`mvtools2.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools` on ARM64, `pinterf/mvtools` on x64). Missing binaries or missing `.avs` profiles also trigger automated acquisition. |
 | `-MvToolsRepo` | | `string` | `"tordona/mvtools"` (ARM64)<br>`"pinterf/mvtools"` (x64) | GitHub repository slug for downloading release packages (default dynamically resolves based on target architecture). |
 | `-AviSynthRepo` | | `string` | `"AviSynth/AviSynthPlus"` | GitHub repository slug for downloading official AviSynth+ releases. If `AviSynth.dll` is missing, the harness automatically downloads the latest release archive and extracts `arm64\bin\AviSynth.dll` or `x64\AviSynth.dll`. |
 | `-OutputDir` | | `string` | `"BenchmarkResults"` | Directory where report TXT and CSV telemetry are saved. |
@@ -265,7 +265,7 @@ When analyzing the comparison matrix, focus on the following key performance ind
 ### 2. Compute Load & Efficiency
 - **System CPU Load % vs. PotPlayer GPU %:**
   - **ARM64 CPU NEON (`mvtools2.dll`):** Average CPU load is $\sim 12-16\%$ across 8 Oryon cores; GPU load stays at $\sim 19-25\%$ (presentation and display composition only).
-  - **Direct3D 12 GPU (`mvtools2-d3d12.dll`):** Offloads motion search into Adreno GPU compute queues ($\sim 72-75\%$ GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
+  - **Direct3D 12 GPU (`MEnableD3D12(true)`):** Offloads motion search into Adreno GPU compute queues ($\sim 72-75\%$ GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
 - **PotPlayer Working Set (RAM):**
   - **Eco Tier:** $\sim 315\text{ MB}$ (540p proxy clip reduces cache lines and DRAM pressure).
   - **Balanced Tier:** $\sim 384\text{ MB}$ (Full 1080p motion search).

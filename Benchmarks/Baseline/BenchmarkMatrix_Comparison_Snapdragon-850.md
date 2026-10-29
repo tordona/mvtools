@@ -14,7 +14,7 @@
 | **MaxQuality** | CPU NEON | **60.00** | **54.46** | 39.72 | 14.6% / 16.3% | 55.0% / 56.1% | 49.0% | 237.0 MB | 2 frames |
 
 > [!NOTE]
-> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (mvtools2-d3d12.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
+> **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (via MEnableD3D12(true) in mvtools2.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
 
 > [!WARNING]
 > **Display Panel Scanout Rate Notice (57.54 Hz):** Benchmark telemetry for this platform was captured on a display running at an empirical panel scanout rate of 57.54 Hz (M133NWF4-R0 (60.000 Hz, 60000/1000)). The recorded dropped frames were provoked by VSync phase drift between the 60.000 fps video clock and the physical display scanout (1 frame discarded by DXGI Flip Discard every ~7.3s; frame render latency was <0.5 ms), rather than compute or GPU bottlenecks. Testing on an external integer 60.00 Hz / 120.00 Hz monitor will verify 0 dropped frames.

@@ -344,7 +344,7 @@ function Get-BenchmarkReportData([string]$FilePath) {
         }
         if ($avsFile) {
             $avsContent = Get-Content -Path $avsFile -Raw -ErrorAction SilentlyContinue
-            if ($avsContent -match 'threads\s*=\s*USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)') {
+            if ($avsContent -match 'threads\s*=\s*USE_(?:D3D12|GPU)\s*\?\s*(\d+)\s*:\s*(\d+)') {
                 $scriptThreads = if ($engine -match '(?i)GPU|D3D12') { [int]$Matches[1] } else { [int]$Matches[2] }
             } elseif ($avsContent -match 'threads\s*=\s*(\d+)') {
                 $scriptThreads = [int]$Matches[1]
@@ -434,8 +434,8 @@ function Get-AviSynthProfileSummary([string]$ProfileName, [string]$ScriptDir) {
 
     $target = if ($raw -match '(?m)^\s*#\s*Target:\s*(.+)$') { $Matches[1].Trim() } else { "" }
 
-    $cMatch = [regex]::Match($raw, 'blk_coarse\s*=\s*(?:USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)|(\d+))')
-    $fMatch = [regex]::Match($raw, 'blk_fine\s*=\s*(?:USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)|(\d+))')
+    $cMatch = [regex]::Match($raw, 'blk_coarse\s*=\s*(?:USE_(?:D3D12|GPU)\s*\?\s*(\d+)\s*:\s*(\d+)|(\d+))')
+    $fMatch = [regex]::Match($raw, 'blk_fine\s*=\s*(?:USE_(?:D3D12|GPU)\s*\?\s*(\d+)\s*:\s*(\d+)|(\d+))')
     $blockDesc = ""
     if ($cMatch.Success -and $fMatch.Success) {
         if ($cMatch.Groups[1].Value) {
@@ -450,7 +450,7 @@ function Get-AviSynthProfileSummary([string]$ProfileName, [string]$ScriptDir) {
         $blockDesc = if ($r) { "Dual-pass ${c}x${cv} -> ${r}x${r}" } else { "${c}x${cv} blocks" }
     }
 
-    $pelDesc = if ($raw -match 'pel_val\s*=\s*USE_GPU\s*\?\s*(\d+)\s*:\s*(\d+)') {
+    $pelDesc = if ($raw -match 'pel_val\s*=\s*USE_(?:D3D12|GPU)\s*\?\s*(\d+)\s*:\s*(\d+)') {
         "pel=$($Matches[2]) (CPU half-pixel) / pel=$($Matches[1]) (GPU integer)"
     } elseif ($raw -match 'pel(?:_val)?\s*=\s*2') {
         "pel=2 (subpixel Wiener/bicubic)"
@@ -802,7 +802,7 @@ foreach ($pk in $PlatformGroups.Keys) {
     if ($isX64) {
         $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the active production motion estimation engine on x64 platforms."
     } else {
-        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`mvtools2-d3d12.dll`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
+        $MdLines += "> **Engine Status:** $engineRefDesc (`mvtools2.dll`) is the recommended production reference. Direct3D 12 GPU offload (`MEnableD3D12(true)`) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis."
     }
 
     if ($hasConstrained) {
