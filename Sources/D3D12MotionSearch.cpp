@@ -47,7 +47,7 @@ struct D3D12MotionSearch::Impl
     HANDLE m_fenceEvent = nullptr;
     uint64_t m_fenceValue = 0;
 
-    struct RefCacheEntry
+    struct PlaneCacheEntry
     {
         ComPtr<ID3D12Resource> buffer;
         void* pMapped = nullptr;
@@ -62,21 +62,93 @@ struct D3D12MotionSearch::Impl
         uint64_t lruCounter = 0;
     };
 
-    static constexpr int REF_CACHE_SLOTS = 4;
-    RefCacheEntry m_refCache[REF_CACHE_SLOTS];
+    // Unified 6-slot plane cache (eliminates ping-pong cache thrashing across MAnalyse and MRecalculate)
+    static constexpr int PLANE_CACHE_SLOTS = 6;
+    PlaneCacheEntry m_planeCache[PLANE_CACHE_SLOTS];
     uint64_t m_lruTick = 0;
 
-    // Cached GPU Buffers
-    ComPtr<ID3D12Resource> m_srcBuffer;
-    void* m_pSrcMapped = nullptr;
-    size_t m_srcBufferSize = 0;
-    const uint8_t* m_cachedSrcPtr = nullptr;
-    size_t m_cachedSrcSize = 0;
-    uint64_t m_srcSample0 = 0;
-    uint64_t m_srcSample1 = 0;
-    uint64_t m_srcSample2 = 0;
-    uint64_t m_srcSample3 = 0;
-    uint64_t m_srcSample4 = 0;
+    int GetOrUploadPlane(const uint8_t* pPlane, size_t size, int excludeSlot)
+    {
+        uint64_t s0 = 0, s1 = 0, s2 = 0, s3 = 0, s4 = 0;
+        if (size >= 8 && pPlane)
+        {
+            s0 = *(const uint64_t*)(pPlane);
+            s1 = *(const uint64_t*)(pPlane + (size >> 2));
+            s2 = *(const uint64_t*)(pPlane + (size >> 1));
+            s3 = *(const uint64_t*)(pPlane + ((size * 3) >> 2));
+            s4 = *(const uint64_t*)(pPlane + size - 8);
+        }
+
+        // 1. Look for existing cache hit
+        for (int i = 0; i < PLANE_CACHE_SLOTS; i++)
+        {
+            if (m_planeCache[i].buffer &&
+                m_planeCache[i].pPtr == pPlane &&
+                m_planeCache[i].size == size &&
+                m_planeCache[i].sample0 == s0 &&
+                m_planeCache[i].sample1 == s1 &&
+                m_planeCache[i].sample2 == s2 &&
+                m_planeCache[i].sample3 == s3 &&
+                m_planeCache[i].sample4 == s4)
+            {
+                m_planeCache[i].lruCounter = ++m_lruTick;
+                return i;
+            }
+        }
+
+        // 2. Cache miss: select LRU slot (avoiding excludeSlot)
+        int selectedSlot = -1;
+        uint64_t minTick = UINT64_MAX;
+        for (int i = 0; i < PLANE_CACHE_SLOTS; i++)
+        {
+            if (i == excludeSlot) continue;
+            if (!m_planeCache[i].buffer)
+            {
+                selectedSlot = i;
+                break;
+            }
+            if (m_planeCache[i].lruCounter < minTick)
+            {
+                minTick = m_planeCache[i].lruCounter;
+                selectedSlot = i;
+            }
+        }
+
+        if (selectedSlot < 0) return -1;
+
+        PlaneCacheEntry& entry = m_planeCache[selectedSlot];
+        if (entry.bufferSize < size || !entry.buffer || !entry.pMapped)
+        {
+            if (entry.buffer && entry.pMapped)
+            {
+                entry.buffer->Unmap(0, nullptr);
+                entry.pMapped = nullptr;
+            }
+            entry.bufferSize = (size * 3) / 2;
+            entry.buffer.Reset();
+            if (FAILED(CreateBuffer(entry.bufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &entry.buffer)))
+            {
+                return -1;
+            }
+            if (FAILED(entry.buffer->Map(0, nullptr, &entry.pMapped)) || !entry.pMapped)
+            {
+                entry.pMapped = nullptr;
+                return -1;
+            }
+        }
+
+        memcpy(entry.pMapped, pPlane, size);
+        entry.pPtr = pPlane;
+        entry.size = size;
+        entry.sample0 = s0;
+        entry.sample1 = s1;
+        entry.sample2 = s2;
+        entry.sample3 = s3;
+        entry.sample4 = s4;
+        entry.lruCounter = ++m_lruTick;
+
+        return selectedSlot;
+    }
 
     ComPtr<ID3D12Resource> m_predBuffer;
     ComPtr<ID3D12Resource> m_tempPredBuffer;
@@ -293,17 +365,12 @@ struct D3D12MotionSearch::Impl
 
     ~Impl()
     {
-        if (m_srcBuffer && m_pSrcMapped)
+        for (int i = 0; i < PLANE_CACHE_SLOTS; i++)
         {
-            m_srcBuffer->Unmap(0, nullptr);
-            m_pSrcMapped = nullptr;
-        }
-        for (int i = 0; i < REF_CACHE_SLOTS; i++)
-        {
-            if (m_refCache[i].buffer && m_refCache[i].pMapped)
+            if (m_planeCache[i].buffer && m_planeCache[i].pMapped)
             {
-                m_refCache[i].buffer->Unmap(0, nullptr);
-                m_refCache[i].pMapped = nullptr;
+                m_planeCache[i].buffer->Unmap(0, nullptr);
+                m_planeCache[i].pMapped = nullptr;
             }
         }
         if (m_constBuffer && m_pConstMapped)
@@ -447,141 +514,12 @@ bool D3D12MotionSearch::SearchMVs(
         return false;
     }
 
-    // 1. Source buffer upload or cache hit
-    bool srcHit = false;
-    uint64_t srcS0 = 0, srcS1 = 0, srcS2 = 0, srcS3 = 0, srcS4 = 0;
-    if (srcSize >= 8)
-    {
-        srcS0 = *(const uint64_t*)(pSrc);
-        srcS1 = *(const uint64_t*)(pSrc + (srcSize >> 2));
-        srcS2 = *(const uint64_t*)(pSrc + (srcSize >> 1));
-        srcS3 = *(const uint64_t*)(pSrc + ((srcSize * 3) >> 2));
-        srcS4 = *(const uint64_t*)(pSrc + srcSize - 8);
-    }
+    // 1. Source and Reference plane upload via unified 6-slot LRU cache
+    int srcSlot = pImpl->GetOrUploadPlane(pSrc, srcSize, -1);
+    if (srcSlot < 0) return false;
 
-    if (pImpl->m_srcBuffer && pImpl->m_cachedSrcPtr == pSrc && pImpl->m_cachedSrcSize == srcSize &&
-        pImpl->m_srcSample0 == srcS0 && pImpl->m_srcSample1 == srcS1 && pImpl->m_srcSample2 == srcS2 &&
-        pImpl->m_srcSample3 == srcS3 && pImpl->m_srcSample4 == srcS4)
-    {
-        srcHit = true;
-    }
-
-    if (!srcHit)
-    {
-        if (pImpl->m_srcBufferSize < srcSize || !pImpl->m_srcBuffer || !pImpl->m_pSrcMapped)
-        {
-            if (pImpl->m_srcBuffer && pImpl->m_pSrcMapped)
-            {
-                pImpl->m_srcBuffer->Unmap(0, nullptr);
-                pImpl->m_pSrcMapped = nullptr;
-            }
-            pImpl->m_srcBufferSize = (srcSize * 3) / 2;
-            pImpl->m_srcBuffer.Reset();
-            if (FAILED(pImpl->CreateBuffer(pImpl->m_srcBufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_srcBuffer)))
-            {
-                return false;
-            }
-            if (FAILED(pImpl->m_srcBuffer->Map(0, nullptr, &pImpl->m_pSrcMapped)) || !pImpl->m_pSrcMapped)
-            {
-                pImpl->m_pSrcMapped = nullptr;
-                return false;
-            }
-        }
-        memcpy(pImpl->m_pSrcMapped, pSrc, srcSize);
-
-        pImpl->m_cachedSrcPtr = pSrc;
-        pImpl->m_cachedSrcSize = srcSize;
-        pImpl->m_srcSample0 = srcS0;
-        pImpl->m_srcSample1 = srcS1;
-        pImpl->m_srcSample2 = srcS2;
-        pImpl->m_srcSample3 = srcS3;
-        pImpl->m_srcSample4 = srcS4;
-    }
-
-    // 2. Reference buffer cache lookup (4 slots)
-    uint64_t refS0 = 0, refS1 = 0, refS2 = 0, refS3 = 0, refS4 = 0;
-    if (refSize >= 8)
-    {
-        refS0 = *(const uint64_t*)(pRef);
-        refS1 = *(const uint64_t*)(pRef + (refSize >> 2));
-        refS2 = *(const uint64_t*)(pRef + (refSize >> 1));
-        refS3 = *(const uint64_t*)(pRef + ((refSize * 3) >> 2));
-        refS4 = *(const uint64_t*)(pRef + refSize - 8);
-    }
-
-    int refSlot = -1;
-    for (int i = 0; i < Impl::REF_CACHE_SLOTS; i++)
-    {
-        if (pImpl->m_refCache[i].buffer &&
-            pImpl->m_refCache[i].pPtr == pRef &&
-            pImpl->m_refCache[i].size == refSize &&
-            pImpl->m_refCache[i].sample0 == refS0 &&
-            pImpl->m_refCache[i].sample1 == refS1 &&
-            pImpl->m_refCache[i].sample2 == refS2 &&
-            pImpl->m_refCache[i].sample3 == refS3 &&
-            pImpl->m_refCache[i].sample4 == refS4)
-        {
-            refSlot = i;
-            break;
-        }
-    }
-
-    if (refSlot >= 0)
-    {
-        // Cache hit! Zero copy!
-        pImpl->m_refCache[refSlot].lruCounter = ++pImpl->m_lruTick;
-    }
-    else
-    {
-        // Cache miss: find LRU slot
-        int lruSlot = 0;
-        uint64_t minTick = UINT64_MAX;
-        for (int i = 0; i < Impl::REF_CACHE_SLOTS; i++)
-        {
-            if (!pImpl->m_refCache[i].buffer)
-            {
-                lruSlot = i;
-                break;
-            }
-            if (pImpl->m_refCache[i].lruCounter < minTick)
-            {
-                minTick = pImpl->m_refCache[i].lruCounter;
-                lruSlot = i;
-            }
-        }
-
-        refSlot = lruSlot;
-        if (pImpl->m_refCache[refSlot].bufferSize < refSize || !pImpl->m_refCache[refSlot].buffer || !pImpl->m_refCache[refSlot].pMapped)
-        {
-            if (pImpl->m_refCache[refSlot].buffer && pImpl->m_refCache[refSlot].pMapped)
-            {
-                pImpl->m_refCache[refSlot].buffer->Unmap(0, nullptr);
-                pImpl->m_refCache[refSlot].pMapped = nullptr;
-            }
-            pImpl->m_refCache[refSlot].bufferSize = (refSize * 3) / 2;
-            pImpl->m_refCache[refSlot].buffer.Reset();
-            if (FAILED(pImpl->CreateBuffer(pImpl->m_refCache[refSlot].bufferSize, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE, &pImpl->m_refCache[refSlot].buffer)))
-            {
-                return false;
-            }
-            if (FAILED(pImpl->m_refCache[refSlot].buffer->Map(0, nullptr, &pImpl->m_refCache[refSlot].pMapped)) || !pImpl->m_refCache[refSlot].pMapped)
-            {
-                pImpl->m_refCache[refSlot].pMapped = nullptr;
-                return false;
-            }
-        }
-
-        memcpy(pImpl->m_refCache[refSlot].pMapped, pRef, refSize);
-
-        pImpl->m_refCache[refSlot].pPtr = pRef;
-        pImpl->m_refCache[refSlot].size = refSize;
-        pImpl->m_refCache[refSlot].sample0 = refS0;
-        pImpl->m_refCache[refSlot].sample1 = refS1;
-        pImpl->m_refCache[refSlot].sample2 = refS2;
-        pImpl->m_refCache[refSlot].sample3 = refS3;
-        pImpl->m_refCache[refSlot].sample4 = refS4;
-        pImpl->m_refCache[refSlot].lruCounter = ++pImpl->m_lruTick;
-    }
+    int refSlot = pImpl->GetOrUploadPlane(pRef, refSize, srcSlot);
+    if (refSlot < 0) return false;
 
     // Predictors upload: stream directly to mapped GPU buffer (eliminates intermediate vector allocations)
     bool validUpperPred = false;
@@ -673,8 +611,8 @@ bool D3D12MotionSearch::SearchMVs(
 
     pImpl->m_cmdList->SetComputeRootSignature(pImpl->m_rootSig.Get());
     pImpl->m_cmdList->SetComputeRootConstantBufferView(0, pImpl->m_constBuffer->GetGPUVirtualAddress());
-    pImpl->m_cmdList->SetComputeRootShaderResourceView(1, pImpl->m_srcBuffer->GetGPUVirtualAddress());
-    pImpl->m_cmdList->SetComputeRootShaderResourceView(2, pImpl->m_refCache[refSlot].buffer->GetGPUVirtualAddress());
+    pImpl->m_cmdList->SetComputeRootShaderResourceView(1, pImpl->m_planeCache[srcSlot].buffer->GetGPUVirtualAddress());
+    pImpl->m_cmdList->SetComputeRootShaderResourceView(2, pImpl->m_planeCache[refSlot].buffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootShaderResourceView(3, validUpperPred ? pImpl->m_predBuffer->GetGPUVirtualAddress() : pImpl->m_dummyBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootShaderResourceView(4, (temporal && vecPrev) ? pImpl->m_tempPredBuffer->GetGPUVirtualAddress() : pImpl->m_dummyBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootUnorderedAccessView(5, pImpl->m_uavBuffer->GetGPUVirtualAddress());

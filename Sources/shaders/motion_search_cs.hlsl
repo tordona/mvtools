@@ -126,7 +126,12 @@ uint ComputeBlockSAD(uint x_src, uint y_src, int vx, int vy)
     uint maxSrcY = (extendedHeight > 0) ? (extendedHeight - 1) : 0;
     uint maxRefYRow = (extendedHeight > 0) ? (extendedHeight - 1) : 0;
 
-    for (uint dy = 0; dy < nBlkSizeY; dy++)
+    // 4K Optimization: When extendedWidth > 2048 and nBlkSizeY >= 16, evaluate SAD on a 2-row
+    // vertical stride (dy += 2) and scale accumulated SAD by 2x (<< 1) to cut memory fetches by 50%
+    uint rowShift = (extendedWidth > 2048 && nBlkSizeY >= 16) ? 1u : 0u;
+    uint rowStride = 1u << rowShift;
+
+    for (uint dy = 0; dy < nBlkSizeY; dy += rowStride)
     {
         uint currSrcY = min(y_src + dy, maxSrcY);
         uint currRefY = min((uint)clamp(clamped_ref_base_y + (int)dy, 0, (int)maxRefYRow), maxRefYRow);
@@ -143,15 +148,18 @@ uint ComputeBlockSAD(uint x_src, uint y_src, int vx, int vy)
         }
 
         // Process remaining tail bytes if block width is not a multiple of 4
-        for (uint t = 0; t < byteTail; t++)
+        if (byteTail != 0)
         {
-            uint sVal = Load1Byte(g_SrcPlane, srcRowByte + (wordCount << 2) + t);
-            uint rVal = Load1Byte(g_RefPlane, refRowByte + (wordCount << 2) + t);
-            sad += (uint)abs((int)sVal - (int)rVal);
+            for (uint t = 0; t < byteTail; t++)
+            {
+                uint sVal = Load1Byte(g_SrcPlane, srcRowByte + (wordCount << 2) + t);
+                uint rVal = Load1Byte(g_RefPlane, refRowByte + (wordCount << 2) + t);
+                sad += (uint)abs((int)sVal - (int)rVal);
+            }
         }
     }
 
-    return sad;
+    return sad << rowShift;
 }
 
 // Cost function matching MVTools MotionDistorsion and penalty weights
@@ -315,9 +323,10 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     }
 
     // --- Local Motion Vector Search Refinement ---
-    // If coarse predictor is already a near-perfect match (e.g. static background or smooth motion),
+    // If coarse predictor is already a near-perfect match (<= 0.5 SAD per pixel, e.g. 128 on 16x16 or 512 on 32x32),
     // skip refinement search completely.
-    if (hasUpperPredictor != 0 && bestSAD <= 128)
+    uint earlyOutSAD = (nBlkSizeX * nBlkSizeY) >> 1;
+    if (hasUpperPredictor != 0 && bestSAD <= earlyOutSAD)
     {
         // Coarse predictor is already optimal
     }
