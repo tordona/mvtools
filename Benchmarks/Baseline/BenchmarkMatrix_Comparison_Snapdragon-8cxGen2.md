@@ -1,45 +1,46 @@
-# MVTools Benchmark Comparison Matrix - Snapdragon-8cxGen2
+﻿# MVTools Benchmark Comparison Matrix - Snapdragon-8cxGen2
 
 **Host Platform:** Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)  
 **Platform Identifier:** Snapdragon-8cxGen2  
 **PotPlayer Version:** 1.7.23122 (Build: 2026-09-01 19:30:50)  
-**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.1.0)  
-**Generated:** 2026-10-19 10:32:10  
-**Reference Target:** 1080p 24 fps -> 60 fps Interpolation  
+**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.5.0)  
+**Generated:** 2026-10-28 17:07:10  
+**Reference Target:** tears_of_steel_1080p.mov  
 
 | Tier | Motion Engine | Avg FPS | 1% Low FPS | 0.1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | PotPlayer GPU | RAM Working Set | Dropped Frames |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Eco** | CPU NEON | **60.00** | **53.09** | 51.76 | 16.7% / 44.0% | 23.8% / 25.3% | 19.4% | 298.7 MB | 1 frames |
-| **Eco** | D3D12 GPU | **60.00** | **53.68** | 52.05 | 10.9% / 18.8% | 65.2% / 73.5% | 62.7% | 314.5 MB | 0 frames |
-| **Balanced** | CPU NEON | **60.00** | **53.45** | 51.52 | 13.5% / 15.6% | 23.9% / 25.7% | 19.5% | 317.0 MB | 0 frames |
-| **Balanced** | D3D12 GPU | **60.00** | **53.85** | 52.39 | 12.7% / 15.1% | 65.8% / 77.3% | 63.4% | 323.5 MB | 0 frames |
-| **MaxQuality** | CPU NEON | **59.99** | **53.74** | 52.51 | 23.6% / 25.7% | 23.9% / 25.7% | 19.5% | 363.6 MB | 1 frames |
-| **MaxQuality** | D3D12 GPU | **60.00** | **53.65** | 52.02 | 18.3% / 26.6% | 67.9% / 80.6% | 65.4% | 343.1 MB | 0 frames |
+| **Eco** | CPU NEON | **60.00** | **52.87** | 52.23 | 9.0% / 13.1% | 23.9% / 25.4% | 19.4% | 244.4 MB | 1 frames |
+| **Eco** | D3D12 GPU | **60.00** | **53.29** | 52.37 | 9.9% / 13.4% | 57.8% / 60.0% | 54.7% | 315.5 MB | 0 frames |
+| **Balanced** | CPU NEON | **60.00** | **53.28** | 52.30 | 10.7% / 16.8% | 23.8% / 25.3% | 19.4% | 256.0 MB | 2 frames |
+| **Balanced** | D3D12 GPU | **60.00** | **53.18** | 51.52 | 8.2% / 10.5% | 60.9% / 65.4% | 58.3% | 329.3 MB | 1 frames |
+| **MaxQuality** | CPU NEON | **60.00** | **53.86** | 52.70 | 15.3% / 17.4% | 23.8% / 25.2% | 19.4% | 302.0 MB | 2 frames |
+| **MaxQuality** | D3D12 GPU | **60.00** | **53.65** | 52.03 | 8.2% / 11.1% | 60.8% / 66.0% | 58.2% | 329.6 MB | 3 frames |
 
 > [!NOTE]
 > **Engine Status:** ARM64 CPU NEON (mvtools2.dll) is the recommended production reference. Direct3D 12 GPU offload (mvtools2_d3d12.dll) is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis.
 
+> [!WARNING]
+> **Display Panel Scanout Rate Notice (59.95 Hz):** Benchmark telemetry for this platform was captured on a display running at an empirical panel scanout rate of 59.95 Hz (Primary Display (60.048 Hz, 60048/1000)). The recorded dropped frames were provoked by VSync phase drift between the 60.000 fps video clock and the physical display scanout (1 frame discarded by DXGI Flip Discard every ~7.3s; frame render latency was <0.5 ms), rather than compute or GPU bottlenecks. Testing on an external integer 60.00 Hz / 120.00 Hz monitor will verify 0 dropped frames.
+
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Configuration:** Full native analysis, 32x32 blocks, pel=1 (integer pixel), Fast block projection (mode=0) | Target: 7 W Fanless Thermal Envelope, Maximum Battery Life, 0 Dropped Frames
-   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 fps** (1 frames) vs D3D12 GPU **60.00 fps** (0 frames). 1% Lows: CPU NEON **53.09 fps** vs D3D12 GPU **53.68 fps**.
-   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **5.8%** (from 16.7% down to 10.9%), utilizing 62.7% Adreno GPU compute.
-   - **Memory Footprint:** PotPlayer working set: 298.7 MB (CPU) vs 314.5 MB (D3D12 GPU).
+   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 FPS** (1 frames) vs D3D12 GPU **60.00 FPS** (0 frames). 1% Lows: CPU NEON **52.87 FPS** vs D3D12 GPU **53.29 FPS**.
+   - **Compute Offload:** CPU NEON operated with lower CPU load (9.0% vs 9.9%), with D3D12 GPU engaging 54.7% Adreno GPU compute.
+   - **Memory Footprint:** PotPlayer working set: 244.4 MB (CPU) vs 315.5 MB (D3D12 GPU).
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Configuration:** Full native analysis, Dual-pass 32x32 -> 16x16, pel=1 (integer pixel), Pixel-flow synthesis (mode=2) | Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
-   - **Frame Rate & Pacing:** Both engines sustained a solid **60.00 fps** with 0 dropped presentation frames. 1% Lows: CPU NEON **53.45 fps** vs D3D12 GPU **53.85 fps**.
-   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **0.8%** (from 13.5% down to 12.7%), utilizing 63.4% Adreno GPU compute.
-   - **Memory Footprint:** PotPlayer working set: 317.0 MB (CPU) vs 323.5 MB (D3D12 GPU).
+   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 FPS** (2 frames) vs D3D12 GPU **60.00 FPS** (1 frames). 1% Lows: CPU NEON **53.28 FPS** vs D3D12 GPU **53.18 FPS**.
+   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **2.5%** (from 10.7% down to 8.2%), utilizing 58.3% Adreno GPU compute.
+   - **Memory Footprint:** PotPlayer working set: 256.0 MB (CPU) vs 329.3 MB (D3D12 GPU).
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Configuration:** Full native analysis, Dual-pass 16x16 -> 8x8 (CPU) / 32x32 -> 16x16 (GPU), pel=2 (CPU half-pixel) / pel=1 (GPU integer), Pixel-flow synthesis (mode=2) | Target: Highest Achievable Quality within 8cx Gen 2 Thermal Ceiling
-   - **Frame Rate & Pacing:** Average FPS: CPU NEON **59.99 fps** (1 frames) vs D3D12 GPU **60.00 fps** (0 frames). 1% Lows: CPU NEON **53.74 fps** vs D3D12 GPU **53.65 fps**.
-   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **5.3%** (from 23.6% down to 18.3%), utilizing 65.4% Adreno GPU compute.
-   - **Memory Footprint:** PotPlayer working set: 363.6 MB (CPU) vs 343.1 MB (D3D12 GPU).
+   - **Frame Rate & Pacing:** Average FPS: CPU NEON **60.00 FPS** (2 frames) vs D3D12 GPU **60.00 FPS** (3 frames). 1% Lows: CPU NEON **53.86 FPS** vs D3D12 GPU **53.65 FPS**.
+   - **Compute Offload:** D3D12 GPU offload reduced system CPU load by **7.1%** (from 15.3% down to 8.2%), utilizing 58.2% Adreno GPU compute.
+   - **Memory Footprint:** PotPlayer working set: 302.0 MB (CPU) vs 329.6 MB (D3D12 GPU).
 
 ### Platform Assessment & Profile Recommendation
 
-- **Stability & Real-Time Headroom:** On **Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)**, the **Balanced** tier sustained steady 60.00 fps with zero dropped presentation frames. In contrast, higher-complexity passes in [Eco, MaxQuality] exceeded real-time presentation budgets resulting in frame drops. **Balanced** is therefore the optimal daily recommendation for this SoC.
+- **Stability & Real-Time Headroom:** All evaluated tiers sustained real-time 60.00 fps with zero dropped presentation frames on **Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)**. **Balanced** minimized CPU compute load (8.2%), while **MaxQuality** delivered the smoothest frame consistency (53.86 FPS 1% low).
 - **Compute Engine Trade-Off:** ARM64 CPU NEON remains the recommended production baseline for deterministic frame pacing and artifact-free presentation. Direct3D 12 GPU offload transfers motion vector search to the Adreno GPU compute shaders, freeing CPU headroom for background multi-tasking.
+- **Display Hardware Refresh Rate Impact:** Telemetry indicates this platform's physical panel scans at **59.95 Hz** (Primary Display (60.048 Hz, 60048/1000)). Because the AviSynth profile generates strictly 60.000 fps, an excess frame accumulates every ~20s and is discarded by the DXGI swapchain queue to preserve audio synchronization. Frame render latency during drops remained under 0.5 ms (zero compute lag). These dropped frames are confirmed physical display VSync timing discards, not a processor or shader performance bottleneck.

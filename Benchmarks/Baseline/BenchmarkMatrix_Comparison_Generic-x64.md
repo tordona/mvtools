@@ -1,10 +1,10 @@
-# MVTools Benchmark Comparison Matrix - Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605
+﻿# MVTools Benchmark Comparison Matrix - Generic-x64
 
 **Host Platform:** Generic x86-64 (Intel(R) Pentium(R) Silver N5030 CPU @ 1.10GHz, Intel(R) UHD Graphics 605)  
-**Platform Identifier:** Generic-x86-64-Pentium-Silver-N5030-CPU---1-10GHz--Intel-UHD-Graphics-605  
+**Platform Identifier:** Generic-x64  
 **PotPlayer Version:** 1.7.23164 (Build: 2026-10-23 02:59:00)  
-**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.4.0)  
-**Generated:** 2026-10-24 21:43:57  
+**Benchmark Suite:** MvToolsBenchmarks-Compare.ps1 (v2.5.0)  
+**Generated:** 2026-10-28 17:07:11  
 **Reference Target:** tears_of_steel_1080p.mov  
 
 | Tier | Motion Engine | Avg FPS | 1% Low FPS | 0.1% Low FPS | CPU Load (Avg/Peak) | GPU Load (Avg/Peak) | PotPlayer GPU | RAM Working Set | Dropped Frames |
@@ -22,15 +22,15 @@
 ### Key Architectural Findings & Trade-Offs
 
 1. **Eco Tier (Battery & Thermal Priority):**
-   - **Frame Rate & Pacing:** Sustained **59.99 fps** (1% Low: **54.21 fps**, Dropped: 58 frames).
+   - **Frame Rate & Pacing:** Sustained **59.99 FPS** (1% Low: **54.21 FPS**, Dropped: 58 frames).
    - **Compute Load:** System CPU averaged 57.0% (Peak: 63.1%) on x64 CPU SIMD with working set of 262.5 MB.
 
 2. **Balanced Tier (Recommended Daily Driver):**
-   - **Frame Rate & Pacing:** Sustained **59.97 fps** (1% Low: **54.50 fps**, Dropped: 31 frames).
+   - **Frame Rate & Pacing:** Sustained **59.97 FPS** (1% Low: **54.50 FPS**, Dropped: 31 frames).
    - **Compute Load:** System CPU averaged 59.2% (Peak: 65.2%) on x64 CPU SIMD with working set of 260.2 MB.
 
 3. **MaxQuality Tier (High-Fidelity Action & Detail):**
-   - **Frame Rate & Pacing:** Sustained **7.24 fps** (1% Low: **0.96 fps**, Dropped: 6 frames).
+   - **Frame Rate & Pacing:** Sustained **7.24 FPS** (1% Low: **0.96 FPS**, Dropped: 6 frames).
    - **Compute Load:** System CPU averaged 91.6% (Peak: 97.7%) on x64 CPU SIMD with working set of 316.6 MB.
 
 ### Platform Assessment & Profile Recommendation
