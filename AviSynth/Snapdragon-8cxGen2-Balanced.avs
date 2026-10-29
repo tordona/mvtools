@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
-# Revision: 2.0.0 (2026-10-18)
-# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=4, Prefetch(4, 4), mem_limit=1024, D3D12 toggle
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -15,7 +15,7 @@ USE_GPU = false
 
 # Dynamic parameters adapted to USE_GPU
 plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: exactly 4 Gold cores
+threads     = USE_GPU ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: 4 Gold cores
 mem_limit   = USE_GPU ? 1024 : 1536
 
 # Memory allocation and multi-threading filter mode
@@ -30,10 +30,10 @@ LoadPlugin(plugin_file)
 
 # 1. Motion Super Clip with Lightweight Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
-# pel=1: Whole-pixel estimation paired with MRecalculate keeps CPU low while tracking details
-# hpad=4, vpad=4: Minimal boundary padding prevents edge tearing without cache thrashing
-# sharp=1: Bicubic interpolation for cleaner motion vectors
-super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=1)
+# pel=1: Whole-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
+# hpad=4, vpad=4: 4 px boundary padding prevents edge tearing without cache thrashing
+# sharp=0: Subpixel interpolation filter is unused when pel=1
+super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=0)
 
 # 2. Coarse Motion Vector Search (32x32 blocks)
 # search=2: Hexagonal search with radius 1 keeps searches fast on Cortex-A76 cores

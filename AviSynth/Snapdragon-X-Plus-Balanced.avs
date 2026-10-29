@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-# Revision: 2.0.0 (2026-10-18)
-# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, threads=6, Prefetch(6, 4), mem_limit=1536, D3D12 toggle
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -30,29 +30,29 @@ LoadPlugin(plugin_file)
 
 # 1. Motion Super Clip with Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
-# pel=1: Whole-pixel estimation paired with MRecalculate keeps CPU low while tracking details
-# hpad=8, vpad=8: Boundary padding stabilizes vectors near image borders
-# sharp=1: Bicubic interpolation for cleaner motion vectors
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+# pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
+# hpad=8, vpad=8: 8 px boundary padding stabilizes motion vectors near frame borders
+# sharp=0: Subpixel interpolation filter is unused when pel=1
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
-# blksize=32, blksizev=32: Fast macro-motion detection
-# search=2: Hexagonal search with radius 2 for good range without excessive SAD checks
-# badrange=(-24): Early rejection of outlier vectors to prevent haloing
+# blksize=32, blksizev=32: Macro-motion detection across 2,040 blocks at 1080p
+# search=2, searchparam=2: Hexagonal search with radius 2
+# badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
 # levels=1: Strictly searches base Level 0
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
-# blksize=16, blksizev=16: Refines vectors down to 16x16 blocks at object boundaries
-# Resolves small moving objects and prevents blocky edge tearing
+# blksize=16, blksizev=16: Refines vectors to 16x16 blocks (8,160 blocks at 1080p) using 2x2 bilinear coarse predictors
+# search=2, searchparam=1: 3x3 local grid refinement around interpolated coarse predictor
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
 # 4. Pixel-Level Motion Interpolation with Occlusion Handling
-# mode=2: Pixel-flow synthesis (significantly smoother than mode 0, removes block artifacts)
-# blend=true: Graceful fallback blending for fast complex motions or occluded areas
-# thSCD1=350, thSCD2=120: Balanced scene change detection
+# mode=2: Dynamic Median synthesis (clamps static cross-fade between forward and backward warped pixels)
+# blend=true: Scene-change fallback blending for camera cuts or occluded regions
+# thSCD1=350, thSCD2=120: Scene-change detection thresholds
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
 # 5. Thread Pool (adapted dynamically to USE_GPU)

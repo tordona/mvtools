@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
-# Revision: 2.1.0 (2026-10-19)
-# Changelog: Coarse 32x32 -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1024, D3D12 toggle
+# Revision: 2.2.0 (2026-10-28)
+# Changelog: Coarse 32x32 -> fine 16x16, Dynamic Median synthesis (mode=2), sharp=0 (pel=1), threads=3/4, Prefetch(threads, 4), mem_limit=1024, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -32,29 +32,29 @@ LoadPlugin(plugin_file)
 
 # 1. Motion Super Clip with Lightweight Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
-# pel=1: Whole-pixel estimation paired with MRecalculate keeps execution light while tracking fine details
-# hpad=4, vpad=4: Boundary padding stabilizes edge vector calculation without memory thrashing
-# sharp=1: Bicubic filtering for cleaner motion vectors
-super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=1)
+# pel=1: Whole-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
+# hpad=4, vpad=4: 4 px boundary padding stabilizes edge vector calculation without memory thrashing
+# sharp=0: Subpixel interpolation filter is unused when pel=1
+super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=0)
 
 # 2. Coarse Motion Vector Search (32x32 blocks)
-# search=2: Hexagonal search with radius 1 keeps searches fast and stable
-# badrange=(-24): Early rejection of outlier vectors to prevent haloing
+# search=2, searchparam=1: 3x3 local grid search across 2,040 blocks at 1080p
+# badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
 # levels=1: Strictly searches base Level 0
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate to 16x16)
-# blksize=16, blksizev=16: Refines vectors down to 16x16 blocks at object boundaries
-# Adreno 690 (2.2 TFLOPS, 136 GB/s LPDDR4x/5) easily runs dual-pass refinement within thermal limits
+# blksize=16, blksizev=16: Refines vectors down to 16x16 blocks at object boundaries using 2x2 bilinear coarse predictors
+# Adreno 690 (2.2 TFLOPS, 136 GB/s LPDDR4x/5) runs dual-pass refinement well within thermal limits
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-# 4. Direct Block-Based 60 fps Synthesis with Refined Vectors
-# mode=0: Fast block projection using refined 16x16 vector grid (crisp, zero block tearing)
-# blend=false: Skips blend transparency calculations to eliminate ALU latency spikes
-# thSCD1=350, thSCD2=120: Balanced scene change detection cleanly cuts camera transitions
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false, thSCD1=350, thSCD2=120)
+# 4. Dynamic Median 60 fps Synthesis with Refined Vectors
+# mode=2: Dynamic Median pixel-flow synthesis (clamps static cross-fade between forward and backward warped pixels)
+# blend=false: Skips scene-change cross-fade blending to minimize ALU latency
+# thSCD1=350, thSCD2=120: Balanced scene-change detection cleanly cuts camera transitions
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
 # 5. Core Pinning: Strictly 4 Threads with 4 Lookahead Frames
 # Pins worker threads to the 4x Cortex-X1 cluster, completely eliminating asymmetric thread sync stalls.

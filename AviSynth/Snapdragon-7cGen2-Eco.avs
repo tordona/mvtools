@@ -2,7 +2,7 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
 # Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
-# Target: Ultra-Low Power (~3.0 W), Whisper-Cool Fanless Operation, Peak Battery Life
+# Target: Ultra-Low Power (~3.0 W), Passive 5 W Fanless Operation, Peak Battery Life
 # Revision: 2.0.0 (2026-10-18)
 # Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, single MSuper, threads=2, Prefetch(2, 4), mem_limit=512
 # ==============================================================================

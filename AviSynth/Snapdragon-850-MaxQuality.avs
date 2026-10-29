@@ -23,9 +23,9 @@ LoadPlugin("mvtools2.dll")
 # 1. Base Motion Super Clip with Edge Protection
 # levels=1: Avoids calculating redundant downscaled pyramid images
 # pel=1: Whole-pixel base clip paired with MRecalculate keeps CPU low while tracking details
-# hpad=4, vpad=4: Minimal boundary padding prevents edge tearing without cache thrashing
-# sharp=1: Bicubic interpolation for cleaner motion vectors
-super = src.MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=1)
+# hpad=4, vpad=4: 4 px boundary padding prevents edge tearing without cache thrashing
+# sharp=0: Subpixel interpolation filter is unused when pel=1
+super = src.MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=0)
 
 # 2. Dense Motion Vector Field Analysis (32x32 blocks, searchparam=2)
 # searchparam=2: Wider search radius tracks fast pans and action
