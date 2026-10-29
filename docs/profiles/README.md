@@ -36,30 +36,46 @@ USE_D3D12 = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2.dl
 ```
 When enabled, motion vector estimation executes on the Adreno iGPU command queue while keeping CPU utilization minimal.
 
+### 5. Dynamic Resolution Adaptation & 4K Block Density Invariant
+A 4K (3840×2160) video stream contains 4× the pixel area of 1080p (1920×1080). Evaluating fixed 1080p block sizes (`16x16`) across a 4K frame generates 240 × 135 = 32,400 blocks per pass (4× more than 1080p's 8,160 blocks). Across a two-pass coarse-to-fine pipeline, this quadruples motion vector search operations and saturates memory bandwidth, resulting in severe GPU compute stalls and CPU worker thread starvation.
+
+**The Dynamic Resolution Scaling Rule:**
+All Rev 3.0.0 profiles incorporate real-time resolution detection:
+```avisynth
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+```
+* **Coarse Pass:** 32×32 on 1080p → 64×64 on 4K.
+* **Fine Pass:** 16×16 on 1080p → 32×32 on 4K.
+* **Invariant Block Count:** A 32×32 block on 4K covers the exact same physical screen proportion (120 × 68 = 8,160 blocks) as a 16×16 block on 1080p.
+* **Performance Impact:** Total evaluated blocks in 4K two-pass refinement drops from 40,560 down to 10,200 (a 75% reduction in search operations), keeping memory bus load within thermal and hardware limits while maintaining identical perceptual motion tracking precision.
+
 ---
 
 ## Part I: Qualcomm Snapdragon (ARM64) Profiles
 
-| Platform / SoC | Profile Tier | Architecture | Block Size | `pel` | Threads | `USE_D3D12` | Raw Download |
+| Platform / SoC | Profile Tier | Architecture | Block Size (1080p / 4K) | `pel` | Threads | `USE_D3D12` | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
-| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 (GPU) / 16 → 8 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
-| **Snapdragon 850** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
-| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
-| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
+| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
+| **Snapdragon 850** | `Eco` | Single-level Coarse | 64×32 / 128×64 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
+| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 / 64×32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
+| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 / 32×32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
 
 ---
 
@@ -90,20 +106,26 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip with Edge Guard
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Pixel-Level Motion Interpolation with Occlusion Handling
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
@@ -129,17 +151,21 @@ threads     = USE_D3D12 ? 4 : 8
 mem_limit   = USE_D3D12 ? 2048 : 4096
 
 # Subpixel, Block & Exhaustive Search Parameters:
-pel_val     = USE_D3D12 ? 1 : 2
-sharp_mode  = USE_D3D12 ? 0 : 2
-pad_size    = USE_D3D12 ? 8 : 16
-blk_coarse  = USE_D3D12 ? 32 : 16
-blk_fine    = USE_D3D12 ? 16 : 8
 fine_rad    = USE_D3D12 ? 2 : 1
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
+
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k       = (Width() > 2048)
+blk_scale   = is_4k ? 2 : 1
+pel_val     = USE_D3D12 ? 1 : 2
+sharp_mode  = USE_D3D12 ? 0 : 2
+pad_size    = (USE_D3D12 ? 8 : 16) * blk_scale
+blk_coarse  = (USE_D3D12 ? 32 : 16) * blk_scale
+blk_fine    = (USE_D3D12 ? 16 : 8) * blk_scale
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
@@ -187,17 +213,23 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
@@ -230,17 +262,23 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
@@ -269,15 +307,21 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (src.Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 LoadPlugin("mvtools2.dll")
 
-super = src.MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=1)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 MFlowFps(src, super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
 
@@ -307,6 +351,10 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k  = (src.Width() > 2048)
+blk_sz = is_4k ? 32 : 16
+
 LoadPlugin("mvtools2.dll")
 
 # 1. Dynamic 0.5x Proxy Clip
@@ -316,8 +364,8 @@ search_clip  = src.BilinearResize(search_w, search_h)
 search_super = search_clip.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Fast Single-Level Vector Search on Proxy
-backward_proxy = MAnalyse(search_super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
-forward_proxy  = MAnalyse(search_super, isb=false, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
+backward_proxy = MAnalyse(search_super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+forward_proxy  = MAnalyse(search_super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 
 # 3. Mathematically Scale Vectors 2x up to Native Coordinates
 backward_scaled = backward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
@@ -338,32 +386,32 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 
 ### x86-64 Profile Matrix
 
-| Platform / CPU | Topology & TDP | Tier | Block Size | Threads | Memory | Download |
+| Platform / CPU | Topology & TDP | Tier | Block Size (1080p / 4K) | Threads | Memory | Download |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
-| | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-MaxQuality.avs) |
-| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45 W | `Eco` | 32×32 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
-| | Intel UHD Graphics 32EU | `Balanced` | 32 → 16 | 8 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-MaxQuality.avs) |
-| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12 W – 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
-| | Intel Iris Xe 80EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-MaxQuality.avs) |
-| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
-| | Intel Iris Plus 655 (128 MB eDRAM) | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-MaxQuality.avs) |
-| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5 W (Fanless) | `Eco` | 32×16 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
-| | Intel HD Graphics 615 | `Balanced` | 16×16 (Proxy) | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-MaxQuality.avs) |
-| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
-| | Intel UHD Graphics 64EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-MaxQuality.avs) |
-| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Eco.avs) |
-| | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
-| **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 32×32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Eco.avs) |
-| | Compatible with any x86-64 CPU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-MaxQuality.avs) |
+| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 / 64×64 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
+| | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 / 64 → 32 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 / 32 → 16 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-MaxQuality.avs) |
+| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45 W | `Eco` | 32×32 / 64×64 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
+| | Intel UHD Graphics 32EU | `Balanced` | 32 → 16 / 64 → 32 | 8 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 / 32 → 16 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-MaxQuality.avs) |
+| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12 W – 28 W | `Eco` | 32×32 / 64×64 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
+| | Intel Iris Xe 80EU | `Balanced` | 32 → 16 / 64 → 32 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 / 64 → 32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-MaxQuality.avs) |
+| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28 W | `Eco` | 32×32 / 64×64 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
+| | Intel Iris Plus 655 (128 MB eDRAM) | `Balanced` | 32 → 16 / 64 → 32 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 / 64 → 32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-MaxQuality.avs) |
+| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5 W (Fanless) | `Eco` | 32×16 / 64×32 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
+| | Intel HD Graphics 615 | `Balanced` | 16×16 / 32×32 (Proxy) | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 / 64 → 32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-MaxQuality.avs) |
+| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15 W | `Eco` | 32×32 / 64×64 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
+| | Intel UHD Graphics 64EU | `Balanced` | 32 → 16 / 64 → 32 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 / 64 → 32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-MaxQuality.avs) |
+| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 / 64×64 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Eco.avs) |
+| | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 / 64 → 32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 / 64 → 32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
+| **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 32×32 / 64×64 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Eco.avs) |
+| | Compatible with any x86-64 CPU | `Balanced` | 32 → 16 / 64 → 32 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 / 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-MaxQuality.avs) |
 
 ---
 
@@ -383,18 +431,24 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
 
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 LoadPlugin("mvtools2.dll")
 
-# 1. Native 1080p Single-Level Super Clip
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+# 1. Native Single-Level Super Clip
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=1)
 
-# 2. Coarse Motion Vector Estimation (32x32)
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+# 2. Coarse Motion Vector Estimation
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-# 3. Fine Motion Refinement Pass (16x16)
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+# 3. Fine Motion Refinement Pass
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Pixel-Level Motion Interpolation to 60 fps
 MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)

@@ -125,6 +125,10 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    # Full PotPlayer video source stream (DXVA hardware decoded)
    src = potplayer_source()
 
+   # Dynamic Resolution Adaptation (maintains spatial density invariants across 1080p and 4K)
+   is_4k  = (src.Width() > 2048)
+   blk_sz = is_4k ? (<B> * 2) : <B>
+
    # Load Native MVTools2 plugin
    LoadPlugin("mvtools2.dll")
 
@@ -134,8 +138,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
    # 2. Motion Vector Search (MAnalyse)
    # levels=1: Single-level search matching super's levels=1
-   backward_vec = MAnalyse(super, isb=true,  blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
-   forward_vec  = MAnalyse(super, isb=false, blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=<Rad>, chroma=false, levels=1)
 
    # 3. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy
@@ -167,6 +171,26 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **Eco:** `mem_limit = 512`
      * **Balanced:** `mem_limit = 768` (or `1024` on 32 GB systems)
      * **MaxQuality:** `mem_limit = 1024` (or `1536` on 8-core systems)
+
+6. **Dynamic Resolution Adaptation & 4K Block Density Law:**
+   * Profiles must never hardcode static pixel block sizes without checking source stream dimensions. Because a 4K frame (`3840x2160`) contains $4\times$ the pixel area of 1080p (`8.29M` vs `2.07M` pixels), running fixed 1080p block sizes on 4K causes a catastrophic $4\times$ macroblock count explosion (from `8,160` blocks to `32,400` blocks), saturating the GPU compute queue, CPU thread pool, and UMA memory bus.
+   * Every profile must implement runtime resolution detection and proportional block scaling:
+     * **Runtime Resolution Detection:**
+       ```avisynth
+       is_4k = (src.Width() > 2048)   # or is_4k = (Width() > 2048)
+       ```
+     * **Single-Pass Profiles (Eco / High-Throughput Balanced):**
+       * If base is `32x32` at 1080p: `blk_sz = is_4k ? 64 : 32` (maintains invariant `2,040` blocks).
+       * If base is `16x16` at 1080p: `blk_sz = is_4k ? 32 : 16` (maintains invariant `8,160` blocks).
+     * **Dual-Pass Coarse-to-Fine Profiles (Balanced / MaxQuality with `MRecalculate`):**
+       * `blk_coarse = is_4k ? 64 : 32` (maintains invariant `2,040` coarse blocks).
+       * `blk_fine   = is_4k ? 32 : 16` (maintains invariant `8,160` fine blocks).
+       * Total evaluated blocks remains strictly invariant at `10,200` blocks across both 1080p and 4K, cutting 4K block search workload by **75%**.
+     * **Boundary Padding & Overlap:**
+       * Boundary padding scales proportionally: `pad_val = is_4k ? (pad_size * 2) : pad_size`.
+       * Overlap scales proportionally: `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`.
+     * **Proxy-Downscaled Profiles (e.g. Snapdragon 7c Gen 2):**
+       * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
 
 ---
 

@@ -99,13 +99,17 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 ---
 
+> [!NOTE]
+> **Dynamic 4K Resolution Adaptation:**  
+> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = Width() > 2048` or `src.Width() > 2048`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+
 ## Profile Comparison: Snapdragon X Plus
 
 | Setting | Profile 1: Eco | Profile 2: Balanced (Default) | Profile 3: Max Quality |
 | :--- | :--- | :--- | :--- |
 | **Script File** | [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) | [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
 | **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=1` (GPU) / `pel=2` (CPU Wiener filter) |
-| **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` → `16x16` | Dual-pass `32x32` → `16x16` (GPU) / `16x16` → `8x8` (CPU) |
+| **Block Grid (1080p / 4K)** | Single-pass `32x32 / 64x64` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` (GPU)<br>`16x16 → 8x8 / 32x32 → 16x16` (CPU) |
 | **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Exhaustive 2D Grid (`search=3`, 7x7 coarse / 5x5 fine on GPU) |
 | **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Luma only (GPU) / Full Y+U+V (CPU) |
 | **Interpolation Mode** | Pixel Flow (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) | Dynamic Median (`mode=2`, `blend=true`) |

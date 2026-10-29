@@ -89,6 +89,10 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 
 ---
 
+> [!NOTE]
+> **Dynamic 4K Resolution Adaptation:**  
+> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = Width() > 2048` or `src.Width() > 2048`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+
 ## Profile Comparison: Snapdragon 8cx Gen 3 / SQ3
 
 All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads)` lookahead buffering:
