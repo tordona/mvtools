@@ -1,5 +1,7 @@
 Change log
-- 2.7.47.122-arm64 (20261029)
+- 2.7.47.200-arm64 (20261029)
+  - Direct3D 12 Engine Branch Divergence & Milestone Version Bump:
+    - Bumped branch version to 2.7.47.200-arm64, formally establishing version divergence from upstream mvtools-pfmod to reflect the major architectural additions (Direct3D 12 compute offload, unified single-binary engine, and hardware flow synthesis).
   - Unified Dual-Engine Architecture & Runtime Direct3D 12 Toggle:
     - Unified the native ARM64 CPU NEON engine and Direct3D 12 DirectCompute GPU engine into a single canonical binary (mvtools2.dll), eliminating dual-binary distribution (mvtools2-d3d12.dll).
     - Reverted build outputs in MSBuild (mvtools.vcxproj), CMakeLists.txt, and copyall.bat from mvtools2-d3d12 directly back to mvtools2.dll.
@@ -8,7 +10,6 @@ Change log
     - Dropped legacy function names (MEnableGPU, MIsGPUAvailable), eliminating redundant script entry points.
     - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loops and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
     - Extended D3D12FlowSynthesis 3-texture ring caching with consecutive source/reference pair matching (m_lastSrcRingIdx), eliminating redundant frame re-uploads during fractional rate conversions (such as 24 fps -> 60 fps intermediate sub-frames).
-    - Resolved texture cache mismatch edge cases to prevent cache invalidation errors and eliminate intro logo flicker during scene transitions.
     - Recompiled embedded shader bytecode header (motion_search_cso.h).
   - Snapdragon AviSynth Profiles (Revision 2.1.0):
     - Updated profiles to Revision 2.1.0 across Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, 8cx Gen 1, 850, and 7c Gen 2 to load the unified mvtools2.dll and configure offload via USE_D3D12 = false and MEnableD3D12(USE_D3D12).
