@@ -113,39 +113,45 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    * **ARM64 Platforms (Qualcomm Snapdragon):**
      * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`MEnableD3D12(true)`) via `USE_D3D12 = false/true`.
 
-2. **Deterministic Filter Pipeline:**
-   Every profile must strictly follow this AviSynth+ script structure:
+2. **Deterministic Filter Pipeline & Strict Variable Ordering:**
+   AviSynth+ is an imperative, top-to-bottom interpreted language without variable hoisting. Every profile must strictly follow this sequential execution order:
    ```avisynth
-   # Hardware Header & MT Configuration
-   threads   = <T>
-   mem_limit = <M>
+   # 1. Hardware Header & MT Configuration (Resolution-Independent Settings Only)
+   threads    = <T>
+   mem_limit  = <M>
+   pel_val    = <P>
+   sharp_mode = <S>
    SetMemoryMax(mem_limit)
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
-   # Full PotPlayer video source stream (DXVA hardware decoded)
-   src = potplayer_source()
+   # 2. PotPlayer Video Source Stream (DXVA / Hardware Decoded)
+   # CRITICAL: MUST precede all resolution queries; establishes the clip object for Width()
+   src = potplayer_source()              # or potplayer_source() for implicit 'last'
 
-   # Dynamic Resolution Adaptation (maintains spatial density invariants across 1080p and 4K)
-   is_4k  = (src.Width() > 2048)
-   blk_sz = is_4k ? (<B> * 2) : <B>
+   # 3. Dynamic Resolution Adaptation (MUST Immediately Follow Source Initialization)
+   # CRITICAL: is_4k must be defined before any blk_* or pad_* expression reads it
+   is_4k      = (src.Width() > 2048)     # or is_4k = (Width() > 2048)
+   blk_coarse = is_4k ? 64 : 32          # (or blk_sz = is_4k ? (<B> * 2) : <B>)
+   blk_fine   = is_4k ? 32 : 16
+   pad_val    = is_4k ? 16 : 8
 
-   # Load Native MVTools2 plugin
+   # 4. Load Plugin & Configure Offload
    LoadPlugin("mvtools2.dll")
+   # MEnableD3D12(USE_D3D12)             # Include only on ARM64 platforms
 
-   # 1. Base Motion Super Clip (Single-Level Geometry)
+   # 5. Base Motion Super Clip (Single-Level Geometry)
    # levels=1: Single-level eliminates redundant multi-level pyramid generation
-   super = src.MSuper(levels=1, pel=<P>, hpad=<H>, vpad=<V>, sharp=<S>)
+   super = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
-   # 2. Motion Vector Search (MAnalyse)
-   # levels=1: Single-level search matching super's levels=1
-   backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=<Rad>, chroma=false, levels=1)
-   forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   # 6. Motion Vector Search (MAnalyse & MRecalculate)
+   backward_vec = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   forward_vec  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
 
-   # 3. Direct Native 60 fps Frame Synthesis (MBlockFps)
+   # 7. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy
    MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
-   # 4. Core Pinning & Lookahead Buffer
+   # 8. Core Pinning & Lookahead Buffer
    Prefetch(threads, <Lookahead>)
    ```
 
@@ -191,6 +197,11 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
        * Overlap scales proportionally: `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`.
      * **Proxy-Downscaled Profiles (e.g. Snapdragon 7c Gen 2):**
        * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
+   * **Mandatory Variable Ordering Invariant (No Forward References):**
+     * AviSynth+ is a strictly sequential, top-to-bottom interpreted language without variable hoisting.
+     * **Source Clip First:** The video source clip (`src = potplayer_source()` or `potplayer_source()`) **MUST ALWAYS** be instantiated before `is_4k = (src.Width() > 2048)` or `is_4k = (Width() > 2048)` is called. Calling `Width()` before source acquisition raises a fatal error (`no implicit clip "last"` or `unknown function`).
+     * **Definition Before Use:** `is_4k` **MUST ALWAYS** be defined before any expression that reads it (e.g. `blk_coarse`, `blk_fine`, `blk_sz`, `pad_val`, `overlap_val`). Referencing `is_4k` before its definition line aborts script evaluation immediately with `Script error: I don't know what "is_4k" means`.
+     * **No Resolution Calculations in Header:** Never place `blk_coarse = ... (is_4k ? ...)` in the top hardware configuration section above `potplayer_source()`. Static engine parameters (`threads`, `mem_limit`, `pel_val`, `sharp_mode`) belong in the top block; all dynamic geometric scaling parameters belong immediately after `potplayer_source()`.
 
 ---
 
@@ -236,7 +247,13 @@ For the requested platform, output:
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.0.0 (<Date>)`
+   * `# Revision: 2.1.0 (<Date>)`
+3. **Execution Order & Variable Integrity Checklist:**
+   Before outputting any profile, verify strictly:
+   - [ ] `potplayer_source()` is invoked before calling `Width()`.
+   - [ ] `is_4k = (Width() > 2048)` or `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
+   - [ ] Zero resolution-dependent variable calculations exist in the top hardware configuration block.
+   - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.
 
 ---
 
