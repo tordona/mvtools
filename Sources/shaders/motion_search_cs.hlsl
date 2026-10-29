@@ -31,6 +31,14 @@ cbuffer MotionParams : register(b0)
     uint temporalPredictorValid; // 1 if temporal predictor is provided
     uint hasUpperPredictor;      // 1 if upper pyramid level predictor is provided
     uint bits_per_pixel;         // Pixel bit depth (8, 10, 16)
+    uint coarsePredMode;         // 0 = 1:1 per-block, 1 = nearest coarse grid, 2 = bilinear coarse grid
+    uint nBlkXold;               // Coarse grid width in blocks
+    uint nBlkYold;               // Coarse grid height in blocks
+    uint nBlkSizeXold;           // Coarse block width in pixels
+    uint nBlkSizeYold;           // Coarse block height in pixels
+    uint nStepXold;              // Coarse block horizontal step
+    uint nStepYold;              // Coarse block vertical step
+    uint padding0;               // 16-byte alignment padding
 };
 
 // Input frame plane byte buffers
@@ -219,7 +227,56 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     int2 upperPred = int2(0, 0);
     if (hasUpperPredictor != 0)
     {
-        upperPred = g_PredBuffer[blkIdx];
+        if (coarsePredMode > 0)
+        {
+            int sBlkSizeX = (int)nBlkSizeX;
+            int sBlkSizeY = (int)nBlkSizeY;
+            int sOverlapX = (int)nOverlapX;
+            int sOverlapY = (int)nOverlapY;
+            int sBlkXold = (int)nBlkXold;
+            int sBlkYold = (int)nBlkYold;
+            int sBlkSizeXold = (int)nBlkSizeXold;
+            int sBlkSizeYold = (int)nBlkSizeYold;
+            int sStepXold = max(1, (int)nStepXold);
+            int sStepYold = max(1, (int)nStepYold);
+
+            int centerX = (sBlkSizeX >> 1) + (sBlkSizeX - sOverlapX) * (int)blkx;
+            int blkxold = (centerX - (sBlkSizeXold >> 1)) / sStepXold;
+            int centerY = (sBlkSizeY >> 1) + (sBlkSizeY - sOverlapY) * (int)blky;
+            int blkyold = (centerY - (sBlkSizeYold >> 1)) / sStepYold;
+
+            int deltaX = max(0, centerX - ((sBlkSizeXold >> 1) + sStepXold * blkxold));
+            int deltaY = max(0, centerY - ((sBlkSizeYold >> 1) + sStepYold * blkyold));
+
+            int blkxold1 = min(sBlkXold - 1, max(0, blkxold));
+            int blkxold2 = min(sBlkXold - 1, max(0, blkxold + 1));
+            int blkyold1 = min(sBlkYold - 1, max(0, blkyold));
+            int blkyold2 = min(sBlkYold - 1, max(0, blkyold + 1));
+
+            if (coarsePredMode == 2)
+            {
+                int2 v1 = g_PredBuffer[blkxold1 + blkyold1 * sBlkXold];
+                int2 v2 = g_PredBuffer[blkxold2 + blkyold1 * sBlkXold];
+                int2 v3 = g_PredBuffer[blkxold1 + blkyold2 * sBlkXold];
+                int2 v4 = g_PredBuffer[blkxold2 + blkyold2 * sBlkXold];
+
+                int2 v1_xy = v1 * sStepXold + deltaX * (v2 - v1);
+                int2 v2_xy = v3 * sStepXold + deltaX * (v4 - v3);
+
+                upperPred = (v1_xy + (deltaY * (v2_xy - v1_xy)) / sStepYold) / sStepXold;
+            }
+            else
+            {
+                int bx_sel = (deltaX * 2 < sStepXold) ? blkxold1 : blkxold2;
+                int by_sel = (deltaY * 2 < sStepYold) ? blkyold1 : blkyold2;
+                upperPred = g_PredBuffer[bx_sel + by_sel * sBlkXold];
+            }
+        }
+        else
+        {
+            upperPred = g_PredBuffer[blkIdx];
+        }
+
         upperPred.x = clamp(upperPred.x, nDxMin, nDxMax);
         upperPred.y = clamp(upperPred.y, nDyMin, nDyMax);
 

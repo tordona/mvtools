@@ -8,6 +8,7 @@
 #include "SearchType.h"
 
 class MVFrame;
+class FakePlaneOfBlocks;
 struct ID3D12Device;
 struct ID3D12CommandQueue;
 
@@ -41,6 +42,14 @@ struct alignas(16) D3D12MotionParams
     uint32_t temporalPredictorValid;
     uint32_t hasUpperPredictor;
     uint32_t bits_per_pixel;
+    uint32_t coarsePredMode;
+    uint32_t nBlkXold;
+    uint32_t nBlkYold;
+    uint32_t nBlkSizeXold;
+    uint32_t nBlkSizeYold;
+    uint32_t nStepXold;
+    uint32_t nStepYold;
+    uint32_t padding0;
 };
 
 struct D3D12BlockResult
@@ -77,7 +86,8 @@ public:
         uint32_t verybigSAD,
         bool temporal, const int* vecPrev,
         bool hasUpperPredictor, const VECTOR* upperPredictors,
-        int* pOutArray, short* pOutFileBuf, VECTOR* pOutVectors
+        int* pOutArray, short* pOutFileBuf, VECTOR* pOutVectors,
+        const FakePlaneOfBlocks* pCoarsePlane = nullptr, int smooth = 1
     );
 
 private:

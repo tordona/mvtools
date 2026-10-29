@@ -541,6 +541,7 @@ struct D3D12FlowSynthesis::Impl
 
     // 3-Texture Ring for zero-copy source frame reuse across interleaved slots
     RingTexture m_ring[RING_SIZE];
+    int m_lastSrcRingIdx = -1;
     int m_lastRefRingIdx = -1;
     std::mutex m_ringMutex;
 
@@ -732,6 +733,7 @@ struct D3D12FlowSynthesis::Impl
         m_curHeight = height;
         m_curWidthUV = widthUV;
         m_curHeightUV = heightUV;
+        m_lastSrcRingIdx = -1;
         m_lastRefRingIdx = -1;
 
         for (int i = 0; i < RING_SIZE; ++i)
@@ -898,7 +900,39 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     {
         std::lock_guard<std::mutex> rLock(pImpl->m_ringMutex);
 
-        if (pImpl->m_lastRefRingIdx >= 0 &&
+        bool samePairHit = false;
+        if (pImpl->m_lastSrcRingIdx >= 0 && pImpl->m_lastRefRingIdx >= 0)
+        {
+            const auto& rSrcLast = pImpl->m_ring[pImpl->m_lastSrcRingIdx];
+            const auto& rRefLast = pImpl->m_ring[pImpl->m_lastRefRingIdx];
+            if (rSrcLast.inShaderResource && rRefLast.inShaderResource &&
+                rSrcLast.cachedPtr == pSrc[0] &&
+                rSrcLast.cachedS0 == srcS0 &&
+                rSrcLast.cachedS1 == srcS1 &&
+                rSrcLast.cachedS2 == srcS2 &&
+                rSrcLast.cachedS3 == srcS3 &&
+                rSrcLast.cachedS4 == srcS4 &&
+                rRefLast.cachedPtr == pRef[0] &&
+                rRefLast.cachedS0 == refS0 &&
+                rRefLast.cachedS1 == refS1 &&
+                rRefLast.cachedS2 == refS2 &&
+                rRefLast.cachedS3 == refS3 &&
+                rRefLast.cachedS4 == refS4)
+            {
+                samePairHit = true;
+            }
+        }
+
+        if (samePairHit)
+        {
+            // Consecutive same-pair hit (e.g. 24 fps -> 60 fps intermediate sub-frames):
+            // Both pSrc and pRef are already in GPU texture memory!
+            srcRingIdx = pImpl->m_lastSrcRingIdx;
+            refRingIdx = pImpl->m_lastRefRingIdx;
+            needUploadSrc = false;
+            needUploadRef = false;
+        }
+        else if (pImpl->m_lastRefRingIdx >= 0 &&
             pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedPtr == pSrc[0] &&
             pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS0 == srcS0 &&
             pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS1 == srcS1 &&
@@ -907,11 +941,12 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS4 == srcS4 &&
             pImpl->m_ring[pImpl->m_lastRefRingIdx].inShaderResource)
         {
-            // Consecutive playback hit: pSrc is already in GPU memory!
+            // Consecutive playback hit: previous pRef is new pSrc!
             srcRingIdx = pImpl->m_lastRefRingIdx;
             refRingIdx = (pImpl->m_lastRefRingIdx + 1) % Impl::RING_SIZE;
             needUploadSrc = false;
             needUploadRef = true;
+            pImpl->m_lastSrcRingIdx = srcRingIdx;
             pImpl->m_lastRefRingIdx = refRingIdx;
         }
         else
@@ -921,6 +956,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             refRingIdx = 1;
             needUploadSrc = true;
             needUploadRef = true;
+            pImpl->m_lastSrcRingIdx = 0;
             pImpl->m_lastRefRingIdx = 1;
         }
 

@@ -11,6 +11,7 @@
 #include "D3D12MotionSearch.h"
 #include "MVFrame.h"
 #include "MVPlane.h"
+#include "FakePlaneOfBlocks.h"
 #include "shaders/motion_search_cso.h"
 
 #include <windows.h>
@@ -395,7 +396,8 @@ bool D3D12MotionSearch::SearchMVs(
     uint32_t verybigSAD,
     bool temporal, const int* vecPrev,
     bool hasUpperPredictor, const VECTOR* upperPredictors,
-    int* pOutArray, short* pOutFileBuf, VECTOR* pOutVectors
+    int* pOutArray, short* pOutFileBuf, VECTOR* pOutVectors,
+    const FakePlaneOfBlocks* pCoarsePlane, int smooth
 )
 {
     if (!pSrcFrame || !pRefFrame || !pOutArray || !pOutVectors)
@@ -418,6 +420,8 @@ bool D3D12MotionSearch::SearchMVs(
     }
 
     int blkCount = nBlkX * nBlkY;
+    int coarseBlkCount = (pCoarsePlane != nullptr) ? (pCoarsePlane->GetReducedWidth() * pCoarsePlane->GetReducedHeight()) : 0;
+    int maxPredBlocks = std::max(blkCount, coarseBlkCount);
     int srcPitch = srcPlane->GetPitch();
     int refPitch = refPlane->GetPitch();
     int extHeight = srcPlane->GetExtendedHeight();
@@ -438,7 +442,7 @@ bool D3D12MotionSearch::SearchMVs(
         return false;
     }
 
-    if (!pImpl->EnsureBuffers(blkCount))
+    if (!pImpl->EnsureBuffers(maxPredBlocks))
     {
         return false;
     }
@@ -579,27 +583,41 @@ bool D3D12MotionSearch::SearchMVs(
         pImpl->m_refCache[refSlot].lruCounter = ++pImpl->m_lruTick;
     }
 
-    // Predictors upload
-    if (hasUpperPredictor && upperPredictors && pImpl->m_pPredMapped)
+    // Predictors upload: stream directly to mapped GPU buffer (eliminates intermediate vector allocations)
+    bool validUpperPred = false;
+    uint32_t coarseMode = 0;
+    if (hasUpperPredictor && pCoarsePlane && coarseBlkCount > 0 && pImpl->m_pPredMapped)
     {
-        pImpl->m_hostPred.resize(blkCount * 2);
+        int32_t* pDstPred = static_cast<int32_t*>(pImpl->m_pPredMapped);
+        for (int i = 0; i < coarseBlkCount; i++)
+        {
+            VECTOR mv = pCoarsePlane->GetBlock(i).GetMV();
+            pDstPred[i * 2 + 0] = mv.x;
+            pDstPred[i * 2 + 1] = mv.y;
+        }
+        validUpperPred = true;
+        coarseMode = (smooth == 1) ? 2u : 1u;
+    }
+    else if (hasUpperPredictor && upperPredictors && pImpl->m_pPredMapped)
+    {
+        int32_t* pDstPred = static_cast<int32_t*>(pImpl->m_pPredMapped);
         for (int i = 0; i < blkCount; i++)
         {
-            pImpl->m_hostPred[i * 2 + 0] = upperPredictors[i].x;
-            pImpl->m_hostPred[i * 2 + 1] = upperPredictors[i].y;
+            pDstPred[i * 2 + 0] = upperPredictors[i].x;
+            pDstPred[i * 2 + 1] = upperPredictors[i].y;
         }
-        memcpy(pImpl->m_pPredMapped, pImpl->m_hostPred.data(), blkCount * sizeof(int32_t) * 2);
+        validUpperPred = true;
+        coarseMode = 0;
     }
 
     if (temporal && vecPrev && pImpl->m_pTempPredMapped)
     {
-        pImpl->m_hostTempPred.resize(blkCount * 2);
+        int32_t* pDstTemp = static_cast<int32_t*>(pImpl->m_pTempPredMapped);
         for (int i = 0; i < blkCount; i++)
         {
-            pImpl->m_hostTempPred[i * 2 + 0] = vecPrev[i * 3 + 0];
-            pImpl->m_hostTempPred[i * 2 + 1] = vecPrev[i * 3 + 1];
+            pDstTemp[i * 2 + 0] = vecPrev[i * 3 + 0];
+            pDstTemp[i * 2 + 1] = vecPrev[i * 3 + 1];
         }
-        memcpy(pImpl->m_pTempPredMapped, pImpl->m_hostTempPred.data(), blkCount * sizeof(int32_t) * 2);
     }
 
     // Populate Constant Buffer
@@ -630,8 +648,19 @@ bool D3D12MotionSearch::SearchMVs(
     params.extendedWidth = (uint32_t)extWidth;
     params.extendedHeight = (uint32_t)extHeight;
     params.temporalPredictorValid = (temporal && vecPrev != nullptr) ? 1 : 0;
-    params.hasUpperPredictor = (hasUpperPredictor && upperPredictors != nullptr) ? 1 : 0;
+    params.hasUpperPredictor = validUpperPred ? 1 : 0;
     params.bits_per_pixel = 8;
+    params.coarsePredMode = coarseMode;
+    if (pCoarsePlane != nullptr)
+    {
+        params.nBlkXold = (uint32_t)pCoarsePlane->GetReducedWidth();
+        params.nBlkYold = (uint32_t)pCoarsePlane->GetReducedHeight();
+        params.nBlkSizeXold = (uint32_t)pCoarsePlane->GetBlockSizeX();
+        params.nBlkSizeYold = (uint32_t)pCoarsePlane->GetBlockSizeY();
+        params.nStepXold = (uint32_t)(pCoarsePlane->GetBlockSizeX() - pCoarsePlane->GetOverlapX());
+        params.nStepYold = (uint32_t)(pCoarsePlane->GetBlockSizeY() - pCoarsePlane->GetOverlapY());
+    }
+    params.padding0 = 0;
 
     if (pImpl->m_pConstMapped)
     {
@@ -646,7 +675,7 @@ bool D3D12MotionSearch::SearchMVs(
     pImpl->m_cmdList->SetComputeRootConstantBufferView(0, pImpl->m_constBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootShaderResourceView(1, pImpl->m_srcBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootShaderResourceView(2, pImpl->m_refCache[refSlot].buffer->GetGPUVirtualAddress());
-    pImpl->m_cmdList->SetComputeRootShaderResourceView(3, (hasUpperPredictor && upperPredictors) ? pImpl->m_predBuffer->GetGPUVirtualAddress() : pImpl->m_dummyBuffer->GetGPUVirtualAddress());
+    pImpl->m_cmdList->SetComputeRootShaderResourceView(3, validUpperPred ? pImpl->m_predBuffer->GetGPUVirtualAddress() : pImpl->m_dummyBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootShaderResourceView(4, (temporal && vecPrev) ? pImpl->m_tempPredBuffer->GetGPUVirtualAddress() : pImpl->m_dummyBuffer->GetGPUVirtualAddress());
     pImpl->m_cmdList->SetComputeRootUnorderedAccessView(5, pImpl->m_uavBuffer->GetGPUVirtualAddress());
 
@@ -686,35 +715,31 @@ bool D3D12MotionSearch::SearchMVs(
         return false;
     }
 
-    // Read back results into host arrays
-    pImpl->m_hostResults.resize(blkCount);
+    // Read back results directly into output arrays (D3D12BlockResult, VECTOR, and pBlkData share identical 12-byte layout)
+    static_assert(sizeof(D3D12BlockResult) == 12, "D3D12BlockResult must be 12 bytes");
+    static_assert(sizeof(VECTOR) == 12, "VECTOR must be 12 bytes");
     if (!pImpl->m_pReadbackMapped)
     {
         return false;
     }
-    memcpy(pImpl->m_hostResults.data(), pImpl->m_pReadbackMapped, blkCount * sizeof(D3D12BlockResult));
 
     int* pBlkData = pOutArray + 1; // Skips header
-    for (int i = 0; i < blkCount; i++)
+    memcpy(pBlkData, pImpl->m_pReadbackMapped, blkCount * sizeof(D3D12BlockResult));
+
+    if (pOutVectors)
     {
-        int vx = pImpl->m_hostResults[i].x;
-        int vy = pImpl->m_hostResults[i].y;
-        sad_t sad = (sad_t)pImpl->m_hostResults[i].sad;
+        memcpy(pOutVectors, pBlkData, blkCount * sizeof(VECTOR));
+    }
 
-        pOutVectors[i].x = vx;
-        pOutVectors[i].y = vy;
-        pOutVectors[i].sad = sad;
-
-        pBlkData[i * 3 + 0] = vx;
-        pBlkData[i * 3 + 1] = vy;
-        pBlkData[i * 3 + 2] = *(uint32_t*)&sad;
-
-        if (pOutFileBuf)
+    if (pOutFileBuf)
+    {
+        const D3D12BlockResult* pRes = reinterpret_cast<const D3D12BlockResult*>(pBlkData);
+        for (int i = 0; i < blkCount; i++)
         {
-            pOutFileBuf[i * 4 + 0] = (short)vx;
-            pOutFileBuf[i * 4 + 1] = (short)vy;
-            pOutFileBuf[i * 4 + 2] = (short)(pImpl->m_hostResults[i].sad & 0xFFFF);
-            pOutFileBuf[i * 4 + 3] = (short)(pImpl->m_hostResults[i].sad >> 16);
+            pOutFileBuf[i * 4 + 0] = (short)pRes[i].x;
+            pOutFileBuf[i * 4 + 1] = (short)pRes[i].y;
+            pOutFileBuf[i * 4 + 2] = (short)(pRes[i].sad & 0xFFFF);
+            pOutFileBuf[i * 4 + 3] = (short)(pRes[i].sad >> 16);
         }
     }
 
