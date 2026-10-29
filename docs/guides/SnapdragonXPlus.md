@@ -92,7 +92,10 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 > [!TIP]
 > **Direct3D 12 GPU Acceleration (`mvtools2_d3d12.dll` - Experimental Preview)**  
 > On Snapdragon X Plus / Elite platforms, the 8–12 Oryon CPU cores easily sustain the Balanced and Eco tiers with native NEON SIMD (`mvtools2.dll`), serving as the production reference engine.  
-> Direct3D 12 GPU offload via `mvtools2_d3d12.dll` is provided as an **experimental preview** for offloading motion estimation into the Adreno X1-85 GPU compute queue. Rendering quality, motion vector precision, and real-time performance are provided on a best-effort basis.
+> Direct3D 12 GPU offload via `mvtools2_d3d12.dll` is engaged by setting `USE_GPU = true` at the top of the profile scripts. When enabled, the profile dynamically adapts:
+> - **MaxQuality (`USE_GPU = true`):** Executes full 2D exhaustive grid motion search (`search=3, searchparam=3`, 49 coarse candidate points) and 5x5 fine grid refinement (`fine_rad=2`, 25 refinement points) entirely in Adreno X1 compute shaders (`motion_search_cs.hlsl`). Coupled with hardware bilinear texture warping (`pel=1`), host CPU load is reduced from 10.6% down to **6.0%** (a 43.4% CPU overhead reduction).
+> - **Balanced (`USE_GPU = true`):** Reduces host CPU load to **6.3%** and working set RAM to **335.9 MB** while sustaining **55.53 fps 1% Low** pacing and zero dropped frames.  
+> *(Note: GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis).*
 
 ---
 
@@ -101,13 +104,13 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | Setting | Profile 1: Eco | Profile 2: Balanced (Default) | Profile 3: Max Quality |
 | :--- | :--- | :--- | :--- |
 | **Script File** | [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) | [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
-| **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=2` (Half-pixel Wiener filter) |
-| **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` → `16x16` | Dual-pass `16x16` → `8x8` micro-blocks |
-| **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | UMH / Exhaustive (`search=3`) |
-| **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Full Y+U+V (`chroma=true`) |
-| **Interpolation Mode** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
-| **Threading (`Prefetch`)** | `Prefetch(4)` *(4 cores idle)* | `Prefetch(6)` *(Leaves 2 cores for OS)* | `Prefetch(8)` *(Full 8-core saturation)* |
-| **Memory Allocation** | `SetMemoryMax(1024)` | `SetMemoryMax(2048)` | `SetMemoryMax(4096)` |
+| **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=1` (GPU) / `pel=2` (CPU Wiener filter) |
+| **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` → `16x16` | Dual-pass `32x32` → `16x16` (GPU) / `16x16` → `8x8` (CPU) |
+| **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Exhaustive 2D Grid (`search=3`, 7x7 coarse / 5x5 fine on GPU) |
+| **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Luma only (GPU) / Full Y+U+V (CPU) |
+| **Interpolation Mode** | Pixel Flow (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) | Dynamic Median (`mode=2`, `blend=true`) |
+| **Threading (`Prefetch`)** | `Prefetch(4)` *(4 cores idle)* | `Prefetch(4)` (GPU) / `Prefetch(6)` (CPU) | `Prefetch(4)` (GPU) / `Prefetch(8)` (CPU) |
+| **Memory Allocation** | `SetMemoryMax(1024)` | `SetMemoryMax(1536)` (GPU) / `2048` (CPU) | `SetMemoryMax(2048)` (GPU) / `4096` (CPU) |
 | **Estimated SoC Power** | 5 W – 8 W | 12 W – 16 W | 22 W – 28 W |
 
 ---

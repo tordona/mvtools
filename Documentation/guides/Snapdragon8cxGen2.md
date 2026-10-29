@@ -95,8 +95,8 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > **Direct3D 12 GPU Offload (`USE_GPU = true` - Experimental Preview)**  
 > All 8cx Gen 2 profiles default to pure CPU execution (`USE_GPU = false`), which serves as the production reference and delivers continuous, deterministic 60 fps with zero dropped frames.  
 > Setting `USE_GPU = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`mvtools2_d3d12.dll`) to offload motion search to the Adreno 680 GPU:
-> - **Balanced (`USE_GPU = true`):** Sustains 60 fps with CPU load dropping to just **12%–18%** and GPU load at **60%–66%** (lows at 35%), maintaining low package temperatures and high thermal margin.
-> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) to prevent L1/L2 texture cache thrashing, sustaining continuous 60 fps.
+> - **Balanced (`USE_GPU = true`):** Sustains 60 fps with CPU load dropping to just **8.2%** (peak 10.5%) and GPU load at **58.3%–60.9%**, maintaining low package temperatures and high thermal margin.
+> - **MaxQuality (`USE_GPU = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) with full radius-2 hexagonal search (`searchparam=2`) and Dynamic Median blending (`blend=true`), reducing CPU load from 15.3% down to **8.2%** (a 46.4% CPU overhead reduction).
 >
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
 
@@ -106,12 +106,12 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Motion Search** | Single-pass 32×32 | Dual-pass 32×32 → 16×16 | Dual-pass 16×16 → 8×8 (CPU) / 32×32 → 16×16 (GPU) |
+| **Motion Search** | Single-pass 32×32 | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (GPU) / 16×16 → 8×8 (CPU) |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
-| **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
-| **Outlier Filter** | Off | Off | `badrange=(-24)` |
-| **Frame Synthesis** | Fast Block (`mode=0`) | Pixel Flow (`mode=2`) | Pixel Flow + Occlusion (`mode=2`) |
-| **Worker Threads** | `Prefetch(3, 4)` | `Prefetch(4, 4)` | `Prefetch(4, 4)` |
+| **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2`) | Hexagonal (`search=2, searchparam=2`) |
+| **Outlier Filter** | Off | Off | `badrange=(-24)` (CPU) |
+| **Frame Synthesis** | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) |
+| **Worker Threads** | `threads = USE_GPU ? 3 : 3`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` | `threads = USE_GPU ? 3 : 4`, `Prefetch(threads)` |
 | **Target Power** | 4.5 W – 5.5 W | 6.5 W – 7.5 W | 7.5 W – 8.8 W |
 
 ---

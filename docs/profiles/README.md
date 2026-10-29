@@ -43,17 +43,17 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 | Platform / SoC | Profile Tier | Architecture | Block Size | `pel` | Threads | `USE_GPU` | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
-| | `MaxQuality` | Subpixel Coarse-to-Fine | 16 → 8 | 2 | 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
-| | `MaxQuality` | Subpixel Coarse-to-Fine | 16 → 8 | 2 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 (GPU) / 16 → 8 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
 | **Snapdragon 850** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
 | | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
@@ -74,65 +74,90 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-# Revision: 2.0.0
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
 # ==============================================================================
 USE_GPU = false
 
+# Dynamic parameters adapted to USE_GPU
 plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 4 : 6
+threads     = USE_GPU ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
 mem_limit   = USE_GPU ? 1536 : 2048
 
+# Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
+# PotPlayer video source stream
 potplayer_source()
 
+# Load Native ARM64 MVTools2 plugin
 LoadPlugin(plugin_file)
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+# 1. Motion Super Clip with Edge Guard
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
+# 2. Coarse Global Motion Vector Search
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
+# 3. Fine Motion Refinement Pass (MRecalculate)
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+# 4. Pixel-Level Motion Interpolation with Occlusion Handling
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
-Prefetch(threads, 4)
+# 5. Thread Pool (adapted dynamically to USE_GPU)
+Prefetch(threads)
 ```
 
 ### Snapdragon X Plus: MaxQuality Profile
 ```avisynth
 # ==============================================================================
-# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: MaxQuality)
-# Target: Maximum visual fidelity, subpixel precision (pel=2), 16x16 -> 8x8 blocks
-# Revision: 2.0.0
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
+# Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
+# Target: Highest visual fidelity, exhaustive 2D grid motion search, sustained 60 fps
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Oryon architecture, levels=1, search=3 (Exhaustive 7x7 coarse / 5x5 GPU fine), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
 # ==============================================================================
 USE_GPU = false
 
+# Dynamic parameters adapted to USE_GPU
 plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+use_chroma  = USE_GPU ? false : true
 threads     = USE_GPU ? 4 : 8
-mem_limit   = USE_GPU ? 2048 : 3072
+mem_limit   = USE_GPU ? 2048 : 4096
+
+# Subpixel, Block & Exhaustive Search Parameters:
+pel_val     = USE_GPU ? 1 : 2
+sharp_mode  = USE_GPU ? 0 : 2
+pad_size    = USE_GPU ? 8 : 16
+blk_coarse  = USE_GPU ? 32 : 16
+blk_fine    = USE_GPU ? 16 : 8
+fine_rad    = USE_GPU ? 2 : 1
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 potplayer_source()
-
 LoadPlugin(plugin_file)
 
-super = MSuper(levels=1, pel=2, hpad=16, vpad=16, sharp=2)
+# 1. Motion Super Clip
+super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=3, searchparam=2, chroma=false, levels=1, badrange=(-24))
+# 2. Exhaustive Coarse Motion Vector Field Analysis
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=3, searchparam=3, chroma=use_chroma, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=3, searchparam=3, chroma=use_chroma, levels=1, badrange=(-24))
 
-backward_fine = MRecalculate(super, backward_coarse, blksize=8, blksizev=8, search=3, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=8, blksizev=8, search=3, searchparam=1, chroma=false)
+# 3. Exhaustive Micro-Block Refinement (MRecalculate)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=3, searchparam=fine_rad, chroma=use_chroma, divide=0)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=3, searchparam=fine_rad, chroma=use_chroma, divide=0)
 
-MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+# 4. Dynamic Median Pixel-Flow Motion Interpolation
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 
-Prefetch(threads, 4)
+Prefetch(threads)
 ```
 
 ---
@@ -147,7 +172,8 @@ Prefetch(threads, 4)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Pinned to 4x Cortex-X1 Prime cores (threads=4) to prevent asymmetric core stalls
-# Revision: 2.1.0
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Fine 16x16 block refinement, mode=2 Dynamic Median synthesis, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024, D3D12 toggle
 # ==============================================================================
 USE_GPU = false
 
@@ -162,7 +188,7 @@ potplayer_source()
 
 LoadPlugin(plugin_file)
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
@@ -170,16 +196,16 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
-Prefetch(threads, 4)
+Prefetch(threads)
 ```
 
 ---
 
 ## 3. Qualcomm Snapdragon 8cx Gen 2 / Gen 1 / Microsoft SQ1 & SQ2
 
-> **Hardware Target:** 4x Kryo 495 Gold Cores (Cortex-A76 @ 3.0/2.84 GHz) + 4x Kryo 495 Silver, Adreno 685/680.  
+> **Hardware Target:** 4x Kryo 495 Gold Cores (Cortex-A76 @ 3.0/2.84 GHz) + 4x Kryo 495 Silver, Adreno 685/680/675.  
 > **Tested Chassis:** Microsoft Surface Pro X SQ1 & SQ2, Samsung Galaxy Book S.
 
 ### Snapdragon 8cx Gen 2: Balanced Profile *(Recommended)*
@@ -187,19 +213,24 @@ Prefetch(threads, 4)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Pinned to 4x Kryo 495 Gold cores (threads=4)
-# Revision: 2.0.0
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Pinned Kryo 495 Gold cluster, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle
 # ==============================================================================
-threads     = 4
-mem_limit   = 1024
+USE_GPU = false
+
+# Dynamic parameters adapted to USE_GPU
+plugin_file = USE_GPU ? "mvtools2_d3d12.dll" : "mvtools2.dll"
+threads     = USE_GPU ? 3 : 4
+mem_limit   = USE_GPU ? 1024 : 1536
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-src = potplayer_source()
+potplayer_source()
 
-LoadPlugin("mvtools2.dll")
+LoadPlugin(plugin_file)
 
-super = src.MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
@@ -207,9 +238,9 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-MFlowFps(src, super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
-Prefetch(threads, 4)
+Prefetch(threads)
 ```
 
 ---
@@ -261,7 +292,7 @@ Prefetch(threads, 4)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 2: Balanced)
 # Dynamic 0.5x proxy search + 2x vector scale + zero-loss native synthesis
-# Pinned to 2x Cortex-A76 Gold cores (threads=2) for whisper-cool fanless playback
+# Pinned to 2x Cortex-A76 Gold cores (threads=2) for Passive 5 W Fanless Operation
 # Revision: 2.0.0
 # ==============================================================================
 threads     = 2

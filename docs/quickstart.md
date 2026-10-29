@@ -107,7 +107,7 @@ potplayer_source()
 
 LoadPlugin(plugin_file)
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
@@ -115,9 +115,9 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
-Prefetch(threads, 4)
+Prefetch(threads)
 ```
 
 4. Click **Apply** and **OK**.
@@ -174,7 +174,7 @@ potplayer_source()
 
 LoadPlugin("mvtools2.dll")
 
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=1)
+super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
@@ -182,9 +182,9 @@ forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, 
 backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
 
-MFlowFps(super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
-Prefetch(threads, 4)
+Prefetch(threads)
 ```
 
 3. Click **Apply** and **OK**.
