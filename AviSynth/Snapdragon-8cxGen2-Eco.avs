@@ -7,16 +7,15 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# User Configuration: Toggle Adreno GPU Offload
-# Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
+# User Configuration: Toggle Direct3D 12 Compute Offload
+# Set to true for Direct3D 12 Adreno GPU offload (via MEnableD3D12 in mvtools2.dll)
 # Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
 # ------------------------------------------------------------------------------
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 2 : 3     # GPU: 2 worker threads; CPU: 3 Gold cores
-mem_limit   = USE_GPU ? 512 : 768
+# Dynamic parameters adapted to USE_D3D12
+threads     = USE_D3D12 ? 2 : 3     # GPU: 2 worker threads; CPU: 3 Gold cores
+mem_limit   = USE_D3D12 ? 512 : 768
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -26,7 +25,8 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Load Native ARM64 MVTools2 plugin
-LoadPlugin(plugin_file)
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
@@ -50,6 +50,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, sea
 # thSCD1=400, thSCD2=130: Fast scene-change detection to immediately cut across scene changes
 MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
-# 4. Multi-Threading (adapted dynamically to USE_GPU)
+# 4. Multi-Threading (adapted dynamically to USE_D3D12)
 Prefetch(threads)
 

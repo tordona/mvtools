@@ -7,25 +7,24 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# User Configuration: Toggle Adreno GPU Offload
-# Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
+# User Configuration: Toggle Direct3D 12 Compute Offload
+# Set to true for Direct3D 12 Adreno GPU offload (via MEnableD3D12 in mvtools2.dll)
 # Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
 # ------------------------------------------------------------------------------
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
-threads     = USE_GPU ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: all 4 Gold cores
-mem_limit   = USE_GPU ? 1536 : 2048
+# Dynamic parameters adapted to USE_D3D12
+threads     = USE_D3D12 ? 3 : 4     # GPU: 3 threads leaves Gold cores free; CPU: all 4 Gold cores
+mem_limit   = USE_D3D12 ? 1536 : 2048
 
 # Dynamic parameter adaptation:
 # GPU DirectCompute: pel=1 avoids 8.3 MB subplane cache thrashing on Adreno 680 (FlowWarpCS performs subpixel bilinear sampling in hardware);
 #                    32x32 (searchparam=2) -> 16x16 blocks with GPU 2x2 bilinear coarse predictor interpolation and blend=true.
 # CPU NEON: pel=2 half-pixel precision (sharp=1 bicubic), 16x16 -> 8x8 fine micro-blocks, blend=true.
-pel_val     = USE_GPU ? 1 : 2
-sharp_mode  = USE_GPU ? 0 : 1
-blk_coarse  = USE_GPU ? 32 : 16
-blk_fine    = USE_GPU ? 16 : 8
+pel_val     = USE_D3D12 ? 1 : 2
+sharp_mode  = USE_D3D12 ? 0 : 1
+blk_coarse  = USE_D3D12 ? 32 : 16
+blk_fine    = USE_D3D12 ? 16 : 8
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -35,11 +34,12 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Load Native ARM64 MVTools2 plugin
-LoadPlugin(plugin_file)
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
-# pel=pel_val: Dynamic based on USE_GPU (pel=1 on GPU; pel=2 on CPU)
+# pel=pel_val: Dynamic based on USE_D3D12 (pel=1 on GPU; pel=2 on CPU)
 # hpad=8, vpad=8: 8 px boundary padding stabilizes edge vector calculation
 # sharp=sharp_mode: Bicubic filtering when pel=2 on CPU; unused when pel=1 on GPU
 super = MSuper(levels=1, pel=pel_val, hpad=8, vpad=8, sharp=sharp_mode)

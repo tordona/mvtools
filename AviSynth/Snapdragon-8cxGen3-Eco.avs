@@ -7,17 +7,16 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# User Configuration: Toggle Adreno GPU Offload
-# Set to true for Direct3D 12 Adreno GPU offload (mvtools2-d3d12.dll)
+# User Configuration: Toggle Direct3D 12 Compute Offload
+# Set to true for Direct3D 12 Adreno GPU offload (via MEnableD3D12 in mvtools2.dll)
 # Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
 # ------------------------------------------------------------------------------
-USE_GPU = false
+USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_GPU
-plugin_file = USE_GPU ? "mvtools2-d3d12.dll" : "mvtools2.dll"
+# Dynamic parameters adapted to USE_D3D12
 # GPU: 3 threads keeps queue full; CPU: 3 threads on Cortex-X1 leaves 1 X1 + all 4 Cortex-A78 cores idle
-threads     = USE_GPU ? 3 : 3
-mem_limit   = USE_GPU ? 512 : 768
+threads     = USE_D3D12 ? 3 : 3
+mem_limit   = USE_D3D12 ? 512 : 768
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -27,7 +26,8 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Load Native ARM64 MVTools2 plugin
-LoadPlugin(plugin_file)
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
