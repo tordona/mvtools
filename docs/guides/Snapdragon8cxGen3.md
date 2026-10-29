@@ -70,9 +70,9 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
    - **Buffer Back** (first box): Set to **`12`** to **`15`** frames.
    - **Buffer Ahead** (second box): Set to **`24`** frames.
 5. Under **Load script:**, select your preferred Snapdragon 8cx Gen 3 / SQ3 script:
-   - **Eco (Battery Saver):** [`Snapdragon-8cxGen3-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs)
-   - **Balanced (Recommended):** [`Snapdragon-8cxGen3-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs)
-   - **Max Quality:** [`Snapdragon-8cxGen3-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs)
+   - **Eco (Battery Saver):** [`Snapdragon-8cxGen3-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs)
+   - **Balanced (Recommended):** [`Snapdragon-8cxGen3-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs)
+   - **Max Quality:** [`Snapdragon-8cxGen3-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs)
 6. Click **Apply** → **OK**.
 
 > [!TIP]
@@ -112,7 +112,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen3-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
 
 ---
 

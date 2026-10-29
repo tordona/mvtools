@@ -2432,7 +2432,7 @@ function Install-AviSynthProfilesFromRepo {
         [Parameter(Mandatory = $true)]
         [string]$TargetDir,
         [string]$RepoSlug = "tordona/mvtools",
-        [string]$Branch = "mvtools_d3d12"
+        [string]$Branch = "mvtools-d3d12"
     )
 
     if (-not (Test-Path $TargetDir)) {
@@ -2512,7 +2512,7 @@ function Ensure-AviSynthProfiles {
         [string]$RepoRoot = ".",
         [string]$ScriptDir = "",
         [string]$MvToolsRepo = "tordona/mvtools",
-        [string]$ProfileBranch = "mvtools_d3d12",
+        [string]$ProfileBranch = "mvtools-d3d12",
         [string]$TargetPotPlayerDir = ""
     )
 

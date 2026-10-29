@@ -82,9 +82,9 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
    - **Buffer Back** (first box): Set to **`12`** to **`15`** frames.
    - **Buffer Ahead** (second box): Set to **`24`** frames.
 5. Under **Load script:**, select your preferred Snapdragon 8cx Gen 1 / Microsoft SQ1 script:
-   - **Eco (Battery Saver):** [`Snapdragon-8cxGen1-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs)
-   - **Balanced (Recommended):** [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs)
-   - **Max Quality:** [`Snapdragon-8cxGen1-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs)
+   - **Eco (Battery Saver):** [`Snapdragon-8cxGen1-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs)
+   - **Balanced (Recommended):** [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs)
+   - **Max Quality:** [`Snapdragon-8cxGen1-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs)
 6. Click **Apply** → **OK**.
 
 > [!TIP]
@@ -126,7 +126,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `12-15` (Back) / `24` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-8cxGen1-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
 
 ---
 

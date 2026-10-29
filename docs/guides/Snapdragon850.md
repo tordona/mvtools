@@ -81,9 +81,9 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
    - **Buffer Back** (first box): Set to **`10`** to **`15`** frames.
    - **Buffer Ahead** (second box): Set to **`20`** to **`24`** frames.
 5. Under **Load script:**, choose your preferred Snapdragon 850 profile:
-   - **Eco (Battery Saver):** [`Snapdragon-850-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Eco.avs)
-   - **Balanced (Recommended):** [`Snapdragon-850-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Balanced.avs)
-   - **Max Quality:** [`Snapdragon-850-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-MaxQuality.avs)
+   - **Eco (Battery Saver):** [`Snapdragon-850-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs)
+   - **Balanced (Recommended):** [`Snapdragon-850-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs)
+   - **Max Quality:** [`Snapdragon-850-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs)
 6. Click **Apply** → **OK**.
 
 ---
@@ -114,7 +114,7 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `10-15` (Back) / `20-24` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-850-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-850-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
 
 ---
 

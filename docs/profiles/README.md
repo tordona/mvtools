@@ -42,24 +42,24 @@ When enabled, motion vector estimation executes on the Adreno iGPU command queue
 
 | Platform / SoC | Profile Tier | Architecture | Block Size | `pel` | Threads | `USE_GPU` | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
-| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 (GPU) / 16 → 8 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
-| **Snapdragon 850** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
-| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
-| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
+| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 (GPU) / 16 → 8 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
+| **Snapdragon 850** | `Eco` | Single-level Coarse | 32×32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
+| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
+| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
 
 ---
 
@@ -336,30 +336,30 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 
 | Platform / CPU | Topology & TDP | Tier | Block Size | Threads | Memory | Download |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
-| | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/RyzenAI-5-340-MaxQuality.avs) |
-| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45 W | `Eco` | 32×32 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
-| | Intel UHD Graphics 32EU | `Balanced` | 32 → 16 | 8 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i7-11850H-MaxQuality.avs) |
-| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12 W – 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
-| | Intel Iris Xe 80EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-1135G7-MaxQuality.avs) |
-| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
-| | Intel Iris Plus 655 (128 MB eDRAM) | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-8259U-MaxQuality.avs) |
-| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5 W (Fanless) | `Eco` | 32×16 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
-| | Intel HD Graphics 615 | `Balanced` | 16×16 (Proxy) | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i5-7Y54-MaxQuality.avs) |
-| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
-| | Intel UHD Graphics 64EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Core-i3-1215U-MaxQuality.avs) |
-| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-Eco.avs) |
-| | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-Balanced.avs) |
-| | | `MaxQuality` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
-| **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 32×32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Generic-x64-Eco.avs) |
-| | Compatible with any x86-64 CPU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Generic-x64-Balanced.avs) |
-| | | `MaxQuality` | 16 → 8 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Generic-x64-MaxQuality.avs) |
+| **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
+| | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-MaxQuality.avs) |
+| **Intel Core i7-11850H** | 8 Cores / 16 Threads @ 45 W | `Eco` | 32×32 | 6 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Eco.avs) |
+| | Intel UHD Graphics 32EU | `Balanced` | 32 → 16 | 8 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 | 8 | 3072 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i7-11850H-MaxQuality.avs) |
+| **Intel Core i5-1135G7** | 4 Cores / 8 Threads @ 12 W – 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Eco.avs) |
+| | Intel Iris Xe 80EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-1135G7-MaxQuality.avs) |
+| **Intel Core i5-8259U** | 4 Cores / 8 Threads @ 28 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Eco.avs) |
+| | Intel Iris Plus 655 (128 MB eDRAM) | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-8259U-MaxQuality.avs) |
+| **Intel Core i5-7Y54** | 2 Cores / 4 Threads @ 4.5 W (Fanless) | `Eco` | 32×16 (Proxy) | 2 | 384 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Eco.avs) |
+| | Intel HD Graphics 615 | `Balanced` | 16×16 (Proxy) | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i5-7Y54-MaxQuality.avs) |
+| **Intel Core i3-1215U** | 2 P-cores + 4 E-cores (8T) @ 15 W | `Eco` | 32×32 | 3 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Eco.avs) |
+| | Intel UHD Graphics 64EU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Core-i3-1215U-MaxQuality.avs) |
+| **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Eco.avs) |
+| | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Balanced.avs) |
+| | | `MaxQuality` | 32 → 16 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
+| **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 32×32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Eco.avs) |
+| | Compatible with any x86-64 CPU | `Balanced` | 32 → 16 | 4 | 1024 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Balanced.avs) |
+| | | `MaxQuality` | 16 → 8 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-MaxQuality.avs) |
 
 ---
 

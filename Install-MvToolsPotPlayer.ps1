@@ -1,7 +1,7 @@
 # ==============================================================================
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
-# Repository: https://github.com/tordona/mvtools (branch: mvtools_d3d12)
+# Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -31,7 +31,7 @@
     Bypasses interactive confirmations and proceeds with automated acquisition.
 
 .PARAMETER ProfileBranch
-    Git branch to acquire profiles and releases from. Default: 'mvtools_d3d12'.
+    Git branch to acquire profiles and releases from. Default: 'mvtools-d3d12'.
 
 .PARAMETER ForceProfile
     Optional override to specify an exact .avs profile name to activate (e.g. 'Snapdragon-X-Plus-MaxQuality.avs').
@@ -45,7 +45,7 @@ param(
     [string]$PotPlayerDir = "",
     [switch]$AutoInstall,
     [string]$MvToolsRepo = "",
-    [string]$ProfileBranch = "mvtools_d3d12",
+    [string]$ProfileBranch = "mvtools-d3d12",
     [string]$ForceProfile = "",
     [switch]$Launch
 )
@@ -115,7 +115,7 @@ if (-not $IsAdmin) {
             } else {
                 # In-memory pipeline execution (e.g. irm ... | iex). Cache to TEMP for elevated execution.
                 $repoTarget = if (-not [string]::IsNullOrWhiteSpace($MvToolsRepo)) { $MvToolsRepo } else { "tordona/mvtools" }
-                $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools_d3d12" }
+                $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools-d3d12" }
                 $tempScript = Join-Path $env:TEMP "Install-MvToolsPotPlayer.ps1"
                 $rawScriptUrl = "https://raw.githubusercontent.com/$repoTarget/$branchTarget/Install-MvToolsPotPlayer.ps1"
                 try {
@@ -138,10 +138,10 @@ if (-not $IsAdmin) {
             if ($ForceProfile) { $argList += @("-ForceProfile", "`"$ForceProfile`"") }
             if ($PotPlayerDir) { $argList += @("-PotPlayerDir", "`"$PotPlayerDir`"") }
             if ($MvToolsRepo) { $argList += @("-MvToolsRepo", "`"$MvToolsRepo`"") }
-            if ($ProfileBranch -and $ProfileBranch -ne "mvtools_d3d12") { $argList += @("-ProfileBranch", "`"$ProfileBranch`"") }
+            if ($ProfileBranch -and $ProfileBranch -ne "mvtools-d3d12") { $argList += @("-ProfileBranch", "`"$ProfileBranch`"") }
         } else {
             $repoTarget = if (-not [string]::IsNullOrWhiteSpace($MvToolsRepo)) { $MvToolsRepo } else { "tordona/mvtools" }
-            $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools_d3d12" }
+            $branchTarget = if (-not [string]::IsNullOrWhiteSpace($ProfileBranch)) { $ProfileBranch } else { "mvtools-d3d12" }
             $remoteCmd = "irm https://raw.githubusercontent.com/$repoTarget/$branchTarget/Install-MvToolsPotPlayer.ps1 | iex"
             $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $remoteCmd)
         }
@@ -1581,7 +1581,7 @@ function Install-ArchitectureFilteredProfiles {
         [string]$TargetArch = "arm64",
         [string]$RepoRoot = ".",
         [string]$RepoSlug = "tordona/mvtools",
-        [string]$Branch = "mvtools_d3d12"
+        [string]$Branch = "mvtools-d3d12"
     )
 
     $potAvsDir = Join-Path $TargetPotPlayerDir "AviSynth"
@@ -1992,8 +1992,8 @@ My Target Hardware Specifications:
 - Platform Architecture: $archDesc
 
 Specification & Reference Guide:
-- Specification (Direct Raw Markdown for AI ingestion): https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/docs/guides/AIAgentProfileGuide.md
-- Web Mirror (GitHub UI View): https://github.com/tordona/mvtools/blob/mvtools_d3d12/docs/guides/AIAgentProfileGuide.md
+- Specification (Direct Raw Markdown for AI ingestion): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+- Web Mirror (GitHub UI View): https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
 Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).

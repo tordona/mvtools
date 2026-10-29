@@ -83,10 +83,10 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
    - **Buffer Back** (first box): Set to **`12`** to **`16`** frames.
    - **Buffer Ahead** (second box): Set to **`24`** to **`30`** frames.
 5. Under **Load script:**, select your desired Snapdragon X Plus script:
-   - **Profile 1 (Eco / Battery Saver):** [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs)
-   - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
-   - **Profile 3 (Max Quality / Fine Grid):** [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
-   *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power battery saver option).*
+   - **Profile 1 (Eco / Battery Saver):** [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs)
+   - **Profile 2 (Balanced / Daily Driver):** [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) *(Recommended)*
+   - **Profile 3 (Max Quality / Fine Grid):** [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs)
+   *(Note: Snapdragon X Elite / Plus users can also run [`Snapdragon-8cxGen3-*.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) as an ultra-low-power battery saver option).*
 6. Click **Apply** → **OK**.
 
 > [!TIP]
@@ -103,7 +103,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 
 | Setting | Profile 1: Eco | Profile 2: Balanced (Default) | Profile 3: Max Quality |
 | :--- | :--- | :--- | :--- |
-| **Script File** | [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) | [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
+| **Script File** | [`Snapdragon-X-Plus-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) | [`Snapdragon-X-Plus-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
 | **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=1` (GPU) / `pel=2` (CPU Wiener filter) |
 | **Block Grid** | Single-pass `32x32` | Dual-pass `32x32` → `16x16` | Dual-pass `32x32` → `16x16` (GPU) / `16x16` → `8x8` (CPU) |
 | **Search Pattern** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Exhaustive 2D Grid (`search=3`, 7x7 coarse / 5x5 fine on GPU) |
@@ -126,7 +126,7 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `12-16` (Back) / `24-30` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-X-Plus-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
 
 ---
 

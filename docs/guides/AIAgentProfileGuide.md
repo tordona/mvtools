@@ -18,7 +18,7 @@ Tool-enabled IDE agents have direct access to your local workspace, terminal she
 
 #### The 1-Step Prompt:
 ```text
-Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/blob/mvtools_d3d12/docs/guides/AIAgentProfileGuide.md). Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md). Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
 ```
 
 #### What the IDE Agent Does Autonomously:

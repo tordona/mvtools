@@ -70,9 +70,9 @@ To achieve continuous, sustained 60 fps without thermal throttling:
    - **Buffer Back** (first box): Set to **`10`** to **`12`** frames.
    - **Buffer Ahead** (second box): Set to **`16`** to **`20`** frames.
 5. Under **Load script:**, browse and select your preferred Snapdragon 7c Gen 2 profile:
-   - [**`Snapdragon-7cGen2-Balanced.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60 fps watching)*
-   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(Low-power operation, extended battery longevity, 3.0 W)*
-   - [**`Snapdragon-7cGen2-MaxQuality.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) *(Hierarchical pyramid search for fast action scenes)*
+   - [**`Snapdragon-7cGen2-Balanced.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) *(Recommended for daily 60 fps watching)*
+   - [**`Snapdragon-7cGen2-Eco.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) *(Low-power operation, extended battery longevity, 3.0 W)*
+   - [**`Snapdragon-7cGen2-MaxQuality.avs`**](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) *(Hierarchical pyramid search for fast action scenes)*
 6. Click **Apply** and **OK**.
 
 ---
@@ -117,7 +117,7 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 | **Output Colorspace** | Video → Colorspaces | `Auto (Recommended)` / native `NV12` / `YV12` |
 | **AviSynth Processing** | Video → AviSynth | `Enable AviSynth processing` checked |
 | **Buffer (back/ahead)** | Video → AviSynth | `10-12` (Back) / `16-20` (Ahead) |
-| **AviSynth Script** | Video → AviSynth | [`Snapdragon-7cGen2-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
+| **AviSynth Script** | Video → AviSynth | [`Snapdragon-7cGen2-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
 
 ---
 

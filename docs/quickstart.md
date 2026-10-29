@@ -24,13 +24,13 @@ An automated setup script is provided in the repository to detect your hardware,
 Open PowerShell and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1 | iex
+irm https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/Install-MvToolsPotPlayer.ps1 | iex
 ```
 
 > [!NOTE]
 > To pass automated parameters (such as `-AutoInstall` and `-Launch` for zero-touch setup):
 > ```powershell
-> irm https://raw.githubusercontent.com/tordona/mvtools/mvtools_d3d12/Install-MvToolsPotPlayer.ps1 -OutFile $env:TEMP\install.ps1; & $env:TEMP\install.ps1 -AutoInstall -Launch
+> irm https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/Install-MvToolsPotPlayer.ps1 -OutFile $env:TEMP\install.ps1; & $env:TEMP\install.ps1 -AutoInstall -Launch
 > ```
 
 #### Option B: From Cloned / Downloaded Repository

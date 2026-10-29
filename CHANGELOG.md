@@ -1,7 +1,22 @@
 Change log
-- 2.7.47.122 (20261027)
-  - Dropped platform architecture suffix from versioning resource strings in favor of canonical semantic versioning across ARM64 and x64 builds.
-  - Bumped file and product version to 2.7.47.122.
+- 2.7.47.122-arm64 (20261028)
+  - Direct3D 12 Compute & Pipeline Optimizations:
+    - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loop and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
+    - Extended D3D12FlowSynthesis 3-texture ring caching with consecutive source/reference pair matching (m_lastSrcRingIdx), eliminating redundant frame re-uploads during fractional rate conversions (such as 24 fps -> 60 fps intermediate sub-frames).
+    - Resolved texture cache mismatch edge cases to prevent cache invalidation errors and eliminate intro logo flicker during scene transitions.
+    - Recompiled embedded shader bytecode header (motion_search_cso.h).
+  - Snapdragon AviSynth Profiles (Revision 2.1.0):
+    - Updated profiles to Revision 2.1.0 across Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, 8cx Gen 1, 850, and 7c Gen 2.
+    - Added adaptive parameter scaling based on USE_GPU: configured sharp=0 with pel=1 on GPU compute paths to bypass redundant subpixel filtering, while leveraging hardware bilinear texture sampling in D3D12FlowSynthesis.
+    - Configured MBlockFps(mode=2, blend=true) across GPU profiles for dynamic median pixel-flow synthesis and linear occlusion fallback.
+    - Scaled memory allocation (SetMemoryMax) and worker threads dynamically between GPU and CPU NEON fallbacks.
+  - Benchmarking Suite & Baseline Synchronization:
+    - Updated baseline comparison matrices across all 6 Snapdragon platforms, recording D3D12 GPU optimizations (Snapdragon X Plus MaxQuality CPU load reduced from 10.6% to 6.0%, Snapdragon 8cx Gen 2 CPU load reduced from 15.3% to 8.2%).
+    - Normalized baseline matrix filenames (e.g. BenchmarkMatrix_Comparison_Core-i5-7Y54.md) and removed legacy raw CPUID filename entries.
+    - Added PresentMon frame-time capture to benchmark harness, with PowerShell 5.1 and 7 support across ARM64 and x64 environments.
+  - Documentation & Deployment:
+    - Added Docsify documentation structure for GitHub Pages.
+    - Standardized all platform guides across Documentation/guides/ and docs/guides/ to Revision 2.1 profile specifications and standard NIST/SI unit typography.
 
 - 2.7.47.121-arm64 (20261023)
   - Synthesis Memory & NEON Blend Refinements (merged from mvtools-pfmod):
