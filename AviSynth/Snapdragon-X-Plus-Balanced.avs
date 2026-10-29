@@ -24,6 +24,15 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
+# density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -31,23 +40,23 @@ MEnableD3D12(USE_D3D12)
 # 1. Motion Super Clip with Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
-# hpad=8, vpad=8: 8 px boundary padding stabilizes motion vectors near frame borders
+# pad_val boundary padding stabilizes motion vectors near frame borders
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
-# blksize=32, blksizev=32: Macro-motion detection across 2,040 blocks at 1080p
+# 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
 # search=2, searchparam=2: Hexagonal search with radius 2
 # badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
 # levels=1: Strictly searches base Level 0
-backward_coarse = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
-# blksize=16, blksizev=16: Refines vectors to 16x16 blocks (8,160 blocks at 1080p) using 2x2 bilinear coarse predictors
+# Refines to 8,160 blocks (16x16 at 1080p, 32x32 at 4K) using 2x2 bilinear coarse predictors
 # search=2, searchparam=1: 3x3 local grid refinement around interpolated coarse predictor
-backward_fine = MRecalculate(super, backward_coarse, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Pixel-Level Motion Interpolation with Occlusion Handling
 # mode=2: Dynamic Median synthesis (clamps static cross-fade between forward and backward warped pixels)

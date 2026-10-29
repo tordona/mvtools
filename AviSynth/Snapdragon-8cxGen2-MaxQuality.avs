@@ -23,8 +23,6 @@ mem_limit   = USE_D3D12 ? 1536 : 2048
 # CPU NEON: pel=2 half-pixel precision (sharp=1 bicubic), 16x16 -> 8x8 fine micro-blocks, blend=true.
 pel_val     = USE_D3D12 ? 1 : 2
 sharp_mode  = USE_D3D12 ? 0 : 1
-blk_coarse  = USE_D3D12 ? 32 : 16
-blk_fine    = USE_D3D12 ? 16 : 8
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -32,6 +30,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
 potplayer_source()
+
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, block sizes scale by 2x to match 1080p spatial grid density (2,040 coarse / 8,160 fine),
+# eliminating the 40,560 block explosion while preserving maximal visual detail.
+is_4k       = (Width() > 2048)
+blk_coarse  = USE_D3D12 ? (is_4k ? 64 : 32) : (is_4k ? 32 : 16)
+blk_fine    = USE_D3D12 ? (is_4k ? 32 : 16) : (is_4k ? 16 : 8)
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
@@ -42,7 +48,8 @@ MEnableD3D12(USE_D3D12)
 # pel=pel_val: Dynamic based on USE_D3D12 (pel=1 on GPU; pel=2 on CPU)
 # hpad=8, vpad=8: 8 px boundary padding stabilizes edge vector calculation
 # sharp=sharp_mode: Bicubic filtering when pel=2 on CPU; unused when pel=1 on GPU
-super = MSuper(levels=1, pel=pel_val, hpad=8, vpad=8, sharp=sharp_mode)
+pad_val = is_4k ? 16 : 8
+super   = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Wide Coarse Motion Vector Field Analysis
 # blksize=blk_coarse: 32x32 on GPU (2,040 blocks), 16x16 on CPU (8,160 blocks)

@@ -28,6 +28,15 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream (Offloaded via Adreno 690 hardware decoder)
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
+# density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
+is_4k      = (Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -35,25 +44,25 @@ MEnableD3D12(USE_D3D12)
 # 1. Motion Super Clip with Boundary Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Whole-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
-# hpad=8, vpad=8: 8 px boundary padding stabilizes edge vector calculation on wide camera pans
+# pad_val boundary padding stabilizes edge vector calculation on wide camera pans
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = MSuper(levels=1, pel=1, hpad=8, vpad=8, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-# 2. Wide Coarse Motion Vector Field Analysis (32x32 blocks, searchparam=2)
-# blksize=32, blksizev=32: Macro-motion detection across 2,040 blocks at 1080p
+# 2. Wide Coarse Motion Vector Field Analysis
+# 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
 # search=search_alg, searchparam=2: Full 5x5 (25-point) exhaustive grid on GPU; radius-2 hexagonal search on CPU
 # chroma=false: Luma-focused motion estimation keeps computation inside thermal budget
 # levels=1: Strictly searches base Level 0
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
-backward_dense = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_dense  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_dense = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_dense  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-# 3. High-Definition Refinement Pass (MRecalculate to 16x16)
-# blksize=16, blksizev=16: Refines vectors down to 16x16 blocks at object boundaries using 2x2 bilinear coarse predictors
+# 3. High-Definition Refinement Pass (MRecalculate)
+# Refines to 8,160 blocks (16x16 at 1080p, 32x32 at 4K) using 2x2 bilinear coarse predictors
 # search=2, searchparam=fine_rad: Radius-2 hexagonal refinement on GPU; 3x3 local grid on CPU
 # divide=0: Unsplit block grid required for D3D12 compute offload
-backward_fine = MRecalculate(super, backward_dense, blksize=16, blksizev=16, search=2, searchparam=fine_rad, chroma=false, divide=0)
-forward_fine  = MRecalculate(super, forward_dense,  blksize=16, blksizev=16, search=2, searchparam=fine_rad, chroma=false, divide=0)
+backward_fine = MRecalculate(super, backward_dense, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=false, divide=0)
+forward_fine  = MRecalculate(super, forward_dense,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=false, divide=0)
 
 # 4. Dynamic Median 60 fps Synthesis with Occlusion Handling
 # mode=2: Dynamic Median pixel-flow synthesis with occlusion masking

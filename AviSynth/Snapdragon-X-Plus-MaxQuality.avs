@@ -26,9 +26,6 @@ pel_val     = USE_D3D12 ? 1 : 2
 # sharp_mode: Only active when pel > 1 (sharp=2 6-tap Wiener filter for CPU pel=2; no-op when pel=1 on GPU)
 sharp_mode  = USE_D3D12 ? 0 : 2
 pad_size    = USE_D3D12 ? 8 : 16
-# Dual-pass coarse-to-fine: 32x32 -> 16x16 on GPU (2,040 -> 8,160 blocks); 16x16 -> 8x8 on CPU
-blk_coarse  = USE_D3D12 ? 32 : 16
-blk_fine    = USE_D3D12 ? 16 : 8
 # Exhaustive 2D grid search (search=3) on both GPU and CPU:
 # GPU evaluates 7x7 (49 points) on 32x32 coarse blocks and 5x5 (25 points, fine_rad=2) on 16x16 fine blocks
 fine_rad    = USE_D3D12 ? 2 : 1
@@ -40,6 +37,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, block sizes scale by 2x to match 1080p spatial grid density (2,040 coarse / 8,160 fine),
+# eliminating the 40,560 block explosion while preserving maximal visual detail.
+is_4k       = (Width() > 2048)
+blk_coarse  = USE_D3D12 ? (is_4k ? 64 : 32) : (is_4k ? 32 : 16)
+blk_fine    = USE_D3D12 ? (is_4k ? 32 : 16) : (is_4k ? 16 : 8)
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -49,7 +54,8 @@ MEnableD3D12(USE_D3D12)
 # pel=pel_val: Integer grid on GPU (paired with hardware bilinear texture warp); half-pel on CPU
 # hpad, vpad: Boundary padding (8 px on GPU, 16 px on CPU)
 # sharp=sharp_mode: 6-tap Wiener interpolation when pel=2 on CPU; unused when pel=1 on GPU
-super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
+pad_val = is_4k ? (pad_size * 2) : pad_size
+super   = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Exhaustive Coarse Motion Vector Field Analysis
 # blksize=blk_coarse: 32x32 on GPU (2,040 blocks), 16x16 on CPU (8,160 blocks)

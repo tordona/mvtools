@@ -24,6 +24,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 32x32 blocks maintain the exact 8,160 block count of 1080p 16x16,
+# preserving single-pass responsiveness and preventing thermal throttling.
+is_4k   = (Width() > 2048)
+blk_sz  = is_4k ? 32 : 16
+pad_val = is_4k ? 8 : 4
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -31,19 +39,16 @@ MEnableD3D12(USE_D3D12)
 # 1. Motion Super Clip with Lightweight Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Whole-pixel estimation keeps ALU low while tracking details; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
-# hpad=4, vpad=4: 4 px boundary padding prevents edge tearing without cache thrashing
+# pad_val boundary padding prevents edge tearing without cache thrashing
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = MSuper(levels=1, pel=1, hpad=4, vpad=4, sharp=0)
+super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-# 2. Motion Vector Search (Single-Pass 16x16 Blocks)
-# Evaluates directly in a single pass (2 GPU dispatches instead of 4).
-# Cuts GPU block evaluations by 60% (from 20,400 down to 8,160 blocks/frame), eliminating
-# the 40–60 s thermal throttle while delivering sharp 16x16 object edge resolution.
+# 2. Motion Vector Search (8,160 blocks: 16x16 at 1080p, 32x32 at 4K)
 # search=2: Hexagonal search with radius 1 keeps searches fast on Cortex-A76 cores
 # levels=1: Strictly searches base Level 0
 # badrange=(-24): Early rejection of outlier vectors to prevent haloing
-backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
-forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
 
 # 3. Pixel-Flow Motion Interpolation
 # mode=2: Pixel-flow synthesis provides smooth motion vectors without blockiness
