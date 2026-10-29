@@ -18,7 +18,7 @@ Include("Files.cmake")
 
 add_library(${PluginName} SHARED ${MvTools2_Sources})
 
-set_target_properties(${PluginName} PROPERTIES "OUTPUT_NAME" "mvtools2-d3d12")
+set_target_properties(${PluginName} PROPERTIES "OUTPUT_NAME" "mvtools2")
 if (MINGW)
   set_target_properties(${PluginName} PROPERTIES PREFIX "")
   set_target_properties(${PluginName} PROPERTIES IMPORT_PREFIX "")

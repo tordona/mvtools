@@ -33,7 +33,7 @@ struct D3D12MotionSearch::Impl
     std::mutex m_mutex;
     bool m_initialized = false;
     bool m_available = false;
-    bool m_enabled = true;
+    bool m_enabled = false;
 
     ComPtr<IDXGIFactory6> m_factory;
     ComPtr<IDXGIAdapter1> m_adapter;

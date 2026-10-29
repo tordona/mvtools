@@ -517,7 +517,7 @@ struct D3D12FlowSynthesis::Impl
     std::mutex m_initMutex;
     bool m_initialized = false;
     bool m_available = false;
-    bool m_enabled = true;
+    bool m_enabled = false;
 
     ComPtr<IDXGIFactory6> m_factory;
     ComPtr<IDXGIAdapter1> m_adapter;
