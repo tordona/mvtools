@@ -108,8 +108,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 1. **Architecture & Compute Engine Targeting:**
    * **x86-64 Platforms (Intel Core / AMD Ryzen):**
-     * Active engine: Native x64 AVX-512 / AVX2 CPU SIMD via `mvtools2.dll`.
-     * **Do NOT generate dead `USE_D3D12` code or reference `mvtools2.dll` on x64 platforms.** `mvtools2.dll` is an ARM64-only binary. x64 platforms run 100% native CPU SIMD.
+     * Active engine: Native x64 AVX-512 / AVX2 CPU SIMD via `LoadPlugin("mvtools2.dll")`.
+     * **Do NOT generate dead `USE_D3D12` code or call `MEnableD3D12` on x64 platforms.** Direct3D 12 compute offload is currently ARM64-only. x64 platforms run 100% native CPU SIMD.
    * **ARM64 Platforms (Qualcomm Snapdragon):**
      * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`MEnableD3D12(true)`) via `USE_D3D12 = false/true`.
 
@@ -141,19 +141,19 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    # Directly warps native frames with 1:1 pixel accuracy
    MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
-   # 4. Core Pinning & Lookahead Buffer
+   # 4. Multithreading & Lookahead Buffer
    Prefetch(threads, <Lookahead>)
    ```
 
 3. **Core Topology & Thread Allocation Rules (`threads`):**
-   * **The Physical Core Pinning Law:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores`). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls.
+   * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores`). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count), not OS hardware thread affinity.
    * Leaving logical threads and background cores free guarantees dedicated CPU headroom for hardware DXVA2/D3D11 decoding, audio synchronization, and Windows DWM presentation, preventing dropped frames.
    * **Homogeneous Cores (Intel 8th–11th Gen, Desktop Core, AMD Zen):**
      * 4-Core CPU (e.g. i5-8259U, i5-1135G7): `threads = 3` (Eco), `threads = 4` (Balanced), `threads = 4` (MaxQuality).
      * 6-Core CPU (e.g. i5-8400, i5-10400): `threads = 3` (Eco), `threads = 4` (Balanced), `threads = 6` (MaxQuality).
      * 8-Core CPU (e.g. i7-11850H, 8C/16T): `threads = 4` (Eco), `threads = 6` (Balanced), `threads = 8` (MaxQuality).
-   * **Heterogeneous / Hybrid Cores (Intel Alder Lake/Raptor Lake P+E, AMD Zen 5+Zen 5c, ARM big.LITTLE):**
-     * **Intel Hybrid (P+E Cores):** Pin worker threads strictly to high-performance P-cores (e.g. on 2P+4E `i3-1215U`, set `threads = 3`). Never let AviSynth worker threads spill into low-throughput E-cores where the slowest thread stalls the frame presentation deadline.
+   * **Heterogeneous / Hybrid Cores (Intel Alder Lake/Raptor Lake/Core Ultra P+E, AMD Zen 5+Zen 5c, ARM big.LITTLE):**
+     * **Intel Hybrid (P+E Cores):** Budget worker threads strictly against high-performance P-cores (`threads <= p_cores`; e.g. on 4P+8E `i7-1260P`, set `threads = 3` for Eco, `threads = 4` for Balanced/MaxQuality; on 6P+8E `Ultra 7 155H`, set `threads = 3` for Eco, `threads = 4` for Balanced, `threads = 5` or `6` for MaxQuality). Never allocate thread counts based on total physical cores or allow worker threads to spill into low-throughput E-cores where the slowest thread stalls the frame presentation deadline.
      * **AMD Zen 5 + Zen 5c (Kraken Point / Strix Point):** Both Zen 5 and Zen 5c share the unified 16 MB L3 cache with full AVX-512 support. Set `threads = 3` (Eco, P-cores only), `threads = 4` (Balanced), `threads = 6` (MaxQuality, all physical cores).
      * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 3` (Eco), `threads = 4` (Balanced & MaxQuality).
 
@@ -212,7 +212,10 @@ For the requested platform, output:
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.0.0 (<Date>)`
+   * `# Revision: 2.1.0 (<Date>)`
+3. **Clean Script Formatting:**
+   * Emit standard AviSynth+ syntax with one statement per line. Never collapse statements onto a single line without linebreaks.
+   * If splitting multi-argument function calls, use AviSynth line continuation (`\` as the first non-whitespace character on subsequent lines).
 
 ---
 

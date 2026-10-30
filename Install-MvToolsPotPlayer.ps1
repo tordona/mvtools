@@ -1999,8 +1999,9 @@ $pluginRule
 4. Single-Level Geometry: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced; ``sharp=1`` for MaxQuality).
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
 6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
-7. Core Pinning: MUST pin ``threads`` to physical performance cores (``threads <= physical_cores``) and end with ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``.
+7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), ending with ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. Note that Prefetch controls worker instance concurrency, not OS thread affinity.
 8. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
+9. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
 
 Please generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, blend=false``), lowest CPU wattage.
