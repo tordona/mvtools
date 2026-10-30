@@ -130,6 +130,39 @@ if ($RunMatrix) {
         exit 1
     }
 
+    # Pre-flight audit: Verify target video exists before starting matrix
+    $resolvedVideo = $VideoPath
+    if ([string]::IsNullOrWhiteSpace($resolvedVideo)) {
+        $defaultVideo = Join-Path $ScriptDir "tears_of_steel_1080p.mov"
+        if (Test-Path $defaultVideo) {
+            $resolvedVideo = $defaultVideo
+        } else {
+            $foundVideo = Get-ChildItem -Path $ScriptDir -Include "*.mov", "*.mp4", "*.mkv" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($foundVideo) { $resolvedVideo = $foundVideo.FullName }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($resolvedVideo) -or -not (Test-Path $resolvedVideo)) {
+        Write-Host "`n[FATAL ERROR] Target video not found: '$resolvedVideo'!" -ForegroundColor Red
+        Write-Host "`n------------------------------------------------------------------------" -ForegroundColor Cyan
+        Write-Host " REFERENCE VIDEO DOWNLOAD INSTRUCTIONS" -ForegroundColor Cyan
+        Write-Host "------------------------------------------------------------------------" -ForegroundColor Cyan
+        Write-Host "The standard reproducible benchmark requires the Blender open movie clip:" -ForegroundColor White
+        Write-Host "  File Name: tears_of_steel_1080p.mov" -ForegroundColor Yellow
+        Write-Host "  Expected SHA-256 Checksum: 99486359be7e3681168a0fe94e1cbb0284c48b57b2a3ce7df4fa75e185987a15" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Download Steps:" -ForegroundColor Yellow
+        Write-Host "  1. Visit the official Blender Mango Open Movie download page:" -ForegroundColor White
+        Write-Host "     https://mango.blender.org/download/" -ForegroundColor Cyan
+        Write-Host "  2. Under the video download options, select and download the 1080p release:" -ForegroundColor White
+        Write-Host "     'Tears of Steel - 1080p' (approx. 560-600 MB .mov)" -ForegroundColor White
+        Write-Host "  3. Save or rename the downloaded file to:" -ForegroundColor White
+        Write-Host "     $(Join-Path $ScriptDir 'tears_of_steel_1080p.mov')" -ForegroundColor Green
+        Write-Host "------------------------------------------------------------------------`n" -ForegroundColor Cyan
+        Write-Host "[ABORTED] Matrix benchmark execution aborted because the target video is missing.`n" -ForegroundColor Red
+        exit 1
+    }
+
     $effectivePotDir = if (-not [string]::IsNullOrWhiteSpace($PotPlayerDir)) { $PotPlayerDir } elseif ($env:ProgramFiles) { Join-Path ${env:ProgramFiles} "DAUM\PotPlayer" } else { "" }
     $compareArch = if ($effectivePotDir -and (Test-Path (Join-Path $effectivePotDir "PotPlayer64.exe"))) {
         $archFound = "x64"
@@ -223,6 +256,12 @@ if ($RunMatrix) {
 
             $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
             & $psExe $ArgsList
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) {
+                Write-Host "`n[FATAL ERROR] Permutation run [$RunIndex/${TotalRuns}] (Tier = $tier | Mode = $mode) failed with exit code $exitCode." -ForegroundColor Red
+                Write-Host "[ABORTED] Aborting remaining matrix benchmark permutations.`n" -ForegroundColor Red
+                exit $exitCode
+            }
             $RunIndex++
             Start-Sleep -Seconds 2
         }

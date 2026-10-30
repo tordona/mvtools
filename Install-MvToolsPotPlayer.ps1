@@ -1856,7 +1856,7 @@ function Set-PotPlayerActiveProfile {
 
     $rawAvs = Get-Content -Path $ProfilePath -Raw
     # Unified mvtools2.dll
-    $resolvedAvs = $resolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
+    $resolvedAvs = $rawAvs -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
 
     Set-PotPlayerShortcutWorkingDirectory -TargetPotPlayerDir $TargetPotPlayerDir
 
@@ -2000,11 +2000,12 @@ $pluginRule
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
 6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
 7. Core Pinning: MUST pin ``threads`` to physical performance cores (``threads <= physical_cores``) and end with ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``.
+8. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 
 Please generate the complete 3-tier profile set following these exact rules:
-- Profile 1 (Eco): Coarse 32x32 blocks (``blksize=32, blksizev=32, search=2, searchparam=1, blend=false``), lowest CPU wattage.
-- Profile 2 (Balanced): Crisp 16x16 blocks (``blksize=16, blksizev=16, search=2, searchparam=2, blend=false``), daily driver.
-- Profile 3 (MaxQuality): Overlapping 16x16 blocks (``blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, sharp=1, blend=true``), maximum edge fidelity.
+- Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, blend=false``), lowest CPU wattage.
+- Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, blend=false``), daily driver.
+- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, sharp=1, blend=true``), maximum edge fidelity.
 "@
 
     try {

@@ -3903,7 +3903,7 @@ function Set-PotPlayerSettings {
     $cleanCpuDll = if ($CpuDll) { $CpuDll.Replace('\', '/') } else { "" }
     $cleanGpuDll = if ($GpuDll) { $GpuDll.Replace('\', '/') } else { $cleanCpuDll }
     # Unified mvtools2.dll
-    $ResolvedAvs = $ResolvedAvs -replace '(?i)"mvtools2\.dll"', "`"$cleanCpuDll`""
+    $ResolvedAvs = $RawAvs -replace '(?i)"mvtools2\.dll"', "`"$cleanCpuDll`""
     if ($targetArch -eq "x64") {
         # Unified mvtools2.dll
     }
