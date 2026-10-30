@@ -34,11 +34,6 @@
 #include <cmath>
 
 // move profile init here from MVCore.cpp (it is not quite correct for several mvsuper)
-#ifdef MOTION_PROFILE
-int ProfTimeTable[MOTION_PROFILE_COUNT];
-int ProfResults[MOTION_PROFILE_COUNT * 2];
-int64_t ProfCumulatedResults[MOTION_PROFILE_COUNT * 2];
-#endif
 
 
 MVSuper::MVSuper(

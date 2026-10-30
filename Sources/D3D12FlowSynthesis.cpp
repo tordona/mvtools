@@ -10,6 +10,7 @@
 
 #include "D3D12FlowSynthesis.h"
 #include "D3D12MotionSearch.h"
+#include "profile.h"
 #include "MVClip.h"
 #include "FakeBlockData.h"
 #include "shaders/flow_warp_cso.h"
@@ -874,6 +875,8 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             return false;
     }
 
+    PROFILE_START(MOTION_PROFILE_GPU_SYNTH);
+
     // Double-Buffering Slot Selection: Non-blocking try_lock on available slot, with round-robin fallback
     int slotIdx = -1;
     std::unique_lock<std::mutex> slotLock;
@@ -898,12 +901,18 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     FrameSlot& slot = *pImpl->m_slots[slotIdx];
 
     if (!slot.EnsureSlotBuffers(pImpl->m_device.Get(), width, height, widthUV, heightUV, nBlkX, nBlkY, planecount))
+    {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
+    }
 
     uint8_t* pUploadBase = (uint8_t*)slot.pUploadMapped;
     uint8_t* pReadbackBase = (uint8_t*)slot.pReadbackMapped;
     if (!pUploadBase || !pReadbackBase)
+    {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
+    }
 
     // 1. Content sample checksums for Source & Reference planes
     size_t srcSizeY = (size_t)width * height;
@@ -1304,6 +1313,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         {
             pImpl->m_available = false;
         }
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
     }
 
@@ -1338,5 +1348,6 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         }
     }
 
+    PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
     return true;
 }

@@ -9,6 +9,7 @@
 #endif
 
 #include "D3D12MotionSearch.h"
+#include "profile.h"
 #include "MVFrame.h"
 #include "MVPlane.h"
 #include "FakePlaneOfBlocks.h"
@@ -509,8 +510,11 @@ bool D3D12MotionSearch::SearchMVs(
         return false;
     }
 
+    PROFILE_START(MOTION_PROFILE_GPU_SEARCH);
+
     if (!pImpl->EnsureBuffers(maxPredBlocks))
     {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SEARCH);
         return false;
     }
 
@@ -658,6 +662,7 @@ bool D3D12MotionSearch::SearchMVs(
     static_assert(sizeof(VECTOR) == 12, "VECTOR must be 12 bytes");
     if (!pImpl->m_pReadbackMapped)
     {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SEARCH);
         return false;
     }
 
@@ -681,5 +686,6 @@ bool D3D12MotionSearch::SearchMVs(
         }
     }
 
+    PROFILE_STOP(MOTION_PROFILE_GPU_SEARCH);
     return true;
 }
