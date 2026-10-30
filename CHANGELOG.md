@@ -1,4 +1,8 @@
 Change log
+- 2.7.47.210-arm64 (20261029)
+  - Build Version Increment:
+    - Bumped build version to 2.7.47.210-arm64 in version.h, mvtools.rc, and technical documentation.
+
 - 2.7.47.200-arm64 (20261029)
   - Direct3D 12 Engine Branch Divergence & Milestone Version Bump:
     - Bumped branch version to 2.7.47.200-arm64, formally establishing version divergence from upstream mvtools-pfmod to reflect the major architectural additions (Direct3D 12 compute offload, unified single-binary engine, and hardware flow synthesis).
