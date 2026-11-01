@@ -33,5 +33,5 @@ ENDIF()
 
 IF( MSVC_IDE )
     # Ninja, unfortunately, seems to have some issues with using rc.exe
-    LIST(APPEND MvTools2_Sources "MvTools2.rc")
+    LIST(APPEND MvTools2_Sources "mvtools.rc")
 ENDIF()

@@ -1,4 +1,28 @@
 Change log
+- 2.7.47.220-arm64 (20261101)
+  - Multi-Threading Fallback & Thread Pool Infrastructure:
+    - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).
+    - Guarantees deterministic multi-threaded slice scheduling across MTSlicer in MVFlowFps and MVBlockFps when avstp.dll is absent, saturating Qualcomm Oryon and Cortex-X1 cores efficiently without external DLL dependencies.
+  - AArch64 NEON Micro-Architecture Vector Optimizations:
+    - Predictor Array Batching: Vectorized candidate predictor evaluations (CheckMV0_x4) in PlaneOfBlocks.cpp using 4-wide NEON dot-product instructions (Sad_x4_neon_dotprod), achieving up to 3.8x throughput improvement for predictor evaluation.
+    - Directional Batching: Optimized directional candidate evaluation (CheckMVdir_x3) in Hex2Search and DiamondSearch using packed NEON vector registers.
+    - Compensation Overlap SIMD Vectorization: Vectorized overlapped block synthesis (Overlaps_uint8_t_neon, Overlaps_uint16_t_neon, Short2Bytes_neon) in overlap.cpp/.h, dispatched directly by MVBlockFps and MVCompensate.
+    - Wiener 6-Tap Filter Subplane Vectorization: Vectorized subpixel interpolation (VerticalWiener_neon, HorizontalWiener_neon) in Interpolation.cpp and MVPlane.cpp for pel=2, sharp=2 using vrhaddq_u8, vextq_u8, and vqmovun_s16.
+  - High-Precision QPC Profiler Infrastructure:
+    - Overhauled profile.h with Win32 QueryPerformanceCounter micro-timers, per-stage latency tracking, moving-average computation, and CSV auto-flush for empirical pipeline diagnostics.
+  - Motion Search Heuristics & Fidelity Benchmark Suite:
+    - Transitioned Snapdragon MaxQuality profiles to Diamond search (search=2, searchparam=2), reducing motion estimation compute by ~4x vs 7x7 exhaustive while delivering +0.19 dB higher reconstruction fidelity.
+    - Added offline frame-accurate fidelity and motion vector field analysis scripts (Measure-SearchModesFidelity.ps1, Generate-SearchModesVectorField.ps1, Generate-SearchModesDivergenceMap.ps1).
+    - Consolidated benchmark tooling under Benchmarks/tools/ with relative path resolution across all analysis runners.
+  - Bug Fixes & Stability:
+    - Restored coordinate boundary guard in MVShow::DrawPixel (Sources/MVShow.cpp), eliminating access violations when drawing motion vector arrows near frame borders.
+  - Installer & AI Agent Profile Synchronization:
+    - Enforced bidirectional parity between Install-MvToolsPotPlayer.ps1 and AIAgentProfileGuide.md across both Documentation/guides/ and docs/guides/.
+    - Codified P-core thread budgeting (threads <= physical_p_cores) for hybrid topologies and sequential variable ordering invariants for 4K dynamic block adaptation.
+  - Build Version & Dynamic Target Architecture Detection:
+    - Added automated CPU target detection to version resources and headers (version.h, mvtools.rc, mvtools.vcxproj, CMakeLists.txt), dynamically appending -arm64, -x64, or -x86 suffixes to the base version string.
+    - Updated base build version to 2.7.47.220 in version.h, mvtools.rc, AI_PORT_NOTICE.md, and technical documentation.
+
 - 2.7.47.210-arm64 (20261031)
   - Multi-Threading Fallback & Thread Pool Infrastructure:
     - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).

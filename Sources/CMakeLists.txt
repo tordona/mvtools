@@ -24,6 +24,15 @@ if (MINGW)
   set_target_properties(${PluginName} PROPERTIES IMPORT_PREFIX "")
 endif()
 
+# Architecture target definition for version resources and headers
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+  target_compile_definitions(${PluginName} PRIVATE _M_ARM64)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  target_compile_definitions(${PluginName} PRIVATE _M_AMD64)
+else()
+  target_compile_definitions(${PluginName} PRIVATE _M_IX86)
+endif()
+
 #require sse4.1, there are mixed parts in the source
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INTRINSICS -msse4.1")
 
