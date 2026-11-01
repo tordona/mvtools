@@ -825,7 +825,7 @@ D3D12FlowSynthesis& D3D12FlowSynthesis::GetInstance()
 bool D3D12FlowSynthesis::IsAvailable()
 {
     std::lock_guard<std::mutex> lock(pImpl->m_initMutex);
-    return pImpl->InitDevice() && pImpl->m_enabled && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
+    return pImpl->m_enabled && pImpl->InitDevice() && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
 }
 
 void D3D12FlowSynthesis::SetEnabled(bool enabled)
@@ -863,7 +863,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     // Verify D3D12 Device state under initialization lock
     {
         std::lock_guard<std::mutex> initLock(pImpl->m_initMutex);
-        if (!pImpl->InitDevice() || !pImpl->m_enabled || !pImpl->m_device)
+        if (!pImpl->m_enabled || !pImpl->InitDevice() || !pImpl->m_device)
             return false;
         if (pImpl->m_device->GetDeviceRemovedReason() != S_OK)
         {

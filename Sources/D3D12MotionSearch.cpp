@@ -421,7 +421,7 @@ D3D12MotionSearch& D3D12MotionSearch::GetInstance()
 bool D3D12MotionSearch::IsAvailable()
 {
     std::lock_guard<std::mutex> lock(pImpl->m_mutex);
-    return pImpl->InitDevice() && pImpl->m_enabled && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
+    return pImpl->m_enabled && pImpl->InitDevice() && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
 }
 
 void D3D12MotionSearch::SetEnabled(bool enabled)
@@ -500,7 +500,7 @@ bool D3D12MotionSearch::SearchMVs(
     size_t refSize = (size_t)refPitch * extHeight * effectivePel * effectivePel;
 
     std::lock_guard<std::mutex> lock(pImpl->m_mutex);
-    if (!pImpl->InitDevice() || !pImpl->m_enabled || !pImpl->m_device)
+    if (!pImpl->m_enabled || !pImpl->InitDevice() || !pImpl->m_device)
     {
         return false;
     }

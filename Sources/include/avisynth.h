@@ -1314,7 +1314,8 @@ struct AVS_CallInvokeThunk {
   uint32_t mov_x8_x0;     // mov x8, x0 (0xAA0003E8)
   uint32_t mov_x0_x1;     // mov x0, x1 (0xAA0103E0)
   uint32_t mov_x1_x2;     // mov x1, x2 (0xAA0203E1)
-  uint32_t ldp_args;      // ldp x2, x3, [x3] (0xA9400C62)
+  uint32_t mov_x2_x3;     // mov x2, x3 (0xAA0303E2)
+  uint32_t mov_x3_x4;     // mov x3, x4 (0xAA0403E3)
   uint32_t ldr_vtable;    // ldr x16, [x0] (0xF9400010)
   uint32_t ldr_invoke;    // ldr x16, [x16, #0x48] (0xF9402610)
   uint32_t br_x16;        // br x16 (0xD61F0200)
@@ -1839,7 +1840,8 @@ public:
         0xAA0003E8, // mov x8, x0
         0xAA0103E0, // mov x0, x1
         0xAA0203E1, // mov x1, x2
-        0xA9400C62, // ldp x2, x3, [x3]
+        0xAA0303E2, // mov x2, x3
+        0xAA0403E3, // mov x3, x4
         0xF9400010, // ldr x16, [x0]
         0xF9402610, // ldr x16, [x16, #0x48]
         0xD61F0200  // br x16
