@@ -101,7 +101,7 @@ All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `l
 | :--- | :--- | :--- | :--- | :--- |
 | **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` |
 | **Balanced** | Fluid 1080p 60 fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
-| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`search=3` GPU / `search=2` CPU) → 16×16 | `mode=2` Dynamic Median (`blend=true`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
+| **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`search=2` Diamond) → 16×16 | `mode=2` Dynamic Median (`blend=true`) | `threads = USE_D3D12 ? 4 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
 
 ---
 
