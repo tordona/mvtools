@@ -683,6 +683,181 @@ function Ensure-VisualCppRedistributable {
 }
 
 # ---------------------------------------------------------
+# HELPER: Close Active PotPlayer Processes & Utilities
+# ---------------------------------------------------------
+function Stop-PotPlayerProcesses {
+    [CmdletBinding()]
+    param()
+
+    $procNames = @("PotPlayer64", "PotPlayerMini64", "PotPlayer", "PotPlayerMini", "DesktopHook64", "DesktopHook", "KakaoUtil64", "KakaoUtil", "KillPotARM64", "KillPot64")
+    $runningPot = Get-Process -Name $procNames -ErrorAction SilentlyContinue
+    if ($runningPot) {
+        Write-Host "`n[PROCESS GUARD] Daum PotPlayer / helper processes are currently running." -ForegroundColor Yellow
+        Write-Host "  Closing active processes to allow file updates and prevent DLL locking..." -ForegroundColor Cyan
+        $runningPot | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+# ---------------------------------------------------------
+# HELPER: Discover Existing Daum PotPlayer Installation Directory
+# ---------------------------------------------------------
+function Get-PotPlayerInstallPath {
+    param([string]$ExplicitDir = "")
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitDir) -and (Test-Path $ExplicitDir)) {
+        if ((Test-Path (Join-Path $ExplicitDir "PotPlayer64.exe")) -or (Test-Path (Join-Path $ExplicitDir "PotPlayerMini64.exe"))) {
+            return (Resolve-Path $ExplicitDir).Path
+        }
+    }
+
+    # 1. Registry Daum / PotPlayer keys
+    $regPaths = @(
+        "HKLM:\SOFTWARE\DAUM\PotPlayer64",
+        "HKCU:\SOFTWARE\DAUM\PotPlayer64",
+        "HKCU:\SOFTWARE\Daum\PotPlayer64",
+        "HKCU:\SOFTWARE\Daum\PotPlayerMini64",
+        "HKLM:\SOFTWARE\DAUM\PotPlayer",
+        "HKCU:\SOFTWARE\DAUM\PotPlayer"
+    )
+    foreach ($regKey in $regPaths) {
+        if (Test-Path $regKey) {
+            $props = Get-ItemProperty $regKey -ErrorAction SilentlyContinue
+            if ($props.ProgramFolder) {
+                $f = $props.ProgramFolder.Trim('"')
+                if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
+                    return (Resolve-Path $f).Path
+                }
+            }
+            if ($props.ProgramPath) {
+                $dir = [System.IO.Path]::GetDirectoryName($props.ProgramPath.Trim('"'))
+                if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
+                    return (Resolve-Path $dir).Path
+                }
+            }
+        }
+    }
+
+    # 2. Registry App Paths
+    $appPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\PotPlayer64.exe",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\PotPlayerMini64.exe"
+    )
+    foreach ($ap in $appPaths) {
+        if (Test-Path $ap) {
+            $props = Get-ItemProperty $ap -ErrorAction SilentlyContinue
+            if ($props.Path) {
+                $f = $props.Path.Trim('"')
+                if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
+                    return (Resolve-Path $f).Path
+                }
+            }
+            if ($props.'(default)') {
+                $dir = [System.IO.Path]::GetDirectoryName($props.'(default)'.Trim('"'))
+                if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
+                    return (Resolve-Path $dir).Path
+                }
+            }
+        }
+    }
+
+    # 3. Windows Uninstall registry keys
+    $uninstallRoots = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+    $uninstalls = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match "PotPlayer" }
+    foreach ($u in $uninstalls) {
+        if ($u.InstallLocation) {
+            $f = $u.InstallLocation.Trim('"')
+            if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
+                return (Resolve-Path $f).Path
+            }
+        }
+        if ($u.UninstallString) {
+            $dir = [System.IO.Path]::GetDirectoryName($u.UninstallString.Trim('"'))
+            if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
+                return (Resolve-Path $dir).Path
+            }
+        }
+    }
+
+    # 4. Standard filesystem candidate directories
+    $searchLocations = @(
+        (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"),
+        (Join-Path ${env:ProgramW6432} "DAUM\PotPlayer"),
+        (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer"),
+        "C:\Tools\PotPlayer",
+        (Join-Path $ScriptDir "PotPlayer")
+    )
+    foreach ($cand in $searchLocations) {
+        if ((Test-Path (Join-Path $cand "PotPlayer64.exe")) -or (Test-Path (Join-Path $cand "PotPlayerMini64.exe"))) {
+            return (Resolve-Path $cand).Path
+        }
+    }
+
+    return $null
+}
+
+# ---------------------------------------------------------
+# HELPER: Discover Existing Daum PotPlayer Uninstaller Executable
+# ---------------------------------------------------------
+function Get-PotPlayerUninstallerPath {
+    param([string]$InstallDir = "")
+
+    if (-not [string]::IsNullOrWhiteSpace($InstallDir)) {
+        $cand = Join-Path $InstallDir "uninstall.exe"
+        if (Test-Path $cand) { return (Resolve-Path $cand).Path }
+    }
+
+    # Check Windows Uninstall registry keys
+    $uninstallRoots = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+    $uninstalls = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match "PotPlayer" }
+    foreach ($u in $uninstalls) {
+        if ($u.UninstallString) {
+            $uPath = $u.UninstallString.Trim('"')
+            if (Test-Path $uPath) { return (Resolve-Path $uPath).Path }
+        }
+    }
+
+    # Check Daum registry keys
+    $regPaths = @(
+        "HKLM:\SOFTWARE\DAUM\PotPlayer64",
+        "HKCU:\SOFTWARE\DAUM\PotPlayer64",
+        "HKCU:\SOFTWARE\Daum\PotPlayer64",
+        "HKLM:\SOFTWARE\DAUM\PotPlayer",
+        "HKCU:\SOFTWARE\DAUM\PotPlayer"
+    )
+    foreach ($regKey in $regPaths) {
+        if (Test-Path $regKey) {
+            $props = Get-ItemProperty $regKey -ErrorAction SilentlyContinue
+            if ($props.ProgramFolder) {
+                $uCand = Join-Path $props.ProgramFolder.Trim('"') "uninstall.exe"
+                if (Test-Path $uCand) { return (Resolve-Path $uCand).Path }
+            }
+        }
+    }
+
+    # Check standard filesystem locations
+    $searchLocations = @(
+        (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer\uninstall.exe"),
+        (Join-Path ${env:ProgramW6432} "DAUM\PotPlayer\uninstall.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer\uninstall.exe"),
+        "C:\Tools\PotPlayer\uninstall.exe"
+    )
+    foreach ($cand in $searchLocations) {
+        if (Test-Path $cand) { return (Resolve-Path $cand).Path }
+    }
+
+    return $null
+}
+
+# ---------------------------------------------------------
 # HELPER: Download & Silently Install Daum PotPlayer
 # ---------------------------------------------------------
 function Install-PotPlayer {
@@ -703,8 +878,50 @@ function Install-PotPlayer {
     Write-Host (" Architecture: Native Windows on {0}" -f ($targetArch.ToUpper())) -ForegroundColor Gray
     Write-Host "========================================================`n" -ForegroundColor Cyan
 
+    # Check for existing uninstaller / installation record before triggering setup
+    $existingUninstaller = Get-PotPlayerUninstallerPath -InstallDir $TargetDir
+    $uninstallConfirmed = $false
+    if ($existingUninstaller -and (Test-Path $existingUninstaller)) {
+        $uninstDir = [System.IO.Path]::GetDirectoryName($existingUninstaller)
+        Write-Host "------------------------------------------------------------" -ForegroundColor DarkCyan
+        Write-Host " [EXISTING POTPLAYER INSTALLATION DETECTED]" -ForegroundColor Yellow
+        Write-Host " Location: $uninstDir" -ForegroundColor White
+        Write-Host " Uninstaller: $existingUninstaller" -ForegroundColor Gray
+        Write-Host "`n NOTE: Daum PotPlayer's official installer cannot silently install" -ForegroundColor Gray
+        Write-Host " or upgrade over an existing installation. Attempting silent setup" -ForegroundColor Gray
+        Write-Host " without an uninstall will fail." -ForegroundColor Gray
+        Write-Host "------------------------------------------------------------" -ForegroundColor DarkCyan
+
+        $prompt = "Do you want to uninstall the existing PotPlayer installation now? [Y/n]: "
+        $reply = Read-Host -Prompt $prompt
+        if ([string]::IsNullOrWhiteSpace($reply) -or $reply.Trim() -match '(?i)^y(es)?$') {
+            $uninstallConfirmed = $true
+        }
+
+        if ($uninstallConfirmed) {
+            Write-Host "`nSilently uninstalling previous PotPlayer instance..." -ForegroundColor Cyan
+            Stop-PotPlayerProcesses
+            try {
+                # In NSIS, passing _?=$INSTDIR forces the uninstaller to run synchronously and wait
+                $uninstParams = @{
+                    FilePath     = $existingUninstaller
+                    ArgumentList = @("/S", "_?=$uninstDir")
+                    PassThru     = $true
+                    Wait         = $true
+                }
+                $uProc = Start-Process @uninstParams
+                Start-Sleep -Seconds 2
+                Write-Host "  [OK] Previous installation uninstalled successfully." -ForegroundColor Green
+            } catch {
+                Write-Warning "Could not trigger silent uninstallation: $($_.Exception.Message)"
+            }
+        } else {
+            Write-Host "  -> Uninstallation declined by user. Proceeding with installation attempt..." -ForegroundColor Yellow
+        }
+    }
+
     $archLabel = $targetArch.ToUpper()
-    if (-not (Confirm-DownloadPermission -ItemName "PotPlayer $archLabel Official Installer" -SourceUrl $Url -TargetDir $TempInstaller -SizeDesc "~35 MB")) {
+    if (-not (Confirm-DownloadPermission -ItemName "PotPlayer $archLabel Official Installer" -SourceUrl $Url -TargetDir $TempInstaller -SizeDesc "~35 MB" -Bypass:$AutoInstall)) {
         return $null
     }
 
@@ -725,23 +942,37 @@ function Install-PotPlayer {
     }
 
     Write-Host "`n[2/2] Installing PotPlayer silently in the background..." -ForegroundColor Cyan
-    $InstallerArgs = @("/S")
-    if (-not [string]::IsNullOrWhiteSpace($TargetDir)) {
-        $InstallerArgs += "/D=$TargetDir"
-    }
+    Stop-PotPlayerProcesses
 
+    # In NSIS, /D must be the last argument and should not contain outer quotes
+    $InstallerArgStr = if (-not [string]::IsNullOrWhiteSpace($TargetDir)) { "/S /D=$TargetDir" } else { "/S" }
+
+    $installerExitCode = -1
     try {
         $StartParams = @{
             FilePath     = $TempInstaller
-            ArgumentList = $InstallerArgs
+            ArgumentList = $InstallerArgStr
             PassThru     = $true
         }
         $Process = Start-Process @StartParams
-        $Process.WaitForExit()
+        $exited = $Process.WaitForExit(120000) # 2-minute safety timeout
+        if (-not $exited) {
+            Write-Warning "PotPlayer installer timed out after 2 minutes. Terminating process."
+            $Process | Stop-Process -Force -ErrorAction SilentlyContinue
+        } else {
+            $installerExitCode = $Process.ExitCode
+        }
 
         if (Test-Path $TempInstaller) { Remove-Item $TempInstaller -Force -ErrorAction SilentlyContinue }
 
         # Verify installation target
+        $verifiedDir = Get-PotPlayerInstallPath -ExplicitDir $TargetDir
+        if ($verifiedDir) {
+            Write-Host "  -> PotPlayer verified at: $verifiedDir" -ForegroundColor Green
+            return $verifiedDir
+        }
+
+        # Fallback check for standard verify locations
         $verifyLocations = if (-not [string]::IsNullOrWhiteSpace($TargetDir)) { @($TargetDir) } else {
             @(
                 (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"),
@@ -751,11 +982,20 @@ function Install-PotPlayer {
         }
 
         foreach ($loc in $verifyLocations) {
-            $potExe = Join-Path $loc "PotPlayer64.exe"
-            if (Test-Path $potExe) {
+            if ((Test-Path (Join-Path $loc "PotPlayer64.exe")) -or (Test-Path (Join-Path $loc "PotPlayerMini64.exe"))) {
                 Write-Host "  -> PotPlayer verified at: $loc" -ForegroundColor Green
                 return $loc
             }
+        }
+
+        # Detailed failure diagnostic
+        Write-Host "`n[ERROR] Daum PotPlayer silent installation failed (Exit Code: $installerExitCode)." -ForegroundColor Red
+        if ($existingUninstaller -and -not $uninstallConfirmed) {
+            Write-Host "Kakao's installer failed because an existing PotPlayer installation is still present." -ForegroundColor Yellow
+            Write-Host "To resolve this: please uninstall PotPlayer via Windows Settings -> Installed apps," -ForegroundColor Yellow
+            Write-Host "or rerun this script and allow uninstallation when prompted.`n" -ForegroundColor Yellow
+        } else {
+            Write-Host "Please ensure you have administrative permissions and no locked PotPlayer files.`n" -ForegroundColor Yellow
         }
     } catch {
         Write-Warning "Silent PotPlayer installation error: $($_.Exception.Message)"
@@ -2044,24 +2284,13 @@ Write-Host "  -> Active Platform: $archUpper" -ForegroundColor Green
 
 # Step 2: Resolve or Install PotPlayer
 Write-Host "`n[2/6] Verifying Daum PotPlayer Installation..." -ForegroundColor Cyan
-$resolvedPotDir = $PotPlayerDir
-if (-not $resolvedPotDir -or -not (Test-Path (Join-Path $resolvedPotDir "PotPlayer64.exe"))) {
-    $searchLocations = @(
-        (Join-Path ${env:ProgramFiles} "DAUM\PotPlayer"),
-        (Join-Path ${env:ProgramW6432} "DAUM\PotPlayer"),
-        (Join-Path ${env:ProgramFiles(x86)} "DAUM\PotPlayer"),
-        "C:\Tools\PotPlayer",
-        (Join-Path $ScriptDir "PotPlayer")
-    )
-    foreach ($cand in $searchLocations) {
-        if (Test-Path (Join-Path $cand "PotPlayer64.exe")) {
-            $resolvedPotDir = (Resolve-Path $cand).Path
-            break
-        }
-    }
-}
 
-if (-not $resolvedPotDir -or -not (Test-Path (Join-Path $resolvedPotDir "PotPlayer64.exe"))) {
+# Close active PotPlayer processes early to avoid locked files during verification / installation
+Stop-PotPlayerProcesses
+
+$resolvedPotDir = Get-PotPlayerInstallPath -ExplicitDir $PotPlayerDir
+
+if (-not $resolvedPotDir) {
     Write-Host "  -> Daum PotPlayer 64-bit not found locally." -ForegroundColor Yellow
     $resolvedPotDir = Install-PotPlayer -TargetDir ""
     if (-not $resolvedPotDir) {
@@ -2076,14 +2305,8 @@ if (-not $resolvedPotDir -or -not (Test-Path (Join-Path $resolvedPotDir "PotPlay
 Write-Host "`n[3/6] Auditing Microsoft Visual C++ $archUpper Runtimes..." -ForegroundColor Cyan
 $isVcReady = Ensure-VisualCppRedistributable -TargetPotPlayerDir $resolvedPotDir -AutoInstall:$AutoInstall
 
-# Close any running PotPlayer instances to prevent DLL lock / file in use errors
-$runningPot = Get-Process -Name "PotPlayer64", "PotPlayerMini64", "PotPlayer", "PotPlayerMini" -ErrorAction SilentlyContinue
-if ($runningPot) {
-    Write-Host "`n[PROCESS GUARD] Daum PotPlayer is currently running." -ForegroundColor Yellow
-    Write-Host "  Closing PotPlayer to allow binary updates and configuration injection..." -ForegroundColor Cyan
-    $runningPot | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
-}
+# Secondary process guard to ensure PotPlayer remained closed before binary injection
+Stop-PotPlayerProcesses
 
 # Step 4: Ensure Native AviSynth.dll
 Write-Host "`n[4/6] Verifying Native AviSynth.dll in PotPlayer..." -ForegroundColor Cyan
