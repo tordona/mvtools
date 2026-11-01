@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
 # Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
@@ -28,6 +28,7 @@ pad_val    = is_4k ? 8 : 0
 
 # Load Native ARM64 MVTools2 plugin (ARM64 CPU NEON execution)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Base Motion Super Clip (Single Level, Shared across Pipeline)
 # levels=1: Avoids calculating redundant downscaled pyramid images
@@ -58,5 +59,6 @@ MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=
 # Utilizes 3 of the 4 Kryo 385 Gold cores.
 # Leaves 1 Gold core + all 4 Silver cores completely free for OS, audio, and Adreno 630 GPU driver.
 # 4 lookahead frames absorb thread scheduling jitter and prevent thermal throttling.
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 

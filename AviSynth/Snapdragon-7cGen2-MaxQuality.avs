@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
 # Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
@@ -21,6 +21,7 @@ src = potplayer_source()
 
 # Load Native ARM64 MVTools2 plugin (ARM64 CPU NEON execution)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Dynamic 0.5x Proxy Clip for High-Fidelity Motion Vector Analysis
 # Dynamically downscales source by 2x preserving source aspect ratio (e.g. 16:9, 2.40:1 Scope, 4:3)
@@ -57,5 +58,6 @@ MBlockFps(src, super_src, backward_scaled, forward_scaled, num=60, den=1, mode=0
 
 # 5. Core Pinning: Strictly 2 threads prevents thermal throttling
 # 4 lookahead frames absorb thread scheduling jitter
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 

@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
@@ -34,6 +34,7 @@ pad_val = is_4k ? 8 : 4
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip with Lightweight Edge Guard
@@ -57,5 +58,6 @@ forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, searc
 MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
 # 4. Core Pinning: 3 threads maintains continuous frame queue without mutex starvation
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads)
 

@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Ultra-Low Power, Maximum Battery Longevity, 0 Dropped Frames
@@ -34,6 +34,7 @@ blk_sz = is_4k ? 64 : 32
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
@@ -61,5 +62,6 @@ MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, 
 # 4. Core Pinning: Strictly 3 Threads with 4 Lookahead Frames
 # Utilizes 3 of the 4 Cortex-X1 Prime cores; leaves 1 X1 + all 4 Cortex-A78 cores idle.
 # 4 lookahead frames absorb thread scheduling jitter and prevent presentation drops.
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 

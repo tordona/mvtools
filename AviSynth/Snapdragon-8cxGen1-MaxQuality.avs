@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
@@ -42,6 +42,7 @@ pad_val    = is_4k ? 16 : 8
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
@@ -70,5 +71,6 @@ forward_vec  = USE_D3D12 ? forward_dense  : MRecalculate(super, forward_dense,  
 MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 
 # 5. Core Pinning: 3 threads keeps presentation queue full without mutex starvation
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads)
 

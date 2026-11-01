@@ -28,6 +28,7 @@ blk_sz = is_4k ? 64 : 32
 
 # Load Native x64 MVTools2 plugin (leveraging Golden Cove AVX2 SIMD optimizations)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
@@ -51,7 +52,8 @@ forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, searc
 # thSCD1=400, thSCD2=130: Robust scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
-# 4. Core Pinning: Strictly 2 Threads with 4-Frame Lookahead Queue
+# 4. Hardware Thread Affinity & Core Pinning: Strictly 2 Threads with 4-Frame Lookahead Queue
 # 2 threads pinned to P-cores ensures zero thermal throttling on battery / low power
 # 4 lookahead frames absorb thread scheduling jitter
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
