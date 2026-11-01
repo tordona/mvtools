@@ -316,6 +316,8 @@ Benchmarks/*.log
 Benchmarks/log.txt
 Benchmarks/BenchmarkResults/
 Benchmarks/Archived/
+Benchmarks/tools/
+Benchmarks/*.csv
 
 # Local AI agent guidelines
 AGENTS.md
