@@ -287,8 +287,45 @@ OverlapWindows::~OverlapWindows()
 // Here originally there was no rounding at all
 // So instead of: Sum((overlapped + 256)>>6) >> 5
 // So we do: (Sum((overlapped + 32) >> 6) + 16) >> 5
+#if defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+void Short2Bytes_neon(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
+{
+  const int wMod16 = (nWidth / 16) * 16;
+  const int wMod8 = (nWidth / 8) * 8;
+  for (int y = 0; y < nHeight; y++)
+  {
+    int x = 0;
+    for (; x < wMod16; x += 16) {
+      uint16x8_t src07 = vld1q_u16(pDstShort + x);
+      uint16x8_t src8f = vld1q_u16(pDstShort + x + 8);
+      uint8x8_t res07 = vqmovn_u16(vrshrq_n_u16(src07, 5));
+      uint8x8_t res8f = vqmovn_u16(vrshrq_n_u16(src8f, 5));
+      uint8x16_t res = vcombine_u8(res07, res8f);
+      vst1q_u8(pDst + x, res);
+    }
+    if (wMod8 != wMod16) {
+      uint16x8_t src07 = vld1q_u16(pDstShort + wMod16);
+      uint8x8_t res07 = vqmovn_u16(vrshrq_n_u16(src07, 5));
+      vst1_u8(pDst + wMod16, res07);
+      x = wMod8;
+    }
+    for (; x < nWidth; x++) {
+      int a = (pDstShort[x] + (1 << 4)) >> 5;
+      pDst[x] = static_cast<unsigned char>(min(255, a));
+    }
+    pDst += nDstPitch;
+    pDstShort += dstShortPitch;
+  }
+}
+#endif
+
 void Short2Bytes_sse2(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
 {
+#if defined(_M_ARM64) || defined(__aarch64__)
+  Short2Bytes_neon(pDst, nDstPitch, pDstShort, dstShortPitch, nWidth, nHeight);
+#else
   // v.2.7.25-: round 16 here, round 32 earlier. See comments in C
   const int rounder_i = 1 << 4;
   auto rounder = _mm_set1_epi16(rounder_i);
@@ -323,10 +360,14 @@ void Short2Bytes_sse2(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, i
     pDst8 += nDstPitch;
     pSrc8 += nSrcPitch;
   }
+#endif
 }
 
 void Short2Bytes(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
 {
+#if defined(_M_ARM64) || defined(__aarch64__)
+  Short2Bytes_neon(pDst, nDstPitch, pDstShort, dstShortPitch, nWidth, nHeight);
+#else
   for (int h=0; h<nHeight; h++)
   {
     for (int i=0; i<nWidth; i++)
@@ -337,6 +378,7 @@ void Short2Bytes(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int ds
     pDst += nDstPitch;
     pDstShort += dstShortPitch;
   }
+#endif
 }
 
 template<typename pixel_t>
@@ -877,6 +919,156 @@ void Overlaps_uint8_t_sse4(uint16_t* pDst0, int nDstPitch, const unsigned char* 
   }
 }
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+template <int blockWidth, int blockHeight>
+void Overlaps_uint8_t_neon(uint16_t* pDst0, int nDstPitch, const unsigned char* pSrc, int nSrcPitch, short* pWin, int nWinPitch)
+{
+  uint16_t* pDst = pDst0;
+  const int32x4_t round32 = vdupq_n_s32(32);
+
+  for (int j = 0; j < blockHeight; j++)
+  {
+    if constexpr (blockWidth % 16 == 0) {
+      for (int x = 0; x < blockWidth; x += 16) {
+        uint8x16_t src = vld1q_u8(pSrc + x);
+        int16x8_t win0 = vld1q_s16(pWin + x);
+        int16x8_t win1 = vld1q_s16(pWin + x + 8);
+
+        int16x8_t src0 = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(src)));
+        int16x8_t src1 = vreinterpretq_s16_u16(vmovl_high_u8(src));
+
+        int32x4_t r0_lo = vmlal_s16(round32, vget_low_s16(src0), vget_low_s16(win0));
+        int32x4_t r0_hi = vmlal_high_s16(round32, src0, win0);
+        int32x4_t r1_lo = vmlal_s16(round32, vget_low_s16(src1), vget_low_s16(win1));
+        int32x4_t r1_hi = vmlal_high_s16(round32, src1, win1);
+
+        int16x8_t res0 = vshrn_high_n_s32(vshrn_n_s32(r0_lo, 6), r0_hi, 6);
+        int16x8_t res1 = vshrn_high_n_s32(vshrn_n_s32(r1_lo, 6), r1_hi, 6);
+
+        int16x8_t dst0 = vld1q_s16(reinterpret_cast<const int16_t*>(pDst + x));
+        int16x8_t dst1 = vld1q_s16(reinterpret_cast<const int16_t*>(pDst + x + 8));
+
+        dst0 = vaddq_s16(dst0, res0);
+        dst1 = vaddq_s16(dst1, res1);
+
+        vst1q_s16(reinterpret_cast<int16_t*>(pDst + x), dst0);
+        vst1q_s16(reinterpret_cast<int16_t*>(pDst + x + 8), dst1);
+      }
+    }
+    else if constexpr (blockWidth % 8 == 0) {
+      for (int x = 0; x < blockWidth; x += 8) {
+        uint8x8_t src = vld1_u8(pSrc + x);
+        int16x8_t win = vld1q_s16(pWin + x);
+        int16x8_t src16 = vreinterpretq_s16_u16(vmovl_u8(src));
+
+        int32x4_t r_lo = vmlal_s16(round32, vget_low_s16(src16), vget_low_s16(win));
+        int32x4_t r_hi = vmlal_high_s16(round32, src16, win);
+
+        int16x8_t res = vshrn_high_n_s32(vshrn_n_s32(r_lo, 6), r_hi, 6);
+        int16x8_t dst = vld1q_s16(reinterpret_cast<const int16_t*>(pDst + x));
+        dst = vaddq_s16(dst, res);
+        vst1q_s16(reinterpret_cast<int16_t*>(pDst + x), dst);
+      }
+    }
+    else if constexpr (blockWidth % 4 == 0) {
+      for (int x = 0; x < blockWidth; x += 4) {
+        uint32_t s32;
+        memcpy(&s32, pSrc + x, 4);
+        uint8x8_t src8 = vreinterpret_u8_u32(vdup_n_u32(s32));
+        int16x4_t win = vld1_s16(pWin + x);
+        int16x4_t src16 = vreinterpret_s16_u16(vget_low_u16(vmovl_u8(src8)));
+
+        int32x4_t r = vmlal_s16(round32, src16, win);
+        int16x4_t res = vshrn_n_s32(r, 6);
+
+        int16x4_t dst = vld1_s16(reinterpret_cast<const int16_t*>(pDst + x));
+        dst = vadd_s16(dst, res);
+        vst1_s16(reinterpret_cast<int16_t*>(pDst + x), dst);
+      }
+    }
+    else if constexpr (blockWidth == 6) {
+      uint32_t s32;
+      memcpy(&s32, pSrc, 4);
+      uint8x8_t src8 = vreinterpret_u8_u32(vdup_n_u32(s32));
+      int16x4_t win = vld1_s16(pWin);
+      int16x4_t src16 = vreinterpret_s16_u16(vget_low_u16(vmovl_u8(src8)));
+      int32x4_t r = vmlal_s16(round32, src16, win);
+      int16x4_t res = vshrn_n_s32(r, 6);
+      int16x4_t dst = vld1_s16(reinterpret_cast<const int16_t*>(pDst));
+      dst = vadd_s16(dst, res);
+      vst1_s16(reinterpret_cast<int16_t*>(pDst), dst);
+
+      int val4 = pSrc[4];
+      int val5 = pSrc[5];
+      pDst[4] += static_cast<uint16_t>((val4 * pWin[4] + 32) >> 6);
+      pDst[5] += static_cast<uint16_t>((val5 * pWin[5] + 32) >> 6);
+    }
+    else if constexpr (blockWidth == 2) {
+      int val0 = pSrc[0];
+      int val1 = pSrc[1];
+      pDst[0] += static_cast<uint16_t>((val0 * pWin[0] + 32) >> 6);
+      pDst[1] += static_cast<uint16_t>((val1 * pWin[1] + 32) >> 6);
+    }
+    else {
+      for (int x = 0; x < blockWidth; x++) {
+        int val = pSrc[x];
+        pDst[x] += static_cast<uint16_t>((val * pWin[x] + 32) >> 6);
+      }
+    }
+
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+    pWin += nWinPitch;
+  }
+}
+
+template <int blockWidth, int blockHeight>
+void Overlaps_uint16_t_neon(uint16_t* pDst0, int nDstPitch, const unsigned char* pSrc0, int nSrcPitch, short* pWin, int nWinPitch)
+{
+  int* pDst = reinterpret_cast<int*>(pDst0);
+  const unsigned char* pSrc = pSrc0;
+
+  for (int j = 0; j < blockHeight; j++)
+  {
+    if constexpr (blockWidth % 8 == 0) {
+      for (int x = 0; x < blockWidth; x += 8) {
+        uint16x8_t src = vld1q_u16(reinterpret_cast<const uint16_t*>(pSrc + x * 2));
+        int16x8_t win = vld1q_s16(pWin + x);
+        int32x4_t dst_lo = vld1q_s32(pDst + x);
+        int32x4_t dst_hi = vld1q_s32(pDst + x + 4);
+
+        dst_lo = vmlal_s16(dst_lo, vreinterpret_s16_u16(vget_low_u16(src)), vget_low_s16(win));
+        dst_hi = vmlal_high_s16(dst_hi, vreinterpretq_s16_u16(src), win);
+
+        vst1q_s32(pDst + x, dst_lo);
+        vst1q_s32(pDst + x + 4, dst_hi);
+      }
+    }
+    else if constexpr (blockWidth % 4 == 0) {
+      for (int x = 0; x < blockWidth; x += 4) {
+        uint16x4_t src = vld1_u16(reinterpret_cast<const uint16_t*>(pSrc + x * 2));
+        int16x4_t win = vld1_s16(pWin + x);
+        int32x4_t dst = vld1q_s32(pDst + x);
+
+        dst = vmlal_s16(dst, vreinterpret_s16_u16(src), win);
+
+        vst1q_s32(pDst + x, dst);
+      }
+    }
+    else {
+      const uint16_t* pSrc16 = reinterpret_cast<const uint16_t*>(pSrc);
+      for (int x = 0; x < blockWidth; x++) {
+        pDst[x] += pSrc16[x] * pWin[x];
+      }
+    }
+
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+    pWin += nWinPitch;
+  }
+}
+#endif
+
 // see Overlaps_float_new_C
 template <int blockWidth, int blockHeight>
 // pDst is short* for 8 bit, int * for 16 bit, float * for out32
@@ -1097,6 +1289,13 @@ func_overlaps[make_tuple(x, y, 2, USE_SSE41)] = Overlaps_uint16_t_sse4<x, y>; \
 func_overlaps[make_tuple(x, y, 1 + OUT32_MARKER, USE_SSE2)] = Overlaps_float_new_sse2<x, y>; \
 func_overlaps[make_tuple(x, y, 2 + OUT32_MARKER, USE_SSE2)] = Overlaps_float_new_sse2<x, y>; \
 func_overlaps[make_tuple(x, y, 4 + OUT32_MARKER, USE_SSE2)] = Overlaps_float_new_sse2<x, y>;
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#define MAKE_OVR_FN(x, y) \
+func_overlaps[make_tuple(x, y, 2, USE_SSE41)] = Overlaps_uint16_t_neon<x, y>; \
+func_overlaps[make_tuple(x, y, 1, USE_SSE41)] = Overlaps_uint8_t_neon<x, y>; \
+func_overlaps[make_tuple(x, y, 2, USE_SSE2)] = Overlaps_uint16_t_neon<x, y>; \
+func_overlaps[make_tuple(x, y, 1, USE_SSE2)] = Overlaps_uint8_t_neon<x, y>; \
+func_overlaps[make_tuple(x, y, 1 + OUT32_MARKER, USE_SSE2)] = Overlaps_float_new_sse2<x, y>;
 #else
     // plus: 8 bit SSE internally everybody has at least sse4
 #define MAKE_OVR_FN(x, y) \

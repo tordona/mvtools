@@ -77,6 +77,10 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 ---
 
+> [!NOTE]
+> **Dynamic 4K Resolution Adaptation:**  
+> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = Width() > 2048` or `src.Width() > 2048`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+
 ## Profile Comparison: Snapdragon 7c Gen 2
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |

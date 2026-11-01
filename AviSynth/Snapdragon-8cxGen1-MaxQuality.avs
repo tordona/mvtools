@@ -31,6 +31,15 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, blocks scale by 2x (32x32 dense GPU, 32x32 -> 16x16 CPU refinement)
+# to maintain exact 1080p block counts and prevent thermal throttling.
+is_4k      = (Width() > 2048)
+blk_dense  = is_4k ? 32 : 16
+blk_refine = is_4k ? 16 : 8
+pad_val    = is_4k ? 16 : 8
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -38,21 +47,21 @@ MEnableD3D12(USE_D3D12)
 # 1. Motion Super Clip
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=pel_val: Dynamic based on USE_D3D12 (pel=1 on GPU; pel=2 on CPU)
-# hpad=8, vpad=8: 8 px boundary padding stabilizes edge vector calculation
+# pad_val boundary padding stabilizes edge vector calculation
 # sharp=sharp_mode: Bicubic filtering when pel=2 on CPU; unused when pel=1 on GPU
-super = MSuper(levels=1, pel=pel_val, hpad=8, vpad=8, sharp=sharp_mode)
+super = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Dense Motion Vector Field Analysis
-# GPU: Evaluates in a single pass of dense 16x16 blocks using 5x5 exhaustive 2D grid search (search=3, searchparam=2)
-# CPU: Radius-2 hexagonal coarse pass before 8x8 micro-block refinement
+# GPU: Evaluates in a single pass of dense blocks (16x16 at 1080p, 32x32 at 4K: 8,160 blocks) using 5x5 exhaustive 2D grid search
+# CPU: Radius-2 hexagonal coarse pass before micro-block refinement
 # levels=1: Strictly searches base Level 0
-backward_dense = MAnalyse(super, isb=true,  blksize=16, blksizev=16, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_dense  = MAnalyse(super, isb=false, blksize=16, blksizev=16, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_dense = MAnalyse(super, isb=true,  blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_dense  = MAnalyse(super, isb=false, blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Motion Vector Refinement (CPU only)
-# GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes 8x8 micro-block refinement
-backward_vec = USE_D3D12 ? backward_dense : MRecalculate(super, backward_dense, blksize=8, blksizev=8, search=2, searchparam=1, chroma=false, divide=0)
-forward_vec  = USE_D3D12 ? forward_dense  : MRecalculate(super, forward_dense,  blksize=8, blksizev=8, search=2, searchparam=1, chroma=false, divide=0)
+# GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes micro-block refinement
+backward_vec = USE_D3D12 ? backward_dense : MRecalculate(super, backward_dense, blksize=blk_refine, blksizev=blk_refine, search=2, searchparam=1, chroma=false, divide=0)
+forward_vec  = USE_D3D12 ? forward_dense  : MRecalculate(super, forward_dense,  blksize=blk_refine, blksizev=blk_refine, search=2, searchparam=1, chroma=false, divide=0)
 
 # 4. Dynamic Median Pixel-Flow Motion Interpolation
 # mode=2: Dynamic Median pixel-flow synthesis

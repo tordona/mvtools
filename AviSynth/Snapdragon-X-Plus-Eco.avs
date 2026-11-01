@@ -24,6 +24,13 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 64x64 blocks maintain the exact 2,040 block count of 1080p 32x32,
+# keeping CPU and GPU memory traffic within low-power battery envelopes.
+is_4k  = (Width() > 2048)
+blk_sz = is_4k ? 64 : 32
+
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
@@ -36,13 +43,13 @@ MEnableD3D12(USE_D3D12)
 super = MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Ultra-Lightweight Coarse Motion Analysis
-# blksize=32, blksizev=32: Large 32x32 blocks drastically reduce block count
+# 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
 # search=2: Hexagonal search pattern (extremely fast and stable)
 # searchparam=1: Minimal search radius to limit vector comparisons
 # chroma=false: Evaluates luminance only, saving 50% vector math
 # levels=1: Strictly searches base Level 0 without multi-level pyramid overhead
-backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
-forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 
 # 3. Direct Block-Based 60 fps Synthesis
 # mode=0: Fast block projection (least computationally intensive mode)

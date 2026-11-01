@@ -10,10 +10,13 @@
 
 #include "D3D12FlowSynthesis.h"
 #include "D3D12MotionSearch.h"
+#include "profile.h"
 #include "MVClip.h"
 #include "FakeBlockData.h"
 #include "shaders/flow_warp_cso.h"
+#include "shaders/flow_warp_chroma_cso.h"
 #include "shaders/flow_blend_cso.h"
+#include "shaders/flow_blend_chroma_cso.h"
 
 #include <windows.h>
 #include <d3d12.h>
@@ -419,15 +422,23 @@ struct FrameSlot
         uavDesc.Format = DXGI_FORMAT_R8_UNORM;
 
         // Output UAVs
-        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(4, descSize));
-        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(18, descSize));
+        // Warp Luma: slot 6 (u0) and slot 7 (dummy u1)
+        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(6, descSize));
+        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(7, descSize));
+
+        // Blend Luma fallback: slot 20 (u0) and slot 21 (dummy u1)
+        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(20, descSize));
+        device->CreateUnorderedAccessView(texOutY.Get(), nullptr, &uavDesc, GetCPUDescriptor(21, descSize));
 
         if (planecount > 1)
         {
-            device->CreateUnorderedAccessView(texOutU.Get(), nullptr, &uavDesc, GetCPUDescriptor(9, descSize));
-            device->CreateUnorderedAccessView(texOutV.Get(), nullptr, &uavDesc, GetCPUDescriptor(14, descSize));
-            device->CreateUnorderedAccessView(texOutU.Get(), nullptr, &uavDesc, GetCPUDescriptor(21, descSize));
-            device->CreateUnorderedAccessView(texOutV.Get(), nullptr, &uavDesc, GetCPUDescriptor(24, descSize));
+            // Fused Chroma Warp: slot 14 (u0: outU) and slot 15 (u1: outV)
+            device->CreateUnorderedAccessView(texOutU.Get(), nullptr, &uavDesc, GetCPUDescriptor(14, descSize));
+            device->CreateUnorderedAccessView(texOutV.Get(), nullptr, &uavDesc, GetCPUDescriptor(15, descSize));
+
+            // Fused Chroma Blend: slot 26 (u0: outU) and slot 27 (u1: outV)
+            device->CreateUnorderedAccessView(texOutU.Get(), nullptr, &uavDesc, GetCPUDescriptor(26, descSize));
+            device->CreateUnorderedAccessView(texOutV.Get(), nullptr, &uavDesc, GetCPUDescriptor(27, descSize));
         }
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -435,11 +446,13 @@ struct FrameSlot
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Texture2D.MipLevels = 1;
 
-        // Y Plane:
-        // 0: SRV SrcY
-        // 1: SRV RefY
-        // 2: SRV MvF
-        // 3: SRV MvB
+        // Luma Warp SRVs (0..5: t0..t5):
+        // 0 (t0): SrcY
+        // 1 (t1): RefY
+        // 2 (t2): MvF
+        // 3 (t3): MvB
+        // 4 (t4): dummy SrcY
+        // 5 (t5): dummy RefY
         srvDesc.Format = DXGI_FORMAT_R8_UNORM;
         device->CreateShaderResourceView(srcRing.texY.Get(), &srvDesc, GetCPUDescriptor(0, descSize));
         device->CreateShaderResourceView(refRing.texY.Get(), &srvDesc, GetCPUDescriptor(1, descSize));
@@ -448,39 +461,50 @@ struct FrameSlot
         device->CreateShaderResourceView(texMvF.Get(), &srvDesc, GetCPUDescriptor(2, descSize));
         device->CreateShaderResourceView(texMvB.Get(), &srvDesc, GetCPUDescriptor(3, descSize));
 
+        srvDesc.Format = DXGI_FORMAT_R8_UNORM;
+        device->CreateShaderResourceView(srcRing.texY.Get(), &srvDesc, GetCPUDescriptor(4, descSize));
+        device->CreateShaderResourceView(refRing.texY.Get(), &srvDesc, GetCPUDescriptor(5, descSize));
+
         if (planecount > 1)
         {
-            // U Plane:
+            // Fused Chroma Warp SRVs (8..13: t0..t5):
+            // 8  (t0): SrcU
+            // 9  (t1): RefU
+            // 10 (t2): MvF
+            // 11 (t3): MvB
+            // 12 (t4): SrcV
+            // 13 (t5): RefV
             srvDesc.Format = DXGI_FORMAT_R8_UNORM;
-            device->CreateShaderResourceView(srcRing.texU.Get(), &srvDesc, GetCPUDescriptor(5, descSize));
-            device->CreateShaderResourceView(refRing.texU.Get(), &srvDesc, GetCPUDescriptor(6, descSize));
+            device->CreateShaderResourceView(srcRing.texU.Get(), &srvDesc, GetCPUDescriptor(8, descSize));
+            device->CreateShaderResourceView(refRing.texU.Get(), &srvDesc, GetCPUDescriptor(9, descSize));
 
             srvDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
-            device->CreateShaderResourceView(texMvF.Get(), &srvDesc, GetCPUDescriptor(7, descSize));
-            device->CreateShaderResourceView(texMvB.Get(), &srvDesc, GetCPUDescriptor(8, descSize));
+            device->CreateShaderResourceView(texMvF.Get(), &srvDesc, GetCPUDescriptor(10, descSize));
+            device->CreateShaderResourceView(texMvB.Get(), &srvDesc, GetCPUDescriptor(11, descSize));
 
-            // V Plane:
             srvDesc.Format = DXGI_FORMAT_R8_UNORM;
-            device->CreateShaderResourceView(srcRing.texV.Get(), &srvDesc, GetCPUDescriptor(10, descSize));
-            device->CreateShaderResourceView(refRing.texV.Get(), &srvDesc, GetCPUDescriptor(11, descSize));
-
-            srvDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
-            device->CreateShaderResourceView(texMvF.Get(), &srvDesc, GetCPUDescriptor(12, descSize));
-            device->CreateShaderResourceView(texMvB.Get(), &srvDesc, GetCPUDescriptor(13, descSize));
+            device->CreateShaderResourceView(srcRing.texV.Get(), &srvDesc, GetCPUDescriptor(12, descSize));
+            device->CreateShaderResourceView(refRing.texV.Get(), &srvDesc, GetCPUDescriptor(13, descSize));
         }
 
-        // Blend fallback descriptors:
+        // Luma Blend fallback SRVs (16..19: t0..t3):
         srvDesc.Format = DXGI_FORMAT_R8_UNORM;
         device->CreateShaderResourceView(srcRing.texY.Get(), &srvDesc, GetCPUDescriptor(16, descSize));
         device->CreateShaderResourceView(refRing.texY.Get(), &srvDesc, GetCPUDescriptor(17, descSize));
+        device->CreateShaderResourceView(srcRing.texY.Get(), &srvDesc, GetCPUDescriptor(18, descSize));
+        device->CreateShaderResourceView(refRing.texY.Get(), &srvDesc, GetCPUDescriptor(19, descSize));
 
         if (planecount > 1)
         {
-            device->CreateShaderResourceView(srcRing.texU.Get(), &srvDesc, GetCPUDescriptor(19, descSize));
-            device->CreateShaderResourceView(refRing.texU.Get(), &srvDesc, GetCPUDescriptor(20, descSize));
-
-            device->CreateShaderResourceView(srcRing.texV.Get(), &srvDesc, GetCPUDescriptor(22, descSize));
-            device->CreateShaderResourceView(refRing.texV.Get(), &srvDesc, GetCPUDescriptor(23, descSize));
+            // Fused Chroma Blend fallback SRVs (22..25: t0..t3):
+            // 22 (t0): SrcU
+            // 23 (t1): RefU
+            // 24 (t2): SrcV
+            // 25 (t3): RefV
+            device->CreateShaderResourceView(srcRing.texU.Get(), &srvDesc, GetCPUDescriptor(22, descSize));
+            device->CreateShaderResourceView(refRing.texU.Get(), &srvDesc, GetCPUDescriptor(23, descSize));
+            device->CreateShaderResourceView(srcRing.texV.Get(), &srvDesc, GetCPUDescriptor(24, descSize));
+            device->CreateShaderResourceView(refRing.texV.Get(), &srvDesc, GetCPUDescriptor(25, descSize));
         }
     }
 
@@ -527,9 +551,11 @@ struct D3D12FlowSynthesis::Impl
 
     ComPtr<ID3D12RootSignature> m_warpRootSig;
     ComPtr<ID3D12PipelineState> m_warpPSO;
+    ComPtr<ID3D12PipelineState> m_warpChromaPSO;
 
     ComPtr<ID3D12RootSignature> m_blendRootSig;
     ComPtr<ID3D12PipelineState> m_blendPSO;
+    ComPtr<ID3D12PipelineState> m_blendChromaPSO;
 
     UINT m_descSize = 0;
 
@@ -599,7 +625,7 @@ struct D3D12FlowSynthesis::Impl
 
         D3D12_DESCRIPTOR_RANGE srvRange = {};
         srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        srvRange.NumDescriptors = 4;
+        srvRange.NumDescriptors = 6;
         srvRange.BaseShaderRegister = 0;
         srvRange.RegisterSpace = 0;
         srvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -611,7 +637,7 @@ struct D3D12FlowSynthesis::Impl
 
         D3D12_DESCRIPTOR_RANGE uavRange = {};
         uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        uavRange.NumDescriptors = 1;
+        uavRange.NumDescriptors = 2;
         uavRange.BaseShaderRegister = 0;
         uavRange.RegisterSpace = 0;
         uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -656,6 +682,12 @@ struct D3D12FlowSynthesis::Impl
         hr = m_device->CreateComputePipelineState(&warpPsoDesc, IID_PPV_ARGS(&m_warpPSO));
         if (FAILED(hr)) return false;
 
+        D3D12_COMPUTE_PIPELINE_STATE_DESC warpChromaPsoDesc = {};
+        warpChromaPsoDesc.pRootSignature = m_warpRootSig.Get();
+        warpChromaPsoDesc.CS = { g_FlowWarpChromaCS, sizeof(g_FlowWarpChromaCS) };
+        hr = m_device->CreateComputePipelineState(&warpChromaPsoDesc, IID_PPV_ARGS(&m_warpChromaPSO));
+        if (FAILED(hr)) return false;
+
         // 3. Create Root Signature & PSO for FlowBlendFallbackCS
         D3D12_ROOT_PARAMETER blendParams[3] = {};
         blendParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -665,7 +697,7 @@ struct D3D12FlowSynthesis::Impl
 
         D3D12_DESCRIPTOR_RANGE blendSrvRange = {};
         blendSrvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-        blendSrvRange.NumDescriptors = 2;
+        blendSrvRange.NumDescriptors = 4;
         blendSrvRange.BaseShaderRegister = 0;
         blendSrvRange.RegisterSpace = 0;
         blendSrvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -677,7 +709,7 @@ struct D3D12FlowSynthesis::Impl
 
         D3D12_DESCRIPTOR_RANGE blendUavRange = {};
         blendUavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-        blendUavRange.NumDescriptors = 1;
+        blendUavRange.NumDescriptors = 2;
         blendUavRange.BaseShaderRegister = 0;
         blendUavRange.RegisterSpace = 0;
         blendUavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -706,6 +738,12 @@ struct D3D12FlowSynthesis::Impl
         blendPsoDesc.pRootSignature = m_blendRootSig.Get();
         blendPsoDesc.CS = { g_FlowBlendCS, sizeof(g_FlowBlendCS) };
         hr = m_device->CreateComputePipelineState(&blendPsoDesc, IID_PPV_ARGS(&m_blendPSO));
+        if (FAILED(hr)) return false;
+
+        D3D12_COMPUTE_PIPELINE_STATE_DESC blendChromaPsoDesc = {};
+        blendChromaPsoDesc.pRootSignature = m_blendRootSig.Get();
+        blendChromaPsoDesc.CS = { g_FlowBlendChromaCS, sizeof(g_FlowBlendChromaCS) };
+        hr = m_device->CreateComputePipelineState(&blendChromaPsoDesc, IID_PPV_ARGS(&m_blendChromaPSO));
         if (FAILED(hr)) return false;
 
         // 4. Initialize Multi-Buffering Frame Slots
@@ -787,7 +825,7 @@ D3D12FlowSynthesis& D3D12FlowSynthesis::GetInstance()
 bool D3D12FlowSynthesis::IsAvailable()
 {
     std::lock_guard<std::mutex> lock(pImpl->m_initMutex);
-    return pImpl->InitDevice() && pImpl->m_enabled && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
+    return pImpl->m_enabled && pImpl->InitDevice() && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
 }
 
 void D3D12FlowSynthesis::SetEnabled(bool enabled)
@@ -825,7 +863,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     // Verify D3D12 Device state under initialization lock
     {
         std::lock_guard<std::mutex> initLock(pImpl->m_initMutex);
-        if (!pImpl->InitDevice() || !pImpl->m_enabled || !pImpl->m_device)
+        if (!pImpl->m_enabled || !pImpl->InitDevice() || !pImpl->m_device)
             return false;
         if (pImpl->m_device->GetDeviceRemovedReason() != S_OK)
         {
@@ -836,6 +874,8 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         if (!pImpl->EnsureGlobalRingTextures(width, height, widthUV, heightUV, planecount))
             return false;
     }
+
+    PROFILE_START(MOTION_PROFILE_GPU_SYNTH);
 
     // Double-Buffering Slot Selection: Non-blocking try_lock on available slot, with round-robin fallback
     int slotIdx = -1;
@@ -861,12 +901,18 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     FrameSlot& slot = *pImpl->m_slots[slotIdx];
 
     if (!slot.EnsureSlotBuffers(pImpl->m_device.Get(), width, height, widthUV, heightUV, nBlkX, nBlkY, planecount))
+    {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
+    }
 
     uint8_t* pUploadBase = (uint8_t*)slot.pUploadMapped;
     uint8_t* pReadbackBase = (uint8_t*)slot.pReadbackMapped;
     if (!pUploadBase || !pReadbackBase)
+    {
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
+    }
 
     // 1. Content sample checksums for Source & Reference planes
     size_t srcSizeY = (size_t)width * height;
@@ -1154,7 +1200,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     {
         slot.cmdList->SetComputeRootSignature(pImpl->m_warpRootSig.Get());
 
-        // Dispatch Y Plane
+        // Dispatch Y Plane (Luma)
         FlowParamsCB cbY = {};
         cbY.width = (uint32_t)width;
         cbY.height = (uint32_t)height;
@@ -1171,14 +1217,14 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
 
         memcpy(slot.pConstMapped, &cbY, sizeof(cbY));
         slot.cmdList->SetComputeRootConstantBufferView(0, slot.constBuffer->GetGPUVirtualAddress());
-        slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(0, pImpl->m_descSize)); // SRV t0..t3 for Y
-        slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(4, pImpl->m_descSize)); // UAV u0 for Y
+        slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(0, pImpl->m_descSize)); // SRV t0..t5 for Y
+        slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(6, pImpl->m_descSize)); // UAV u0..u1 for Y
 
         slot.cmdList->Dispatch((width + 15) / 16, (height + 7) / 8, 1);
 
         if (planecount > 1)
         {
-            // Dispatch U Plane
+            // Fused Dispatch U + V Chroma Planes (single compute pass)
             FlowParamsCB cbUV = cbY;
             cbUV.width = (uint32_t)widthUV;
             cbUV.height = (uint32_t)heightUV;
@@ -1189,15 +1235,10 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
 
             uint8_t* pCbUVLoc = (uint8_t*)slot.pConstMapped + 256;
             memcpy(pCbUVLoc, &cbUV, sizeof(cbUV));
+            slot.cmdList->SetPipelineState(pImpl->m_warpChromaPSO.Get());
             slot.cmdList->SetComputeRootConstantBufferView(0, slot.constBuffer->GetGPUVirtualAddress() + 256);
-            slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(5, pImpl->m_descSize)); // SRV t0..t3 for U
-            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(9, pImpl->m_descSize)); // UAV u0 for U
-
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
-
-            // Dispatch V Plane
-            slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(10, pImpl->m_descSize)); // SRV t0..t3 for V
-            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(14, pImpl->m_descSize)); // UAV u0 for V
+            slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(8, pImpl->m_descSize));  // SRV t0..t5 for UV
+            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(14, pImpl->m_descSize)); // UAV u0..u1 for UV
 
             slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
         }
@@ -1215,7 +1256,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         memcpy(slot.pConstMapped, &blendCB, sizeof(blendCB));
         slot.cmdList->SetComputeRootConstantBufferView(0, slot.constBuffer->GetGPUVirtualAddress());
         slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(16, pImpl->m_descSize));
-        slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(18, pImpl->m_descSize));
+        slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(20, pImpl->m_descSize));
 
         slot.cmdList->Dispatch((width + 15) / 16, (height + 7) / 8, 1);
 
@@ -1227,14 +1268,10 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
 
             uint8_t* pCbUVLoc = (uint8_t*)slot.pConstMapped + 256;
             memcpy(pCbUVLoc, &blendCBUV, sizeof(blendCBUV));
+            slot.cmdList->SetPipelineState(pImpl->m_blendChromaPSO.Get());
             slot.cmdList->SetComputeRootConstantBufferView(0, slot.constBuffer->GetGPUVirtualAddress() + 256);
-            slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(19, pImpl->m_descSize));
-            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(21, pImpl->m_descSize));
-
-            slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
-
             slot.cmdList->SetComputeRootDescriptorTable(1, slot.GetGPUDescriptor(22, pImpl->m_descSize));
-            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(24, pImpl->m_descSize));
+            slot.cmdList->SetComputeRootDescriptorTable(2, slot.GetGPUDescriptor(26, pImpl->m_descSize));
 
             slot.cmdList->Dispatch((widthUV + 15) / 16, (heightUV + 7) / 8, 1);
         }
@@ -1276,6 +1313,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         {
             pImpl->m_available = false;
         }
+        PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
         return false;
     }
 
@@ -1310,5 +1348,6 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         }
     }
 
+    PROFILE_STOP(MOTION_PROFILE_GPU_SYNTH);
     return true;
 }

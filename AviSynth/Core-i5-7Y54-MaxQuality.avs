@@ -21,6 +21,13 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via HD Graphics 615)
 src = potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 32x32 blocks maintain the exact 8,160 block count of 1080p 16x16,
+# preserving single-pass high-throughput execution without cache thrashing.
+is_4k  = (src.Width() > 2048)
+blk_sz = is_4k ? 32 : 16
+
 # Load Native x64 MVTools2 plugin (leveraging AVX2 SIMD optimizations)
 LoadPlugin("mvtools2.dll")
 
@@ -31,13 +38,13 @@ LoadPlugin("mvtools2.dll")
 super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=1)
 
 # 2. Native 1080p Overlapping Motion Vector Search (No Proxy / Zero Downscale)
-# blksize=16, blksizev=16, overlap=4, overlapv=4: ~14,151 overlapping blocks at native 1080p
+# blksize=blk_sz, blksizev=blk_sz, overlap=4, overlapv=4: ~14,151 overlapping blocks at native 1080p
 # Overlap eliminates block boundary discontinuities along fast-moving contours
 # search=2, searchparam=2: Radius-2 hexagonal search captures rapid motion
 # chroma=false: Luma-only search cuts vector computation by 50%
 # levels=1: Single-level search matching super's levels=1
-backward_vec = MAnalyse(super, isb=true,  blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
-forward_vec  = MAnalyse(super, isb=false, blksize=16, blksizev=16, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, levels=1)
 
 # 3. Direct Native 60 fps Frame Synthesis with Directional Alpha Blending
 # Directly warps native frames using overlapping vector fields

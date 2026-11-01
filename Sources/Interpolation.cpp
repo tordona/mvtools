@@ -1939,11 +1939,244 @@ void VerticalWiener(unsigned char *pDst8, const unsigned char *pSrc8, int nDstPi
     pDst[i] = pSrc[i];
 }
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+void VerticalWiener_neon(unsigned char *pDst8, const unsigned char *pSrc8, int nDstPitch,
+  int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel)
+{
+  uint8_t *pDst = pDst8;
+  const uint8_t *pSrc = pSrc8;
+
+  const int wMod16 = (nWidth / 16) * 16;
+  const int wMod8 = (nWidth / 8) * 8;
+
+  // First 2 rows: average with next row (pSrc[i] + pSrc[i + nSrcPitch] + 1) >> 1
+  for (int j = 0; j < 2; j++)
+  {
+    int x = 0;
+    for (; x < wMod16; x += 16) {
+      uint8x16_t a = vld1q_u8(pSrc + x);
+      uint8x16_t b = vld1q_u8(pSrc + nSrcPitch + x);
+      vst1q_u8(pDst + x, vrhaddq_u8(a, b));
+    }
+    if (wMod8 != wMod16) {
+      uint8x8_t a = vld1_u8(pSrc + wMod16);
+      uint8x8_t b = vld1_u8(pSrc + nSrcPitch + wMod16);
+      vst1_u8(pDst + wMod16, vrhadd_u8(a, b));
+      x = wMod8;
+    }
+    for (; x < nWidth; x++) {
+      pDst[x] = static_cast<uint8_t>((pSrc[x] + pSrc[x + nSrcPitch] + 1) >> 1);
+    }
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+  }
+
+  // Rows 2 to nHeight - 4: 6-tap Wiener filter
+  for (int j = 2; j < nHeight - 4; j++)
+  {
+    const uint8_t *r0 = pSrc - nSrcPitch * 2;
+    const uint8_t *r1 = pSrc - nSrcPitch;
+    const uint8_t *r2 = pSrc;
+    const uint8_t *r3 = pSrc + nSrcPitch;
+    const uint8_t *r4 = pSrc + nSrcPitch * 2;
+    const uint8_t *r5 = pSrc + nSrcPitch * 3;
+
+    int x = 0;
+    for (; x < wMod16; x += 16) {
+      uint8x16_t row0 = vld1q_u8(r0 + x);
+      uint8x16_t row1 = vld1q_u8(r1 + x);
+      uint8x16_t row2 = vld1q_u8(r2 + x);
+      uint8x16_t row3 = vld1q_u8(r3 + x);
+      uint8x16_t row4 = vld1q_u8(r4 + x);
+      uint8x16_t row5 = vld1q_u8(r5 + x);
+
+      int16x8_t r0_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row0)));
+      int16x8_t r0_hi = vreinterpretq_s16_u16(vmovl_high_u8(row0));
+      int16x8_t r1_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row1)));
+      int16x8_t r1_hi = vreinterpretq_s16_u16(vmovl_high_u8(row1));
+      int16x8_t r2_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row2)));
+      int16x8_t r2_hi = vreinterpretq_s16_u16(vmovl_high_u8(row2));
+      int16x8_t r3_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row3)));
+      int16x8_t r3_hi = vreinterpretq_s16_u16(vmovl_high_u8(row3));
+      int16x8_t r4_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row4)));
+      int16x8_t r4_hi = vreinterpretq_s16_u16(vmovl_high_u8(row4));
+      int16x8_t r5_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(row5)));
+      int16x8_t r5_hi = vreinterpretq_s16_u16(vmovl_high_u8(row5));
+
+      int16x8_t in_lo = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_lo, r3_lo), 2), vaddq_s16(r1_lo, r4_lo));
+      int16x8_t in_hi = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_hi, r3_hi), 2), vaddq_s16(r1_hi, r4_hi));
+
+      int16x8_t sum_lo = vaddq_s16(vaddq_s16(r0_lo, r5_lo), vaddq_s16(in_lo, vshlq_n_s16(in_lo, 2)));
+      int16x8_t sum_hi = vaddq_s16(vaddq_s16(r0_hi, r5_hi), vaddq_s16(in_hi, vshlq_n_s16(in_hi, 2)));
+
+      uint8x8_t res_lo = vqmovun_s16(vrshrq_n_s16(sum_lo, 5));
+      uint8x8_t res_hi = vqmovun_s16(vrshrq_n_s16(sum_hi, 5));
+
+      vst1q_u8(pDst + x, vcombine_u8(res_lo, res_hi));
+    }
+    if (wMod8 != wMod16) {
+      uint8x8_t row0 = vld1_u8(r0 + wMod16);
+      uint8x8_t row1 = vld1_u8(r1 + wMod16);
+      uint8x8_t row2 = vld1_u8(r2 + wMod16);
+      uint8x8_t row3 = vld1_u8(r3 + wMod16);
+      uint8x8_t row4 = vld1_u8(r4 + wMod16);
+      uint8x8_t row5 = vld1_u8(r5 + wMod16);
+
+      int16x8_t r0_s = vreinterpretq_s16_u16(vmovl_u8(row0));
+      int16x8_t r1_s = vreinterpretq_s16_u16(vmovl_u8(row1));
+      int16x8_t r2_s = vreinterpretq_s16_u16(vmovl_u8(row2));
+      int16x8_t r3_s = vreinterpretq_s16_u16(vmovl_u8(row3));
+      int16x8_t r4_s = vreinterpretq_s16_u16(vmovl_u8(row4));
+      int16x8_t r5_s = vreinterpretq_s16_u16(vmovl_u8(row5));
+
+      int16x8_t in_s = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_s, r3_s), 2), vaddq_s16(r1_s, r4_s));
+      int16x8_t sum_s = vaddq_s16(vaddq_s16(r0_s, r5_s), vaddq_s16(in_s, vshlq_n_s16(in_s, 2)));
+
+      uint8x8_t res_s = vqmovun_s16(vrshrq_n_s16(sum_s, 5));
+      vst1_u8(pDst + wMod16, res_s);
+      x = wMod8;
+    }
+    for (; x < nWidth; x++) {
+      int val = (r0[x] + (-(r1[x]) + (r2[x] << 2) + (r3[x] << 2) - r4[x]) * 5 + r5[x] + 16) >> 5;
+      pDst[x] = static_cast<uint8_t>(std::min(255, std::max(0, val)));
+    }
+
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+  }
+
+  // Rows nHeight - 4 to nHeight - 2
+  for (int j = nHeight - 4; j < nHeight - 1; j++)
+  {
+    int x = 0;
+    for (; x < wMod16; x += 16) {
+      uint8x16_t a = vld1q_u8(pSrc + x);
+      uint8x16_t b = vld1q_u8(pSrc + nSrcPitch + x);
+      vst1q_u8(pDst + x, vrhaddq_u8(a, b));
+    }
+    if (wMod8 != wMod16) {
+      uint8x8_t a = vld1_u8(pSrc + wMod16);
+      uint8x8_t b = vld1_u8(pSrc + nSrcPitch + wMod16);
+      vst1_u8(pDst + wMod16, vrhadd_u8(a, b));
+      x = wMod8;
+    }
+    for (; x < nWidth; x++) {
+      pDst[x] = static_cast<uint8_t>((pSrc[x] + pSrc[x + nSrcPitch] + 1) >> 1);
+    }
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+  }
+
+  // Last row
+  memcpy(pDst, pSrc, nWidth);
+}
+
+void HorizontalWiener_neon(unsigned char *pDst8, const unsigned char *pSrc8, int nDstPitch,
+  int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel)
+{
+  uint8_t *pDst = pDst8;
+  const uint8_t *pSrc = pSrc8;
+
+  const int safe_limit_16 = nWidth - 19;
+  const int safe_limit_8 = nWidth - 11;
+
+  for (int y = 0; y < nHeight; y++)
+  {
+    pDst[0] = static_cast<uint8_t>((pSrc[0] + pSrc[1] + 1) >> 1);
+    pDst[1] = static_cast<uint8_t>((pSrc[1] + pSrc[2] + 1) >> 1);
+
+    int x = 2;
+    for (; x <= safe_limit_16; x += 16) {
+      uint8x16_t v0 = vld1q_u8(pSrc + x - 2);
+      uint8x16_t v1 = vld1q_u8(pSrc + x + 14);
+
+      uint8x16_t m0 = v0;
+      uint8x16_t m1 = vextq_u8(v0, v1, 1);
+      uint8x16_t m2 = vextq_u8(v0, v1, 2);
+      uint8x16_t m3 = vextq_u8(v0, v1, 3);
+      uint8x16_t m4 = vextq_u8(v0, v1, 4);
+      uint8x16_t m5 = vextq_u8(v0, v1, 5);
+
+      int16x8_t r0_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m0)));
+      int16x8_t r0_hi = vreinterpretq_s16_u16(vmovl_high_u8(m0));
+      int16x8_t r1_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m1)));
+      int16x8_t r1_hi = vreinterpretq_s16_u16(vmovl_high_u8(m1));
+      int16x8_t r2_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m2)));
+      int16x8_t r2_hi = vreinterpretq_s16_u16(vmovl_high_u8(m2));
+      int16x8_t r3_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m3)));
+      int16x8_t r3_hi = vreinterpretq_s16_u16(vmovl_high_u8(m3));
+      int16x8_t r4_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m4)));
+      int16x8_t r4_hi = vreinterpretq_s16_u16(vmovl_high_u8(m4));
+      int16x8_t r5_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(m5)));
+      int16x8_t r5_hi = vreinterpretq_s16_u16(vmovl_high_u8(m5));
+
+      int16x8_t in_lo = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_lo, r3_lo), 2), vaddq_s16(r1_lo, r4_lo));
+      int16x8_t in_hi = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_hi, r3_hi), 2), vaddq_s16(r1_hi, r4_hi));
+
+      int16x8_t sum_lo = vaddq_s16(vaddq_s16(r0_lo, r5_lo), vaddq_s16(in_lo, vshlq_n_s16(in_lo, 2)));
+      int16x8_t sum_hi = vaddq_s16(vaddq_s16(r0_hi, r5_hi), vaddq_s16(in_hi, vshlq_n_s16(in_hi, 2)));
+
+      uint8x8_t res_lo = vqmovun_s16(vrshrq_n_s16(sum_lo, 5));
+      uint8x8_t res_hi = vqmovun_s16(vrshrq_n_s16(sum_hi, 5));
+
+      vst1q_u8(pDst + x, vcombine_u8(res_lo, res_hi));
+    }
+
+    if (x <= safe_limit_8) {
+      uint8x16_t v0 = vld1q_u8(pSrc + x - 2);
+
+      uint8x8_t m0_8 = vget_low_u8(v0);
+      uint8x8_t m1_8 = vget_low_u8(vextq_u8(v0, v0, 1));
+      uint8x8_t m2_8 = vget_low_u8(vextq_u8(v0, v0, 2));
+      uint8x8_t m3_8 = vget_low_u8(vextq_u8(v0, v0, 3));
+      uint8x8_t m4_8 = vget_low_u8(vextq_u8(v0, v0, 4));
+      uint8x8_t m5_8 = vget_low_u8(vextq_u8(v0, v0, 5));
+
+      int16x8_t r0_s = vreinterpretq_s16_u16(vmovl_u8(m0_8));
+      int16x8_t r1_s = vreinterpretq_s16_u16(vmovl_u8(m1_8));
+      int16x8_t r2_s = vreinterpretq_s16_u16(vmovl_u8(m2_8));
+      int16x8_t r3_s = vreinterpretq_s16_u16(vmovl_u8(m3_8));
+      int16x8_t r4_s = vreinterpretq_s16_u16(vmovl_u8(m4_8));
+      int16x8_t r5_s = vreinterpretq_s16_u16(vmovl_u8(m5_8));
+
+      int16x8_t in_s = vsubq_s16(vshlq_n_s16(vaddq_s16(r2_s, r3_s), 2), vaddq_s16(r1_s, r4_s));
+      int16x8_t sum_s = vaddq_s16(vaddq_s16(r0_s, r5_s), vaddq_s16(in_s, vshlq_n_s16(in_s, 2)));
+
+      uint8x8_t res_s = vqmovun_s16(vrshrq_n_s16(sum_s, 5));
+      vst1_u8(pDst + x, res_s);
+      x += 8;
+    }
+
+    for (; x < nWidth - 4; x++) {
+      int val = (pSrc[x - 2] + (-(pSrc[x - 1]) + (pSrc[x] << 2) + (pSrc[x + 1] << 2) - pSrc[x + 2]) * 5 + pSrc[x + 3] + 16) >> 5;
+      pDst[x] = static_cast<uint8_t>(std::min(255, std::max(0, val)));
+    }
+
+    for (; x < nWidth - 1; x++) {
+      pDst[x] = static_cast<uint8_t>((pSrc[x] + pSrc[x + 1] + 1) >> 1);
+    }
+
+    pDst[nWidth - 1] = pSrc[nWidth - 1];
+
+    pDst += nDstPitch;
+    pSrc += nSrcPitch;
+  }
+}
+#endif
+
 // 8 bit from vs
 template<typename pixel_t, bool hasSSE41>
 void VerticalWiener_sse2(unsigned char *pDst8, const unsigned char *pSrc8, int nDstPitch,
   int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel)
 {
+#if defined(_M_ARM64) || defined(__aarch64__)
+  if constexpr (sizeof(pixel_t) == 1) {
+    VerticalWiener_neon(pDst8, pSrc8, nDstPitch, nSrcPitch, nWidth, nHeight, bits_per_pixel);
+    return;
+  }
+#endif
   pixel_t *pDst = reinterpret_cast<pixel_t *>(pDst8);
   const pixel_t *pSrc = reinterpret_cast<const pixel_t *>(pSrc8);
 
@@ -2112,6 +2345,12 @@ void HorizontalWiener(unsigned char *pDst8, const unsigned char *pSrc8, int nDst
 template<typename pixel_t, bool hasSSE41>
 void HorizontalWiener_sse2(unsigned char *pDst8, const unsigned char *pSrc8, int nDstPitch,
   int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel) {
+#if defined(_M_ARM64) || defined(__aarch64__)
+  if constexpr (sizeof(pixel_t) == 1) {
+    HorizontalWiener_neon(pDst8, pSrc8, nDstPitch, nSrcPitch, nWidth, nHeight, bits_per_pixel);
+    return;
+  }
+#endif
 
   pixel_t *pDst = reinterpret_cast<pixel_t *>(pDst8);
   const pixel_t *pSrc = reinterpret_cast<const pixel_t *>(pSrc8);

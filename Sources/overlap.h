@@ -265,6 +265,9 @@ extern "C" void __cdecl  Overlaps2x4_sse2(uint16_t *pDst, int nDstPitch, const u
 extern "C" void __cdecl  Overlaps2x2_sse2(uint16_t *pDst, int nDstPitch, const unsigned char *pSrc, int nSrcPitch, short *pWin, int nWinPitch);
 #endif
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+void Short2Bytes_neon(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight);
+#endif
 void Short2Bytes_sse2(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight);
 void Short2Bytes(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight);
 void Short2BytesLsb(unsigned char *pDst, unsigned char *pDstLsb, int nDstPitch, int *pDstInt, int dstIntPitch, int nWidth, int nHeight);

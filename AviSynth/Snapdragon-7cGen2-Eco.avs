@@ -25,8 +25,13 @@ LoadPlugin("mvtools2.dll")
 # 1. Dynamic 0.5x Proxy Clip for Maximum Efficiency & Coolest Operation
 # Dynamically downscales source by 2x preserving source aspect ratio (e.g. 16:9, 2.40:1 Scope, 4:3)
 # levels=1 prevents MSuper from creating 7 redundant pyramid reduction levels
-search_w     = (src.Width  / 4) * 2
-search_h     = (src.Height / 4) * 2
+# Dynamic Resolution Adaptation:
+# Detect 4K vs 1080p. At 4K, 0.25x proxy downscaling (scale=4.0) maintains
+# the exact 960x540 analysis grid, keeping the 5 W fanless thermal envelope intact.
+is_4k        = (src.Width() > 2048)
+search_scale = is_4k ? 4 : 2
+search_w     = (src.Width  / (search_scale * 2)) * 2
+search_h     = (src.Height / (search_scale * 2)) * 2
 search_clip  = src.BilinearResize(search_w, search_h)
 search_super = search_clip.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
@@ -39,8 +44,9 @@ backward_proxy = MAnalyse(search_super, isb=true,  blksize=32, blksizev=16, sear
 forward_proxy  = MAnalyse(search_super, isb=false, blksize=32, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 
 # 3. Mathematically Scale Vectors 2x up to Native Source Coordinates
-backward_scaled = backward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
-forward_scaled  = forward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
+scale_val       = Float(search_scale)
+backward_scaled = backward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
+forward_scaled  = forward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
 
 # 4. Native Frame Synthesis (ZERO RESOLUTION LOSS)
 # Directly warps the original uncompressed source frames using scaled vectors

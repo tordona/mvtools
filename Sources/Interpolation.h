@@ -88,6 +88,11 @@ done [pinterf] extern "C" void  RB2FilteredHorizontalInplaceLine_SSE(uint8_t *pS
 //extern "C" void __cdecl RB2BilinearFilteredVerticalLine_SSE(unsigned char *pDst, const unsigned char *pSrc, int nSrcPitch, int nWidthMMX);
 //extern "C" void __cdecl RB2BilinearFilteredHorizontalInplaceLine_SSE(unsigned char *pSrc, int nWidthMMX);
 
+#if defined(_M_ARM64) || defined(__aarch64__)
+void VerticalWiener_neon(unsigned char *pDst, const unsigned char *pSrc, int nDstPitch, int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel);
+void HorizontalWiener_neon(unsigned char *pDst, const unsigned char *pSrc, int nDstPitch, int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel);
+#endif
+
 template<typename pixel_t>
 void VerticalWiener(  unsigned char *pDst, const unsigned char *pSrc, int nDstPitch, int nSrcPitch, int nWidth, int nHeight, int bits_per_pixel);
 template<typename pixel_t, bool hasSSE41>

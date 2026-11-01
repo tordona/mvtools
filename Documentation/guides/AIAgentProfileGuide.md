@@ -37,7 +37,7 @@ When using a web-based AI assistant (e.g. `gemini.google.com`, ChatGPT, or Claud
 
 #### Step 1: Collect Your Hardware Details
 Gather three basic pieces of information about your machine:
-1. **CPU Model, Core Layout & TDP:** 
+1. **CPU Model, Core Layout & TDP:**
    * Example: *Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W TDP, 24 MB L3)*.
    * Example: *AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c cores @ 15 W – 28 W TDP, 16 MB L3)*.
    * Example: *Intel Core i5-8259U (4 Coffee Lake cores / 8 threads @ 28 W TDP, 128 MB eDRAM L4)*.
@@ -45,9 +45,9 @@ Gather three basic pieces of information about your machine:
    * Example: *Intel Core i3-1215U (2 Performance cores, 4 Efficient cores @ 15 W TDP)*.
    * Example: *Intel Processor N100 (4 Gracemont E-cores @ 6 W TDP)*.
    * Example: *Qualcomm Snapdragon X Plus (8 Oryon cores @ 12 W – 28 W TDP, Adreno X1-85)*.
-2. **Integrated / Dedicated GPU Model:** 
+2. **Integrated / Dedicated GPU Model:**
    * Example: *Intel Iris Xe / Intel UHD Graphics*, *Radeon 840M / 780M*, or *Adreno X1*.
-3. **System Memory (RAM):** 
+3. **System Memory (RAM):**
    * Example: *16 GB Dual-Channel DDR4-3200*, *16 GB Single-Channel DDR4*, or *32 GB LPDDR5x-7500*.
 
 #### Step 2: Copy and Customize the Prompt
@@ -112,41 +112,53 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **Do NOT generate dead `USE_D3D12` code or call `MEnableD3D12` on x64 platforms.** Direct3D 12 compute offload is currently ARM64-only. x64 platforms run 100% native CPU SIMD.
    * **ARM64 Platforms (Qualcomm Snapdragon):**
      * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`MEnableD3D12(true)`) via `USE_D3D12 = false/true`.
+     * **Thread Pool Infrastructure:** Includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`), guaranteeing deterministic multi-threaded slice scheduling across `MTSlicer` in `MVFlowFps` and `MVBlockFps` even when `avstp.dll` is not installed on ARM64.
+     * **NEON Vector Optimizations:** Native engine incorporates 4-wide NEON dot-product predictor batching (`Sad_x4_neon_dotprod`), 3-way directional search packing, 128-bit compensation overlap vectorization (`Overlaps_uint8_t_neon`), and Wiener 6-tap FIR subplane vectorization.
 
-2. **Deterministic Filter Pipeline:**
-   Every profile must strictly follow this AviSynth+ script structure:
+2. **Deterministic Filter Pipeline & Strict Variable Ordering:**
+   AviSynth+ is an imperative, top-to-bottom interpreted language without variable hoisting. Every profile must strictly follow this sequential execution order:
    ```avisynth
-   # Hardware Header & MT Configuration
-   threads   = <T>
-   mem_limit = <M>
+   # 1. Hardware Header & MT Configuration (Resolution-Independent Settings Only)
+   threads    = <T>
+   mem_limit  = <M>
+   pel_val    = <P>
+   sharp_mode = <S>
    SetMemoryMax(mem_limit)
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
-   # Full PotPlayer video source stream (DXVA hardware decoded)
-   src = potplayer_source()
+   # 2. PotPlayer Video Source Stream (DXVA / Hardware Decoded)
+   # CRITICAL: MUST precede all resolution queries; establishes the clip object for Width()
+   src = potplayer_source()              # or potplayer_source() for implicit 'last'
 
-   # Load Native MVTools2 plugin
+   # 3. Dynamic Resolution Adaptation (MUST Immediately Follow Source Initialization)
+   # CRITICAL: is_4k must be defined before any blk_* or pad_* expression reads it
+   is_4k      = (src.Width() > 2048)     # or is_4k = (Width() > 2048)
+   blk_coarse = is_4k ? 64 : 32          # (or blk_sz = is_4k ? (<B> * 2) : <B>)
+   blk_fine   = is_4k ? 32 : 16
+   pad_val    = is_4k ? 16 : 8
+
+   # 4. Load Plugin & Configure Offload
    LoadPlugin("mvtools2.dll")
+   # MEnableD3D12(USE_D3D12)             # Include only on ARM64 platforms
 
-   # 1. Base Motion Super Clip (Single-Level Geometry)
+   # 5. Base Motion Super Clip (Single-Level Geometry)
    # levels=1: Single-level eliminates redundant multi-level pyramid generation
-   super = src.MSuper(levels=1, pel=<P>, hpad=<H>, vpad=<V>, sharp=<S>)
+   super = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
-   # 2. Motion Vector Search (MAnalyse)
-   # levels=1: Single-level search matching super's levels=1
-   backward_vec = MAnalyse(super, isb=true,  blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
-   forward_vec  = MAnalyse(super, isb=false, blksize=<B>, blksizev=<Bv>, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   # 6. Motion Vector Search (MAnalyse & MRecalculate)
+   backward_vec = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   forward_vec  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
 
-   # 3. Direct Native 60 fps Frame Synthesis (MBlockFps)
+   # 7. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy
    MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
-   # 4. Multithreading & Lookahead Buffer
+   # 8. Core Pinning & Lookahead Buffer
    Prefetch(threads, <Lookahead>)
    ```
 
 3. **Core Topology & Thread Allocation Rules (`threads`):**
-   * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores`). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count), not OS hardware thread affinity.
+   * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores` or `threads <= physical_p_cores` on hybrid architectures). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count), not OS hardware thread affinity.
    * Leaving logical threads and background cores free guarantees dedicated CPU headroom for hardware DXVA2/D3D11 decoding, audio synchronization, and Windows DWM presentation, preventing dropped frames.
    * **Homogeneous Cores (Intel 8th–11th Gen, Desktop Core, AMD Zen):**
      * 4-Core CPU (e.g. i5-8259U, i5-1135G7): `threads = 3` (Eco), `threads = 4` (Balanced), `threads = 4` (MaxQuality).
@@ -167,6 +179,31 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **Eco:** `mem_limit = 512`
      * **Balanced:** `mem_limit = 768` (or `1024` on 32 GB systems)
      * **MaxQuality:** `mem_limit = 1024` (or `1536` on 8-core systems)
+
+6. **Dynamic Resolution Adaptation & 4K Block Density Law:**
+   * Profiles must never hardcode static pixel block sizes without checking source stream dimensions. Because a 4K frame (`3840x2160`) contains $4\times$ the pixel area of 1080p (`8.29M` vs `2.07M` pixels), running fixed 1080p block sizes on 4K causes a catastrophic $4\times$ macroblock count explosion (from `8,160` blocks to `32,400` blocks), saturating the GPU compute queue, CPU thread pool, and UMA memory bus.
+   * Every profile must implement runtime resolution detection and proportional block scaling:
+     * **Runtime Resolution Detection:**
+       ```avisynth
+       is_4k = (src.Width() > 2048)   # or is_4k = (Width() > 2048)
+       ```
+     * **Single-Pass Profiles (Eco / High-Throughput Balanced):**
+       * If base is `32x32` at 1080p: `blk_sz = is_4k ? 64 : 32` (maintains invariant `2,040` blocks).
+       * If base is `16x16` at 1080p: `blk_sz = is_4k ? 32 : 16` (maintains invariant `8,160` blocks).
+     * **Dual-Pass Coarse-to-Fine Profiles (Balanced / MaxQuality with `MRecalculate`):**
+       * `blk_coarse = is_4k ? 64 : 32` (maintains invariant `2,040` coarse blocks).
+       * `blk_fine   = is_4k ? 32 : 16` (maintains invariant `8,160` fine blocks).
+       * Total evaluated blocks remains strictly invariant at `10,200` blocks across both 1080p and 4K, cutting 4K block search workload by **75%**.
+     * **Boundary Padding & Overlap:**
+       * Boundary padding scales proportionally: `pad_val = is_4k ? (pad_size * 2) : pad_size`.
+       * Overlap scales proportionally: `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`.
+     * **Proxy-Downscaled Profiles (e.g. Snapdragon 7c Gen 2):**
+       * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
+   * **Mandatory Variable Ordering Invariant (No Forward References):**
+     * AviSynth+ is a strictly sequential, top-to-bottom interpreted language without variable hoisting.
+     * **Source Clip First:** The video source clip (`src = potplayer_source()` or `potplayer_source()`) **MUST ALWAYS** be instantiated before `is_4k = (src.Width() > 2048)` or `is_4k = (Width() > 2048)` is called. Calling `Width()` before source acquisition raises a fatal error (`no implicit clip "last"` or `unknown function`).
+     * **Definition Before Use:** `is_4k` **MUST ALWAYS** be defined before any expression that reads it (e.g. `blk_coarse`, `blk_fine`, `blk_sz`, `pad_val`, `overlap_val`). Referencing `is_4k` before its definition line aborts script evaluation immediately with `Script error: I don't know what "is_4k" means`.
+     * **No Resolution Calculations in Header:** Never place `blk_coarse = ... (is_4k ? ...)` in the top hardware configuration section above `potplayer_source()`. Static engine parameters (`threads`, `mem_limit`, `pel_val`, `sharp_mode`) belong in the top block; all dynamic geometric scaling parameters belong immediately after `potplayer_source()`.
 
 ---
 
@@ -190,8 +227,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
 * **Objective:** Highest visual fidelity, dense 4 px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
-* **MSuper:** `levels=1`, `pel=1`, `hpad=0, vpad=0`, `sharp=1` (bicubic subpixel sharpness enhances fine detail edge contrast).
-* **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing.
+* **MSuper:** `levels=1`, `pel=1` (or `pel=2` on high-throughput cores), `hpad=0, vpad=0`, `sharp=1` (bicubic) or `sharp=2` (Wiener 6-tap filter, accelerated via native NEON SIMD on ARM64).
+* **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing, with block compensation blending accelerated via native 128-bit NEON SIMD.
 * **MBlockFps:** `mode=0`, `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
 * **Lookahead:** `Prefetch(threads, 6)` (or `8` on 8-core CPUs).
 * **Expected CPU Load:** Typically **6.5% to 28.1%** on modern processors.
@@ -213,7 +250,13 @@ For the requested platform, output:
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
    * `# Target: <Core Design Goal>`
    * `# Revision: 2.1.0 (<Date>)`
-3. **Clean Script Formatting:**
+3. **Execution Order & Variable Integrity Checklist:**
+   Before outputting any profile, verify strictly:
+   - [ ] `potplayer_source()` is invoked before calling `Width()`.
+   - [ ] `is_4k = (Width() > 2048)` or `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
+   - [ ] Zero resolution-dependent variable calculations exist in the top hardware configuration block.
+   - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.
+4. **Clean Script Formatting:**
    * Emit standard AviSynth+ syntax with one statement per line. Never collapse statements onto a single line without linebreaks.
    * If splitting multi-argument function calls, use AviSynth line continuation (`\` as the first non-whitespace character on subsequent lines).
 
@@ -227,8 +270,8 @@ If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showin
 | :--- | :--- | :--- |
 | **"AviSynth.dll not found"** dialog in PotPlayer (Win32 Error 126 / `ERROR_MOD_NOT_FOUND`) | **Missing Visual C++ 2015–2022 CRT runtimes:** `vcruntime140.dll`, `msvcp140.dll`, or `vcruntime140_1.dll` missing in `System32`. | Instruct the user to run the benchmark with `-AutoInstallVcRedist`, which automatically downloads and silently installs the official Microsoft redistributable from `https://aka.ms/vc14/vc_redist.x64.exe` (or `arm64.exe`). |
 | **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
-| **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (>85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. Increase block size (e.g. 16x16 → 32x32).<br>3. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>4. Ensure `blend=false` in `MBlockFps`. |
+| **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (> 85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. Increase block size (e.g. 16x16 → 32x32).<br>3. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>4. Ensure `blend=false` in `MBlockFps`. |
 | **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
 | **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Increase lookahead queue to `Prefetch(threads, 6)`.<br>2. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 1024 → 768, or 768 → 512).<br>2. Ensure single-level geometry `levels=1` is enabled. |
-| **1–2 dropped frames with Render Latency <0.5 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (e.g. 60.02 Hz or 60.15 Hz panel clock), not a computational bottleneck. |
+| **1–2 dropped frames with Render Latency < 0.5 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (e.g. 60.02 Hz or 60.15 Hz panel clock), not a computational bottleneck. |

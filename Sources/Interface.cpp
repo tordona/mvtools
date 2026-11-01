@@ -52,10 +52,17 @@
 #include "MScaleVect.h"
 #include "MStoreVect.h"
 
+#include "AvstpFallbackPool.h"
+
 #include <avisynth.h>
 #include <stdint.h>
 #include "D3D12MotionSearch.h"
 #include "D3D12FlowSynthesis.h"
+
+void __cdecl Shutdown_AvstpFallbackPool(void* user_data, IScriptEnvironment* env)
+{
+  AvstpFallbackPool::shutdown();
+}
 
 AVSValue __cdecl Create_MIsD3D12Available(AVSValue args, void*, IScriptEnvironment* env)
 {
@@ -332,6 +339,7 @@ AVSValue __cdecl Create_MVFlowFps(AVSValue args, void*, IScriptEnvironment* env)
     args[11].AsBool(true),  // isse
     args[12].AsBool(false), // planar
     args[13].AsInt(0), // optDebug
+    args[14].AsBool(true),  // mt
     env
   );
 }
@@ -700,7 +708,7 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   env->AddFunction("MDepan", "cc[mask]c[zoom]b[rot]b[pixaspect]f[error]f[info]b[log]s[wrong]f[zerow]f[range]i[thSCD1]i[thSCD2]i[isse]b[planar]b", Create_MVDepan, 0);
   env->AddFunction("MFlow", "ccc[time]f[mode]i[fields]b[thSCD1]i[thSCD2]i[isse]b[planar]b[tclip]c", Create_MVFlow, 0);
   env->AddFunction("MFlowInter", "cccc[time]f[ml]f[blend]b[thSCD1]i[thSCD2]i[isse]b[planar]b[tclip]c", Create_MVFlowInter, 0);
-  env->AddFunction("MFlowFps", "cccc[num]i[den]i[mask]i[ml]f[blend]b[thSCD1]i[thSCD2]i[isse]b[planar]b[optDebug]i", Create_MVFlowFps, 0);
+  env->AddFunction("MFlowFps", "cccc[num]i[den]i[mask]i[ml]f[blend]b[thSCD1]i[thSCD2]i[isse]b[planar]b[optDebug]i[mt]b", Create_MVFlowFps, 0);
   env->AddFunction("MFlowBlur", "cccc[blur]f[prec]i[thSCD1]i[thSCD2]i[isse]b[planar]b", Create_MVFlowBlur, 0);
   env->AddFunction("MDegrain1", "cccc[thSAD]i[thSADC]i[plane]i[limit]f[limitC]f[thSCD1]i[thSCD2]i[isse]b[planar]b[lsb]b[mt]b[out16]b[out32]b", Create_MVDegrainX, (void *)1);
   env->AddFunction("MDegrain2", "cccccc[thSAD]i[thSADC]i[plane]i[limit]f[limitC]f[thSCD1]i[thSCD2]i[isse]b[planar]b[lsb]b[mt]b[out16]b[out32]b", Create_MVDegrainX, (void *)2);
@@ -718,6 +726,10 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   env->AddFunction("MIsD3D12Available", "", Create_MIsD3D12Available, 0);
   env->AddFunction("MEnableD3D12", "[enable]b", Create_MEnableD3D12, 0);
   //	env->AddFunction("MVFinest",     "c[isse]b", Create_MVFinest, 0);
+
+  // Joins the fallback worker threads before the host unloads the DLL
+  env->AtExit(Shutdown_AvstpFallbackPool, 0);
+
   return("MVTools : set of tools based on a motion estimation engine");
 }
 

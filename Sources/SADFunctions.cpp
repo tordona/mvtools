@@ -1088,6 +1088,88 @@ func_sad[make_tuple(x, y, 8, USE_SSE2)] = Sad_sse2<x,y>;
     return result;
 }
 
+SADx4Function* get_sad_x4_function(int BlockX, int BlockY, int bits_per_pixel, arch_t arch)
+{
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+    if (bits_per_pixel != 8)
+        return nullptr;
+
+    using std::make_tuple;
+    std::map<std::tuple<int, int, int, arch_t>, SADx4Function*> func_sad_x4;
+
+#define MAKE_SAD_X4_FN(x, y) \
+    func_sad_x4[make_tuple(x, y, 8, USE_SSE2)] = Sad_x4_neon_v8<x, y>; \
+    func_sad_x4[make_tuple(x, y, 8, USE_SSE41)] = Sad_x4_neon_dotprod<x, y>;
+
+    MAKE_SAD_X4_FN(64, 64)
+    MAKE_SAD_X4_FN(64, 48)
+    MAKE_SAD_X4_FN(64, 32)
+    MAKE_SAD_X4_FN(64, 16)
+    MAKE_SAD_X4_FN(48, 64)
+    MAKE_SAD_X4_FN(48, 48)
+    MAKE_SAD_X4_FN(48, 24)
+    MAKE_SAD_X4_FN(48, 12)
+    MAKE_SAD_X4_FN(32, 64)
+    MAKE_SAD_X4_FN(32, 32)
+    MAKE_SAD_X4_FN(32, 24)
+    MAKE_SAD_X4_FN(32, 16)
+    MAKE_SAD_X4_FN(32, 8)
+    MAKE_SAD_X4_FN(24, 48)
+    MAKE_SAD_X4_FN(24, 32)
+    MAKE_SAD_X4_FN(24, 24)
+    MAKE_SAD_X4_FN(24, 12)
+    MAKE_SAD_X4_FN(24, 6)
+    MAKE_SAD_X4_FN(16, 64)
+    MAKE_SAD_X4_FN(16, 32)
+    MAKE_SAD_X4_FN(16, 16)
+    MAKE_SAD_X4_FN(16, 12)
+    MAKE_SAD_X4_FN(16, 8)
+    MAKE_SAD_X4_FN(16, 4)
+    MAKE_SAD_X4_FN(16, 2)
+    MAKE_SAD_X4_FN(16, 1)
+    MAKE_SAD_X4_FN(12, 48)
+    MAKE_SAD_X4_FN(12, 24)
+    MAKE_SAD_X4_FN(12, 16)
+    MAKE_SAD_X4_FN(12, 12)
+    MAKE_SAD_X4_FN(12, 6)
+    MAKE_SAD_X4_FN(12, 3)
+    MAKE_SAD_X4_FN(8, 32)
+    MAKE_SAD_X4_FN(8, 16)
+    MAKE_SAD_X4_FN(8, 8)
+    MAKE_SAD_X4_FN(8, 4)
+    MAKE_SAD_X4_FN(8, 2)
+    MAKE_SAD_X4_FN(8, 1)
+    MAKE_SAD_X4_FN(6, 24)
+    MAKE_SAD_X4_FN(6, 12)
+    MAKE_SAD_X4_FN(6, 6)
+    MAKE_SAD_X4_FN(6, 3)
+    MAKE_SAD_X4_FN(4, 8)
+    MAKE_SAD_X4_FN(4, 4)
+    MAKE_SAD_X4_FN(4, 2)
+    MAKE_SAD_X4_FN(4, 1)
+#undef MAKE_SAD_X4_FN
+
+    SADx4Function *result = nullptr;
+    arch_t archlist[] = { USE_AVX2, USE_AVX, USE_SSE41, USE_SSE2, NO_SIMD };
+    int index = 0;
+    while (result == nullptr) {
+        arch_t current_arch_try = archlist[index++];
+        if (current_arch_try > arch) continue;
+        result = func_sad_x4[make_tuple(BlockX, BlockY, 8, current_arch_try)];
+        if (result == nullptr && current_arch_try == NO_SIMD) {
+            break;
+        }
+    }
+    return result;
+#else
+    (void)BlockX;
+    (void)BlockY;
+    (void)bits_per_pixel;
+    (void)arch;
+    return nullptr;
+#endif
+}
+
 #ifdef USE_SATD_ASM
 // SATD functions for blocks over 16x16 are not defined in pixel-a.asm,
 // so as a poor man's substitute, we use a sum of smaller SATD functions.

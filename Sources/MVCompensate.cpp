@@ -470,6 +470,13 @@ PVideoFrame __stdcall MVCompensate::GetFrame(int n, IScriptEnvironment* env_ptr)
 
       if (pixelsize_super == 1) {
         // nWidth_B and nHeight_B, right and bottom was blended
+#if defined(_M_ARM64) || defined(__aarch64__)
+        Short2Bytes_neon(pDst[0], nDstPitches[0], (uint16_t *)DstShort, dstShortPitch, nWidth_B, nHeight_B);
+        if (pPlanes[1])
+          Short2Bytes_neon(pDst[1], nDstPitches[1], (uint16_t *)DstShortU, dstShortPitchUV, nWidth_B >> nLogxRatioUVs[1], nHeight_B >> nLogyRatioUVs[1]);
+        if (pPlanes[2])
+          Short2Bytes_neon(pDst[2], nDstPitches[2], (uint16_t *)DstShortV, dstShortPitchUV, nWidth_B >> nLogxRatioUVs[2], nHeight_B >> nLogyRatioUVs[2]);
+#else
         if ((cpuFlags & CPUF_SSE2) != 0) {
           Short2Bytes_sse2(pDst[0], nDstPitches[0], (uint16_t *)DstShort, dstShortPitch, nWidth_B, nHeight_B);
           if (pPlanes[1])
@@ -484,6 +491,7 @@ PVideoFrame __stdcall MVCompensate::GetFrame(int n, IScriptEnvironment* env_ptr)
           if (pPlanes[2])
             Short2Bytes(pDst[2], nDstPitches[2], (uint16_t *)DstShortV, dstShortPitchUV, nWidth_B >> nLogxRatioUVs[2], nHeight_B >> nLogyRatioUVs[2]);
         }
+#endif
       }
       else if (pixelsize_super == 2)
       {

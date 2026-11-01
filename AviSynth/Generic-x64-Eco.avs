@@ -21,6 +21,11 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded)
 src = potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K vs 1080p. At 4K, 64x64 blocks maintain low memory bus traffic.
+is_4k  = (src.Width() > 2048)
+blk_sz = is_4k ? 64 : 64
+
 # Load Native x64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 

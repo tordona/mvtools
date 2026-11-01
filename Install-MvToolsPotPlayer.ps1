@@ -1996,7 +1996,7 @@ Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).
 $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
-4. Single-Level Geometry: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced; ``sharp=1`` for MaxQuality).
+4. Single-Level Geometry: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced; ``sharp=1`` or ``sharp=2`` Wiener filter for MaxQuality).
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
 6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
 7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), ending with ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. Note that Prefetch controls worker instance concurrency, not OS thread affinity.
@@ -2006,7 +2006,7 @@ $pluginRule
 Please generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, blend=false``), lowest CPU wattage.
 - Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, blend=false``), daily driver.
-- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, sharp=1, blend=true``), maximum edge fidelity.
+- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, sharp=1, blend=true``; use ``sharp=2`` Wiener filter on high-performance cores), maximum edge fidelity.
 "@
 
     try {

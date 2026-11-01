@@ -20,6 +20,12 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Iris Xe Graphics)
 src = potplayer_source()
 
+# Dynamic Resolution Adaptation:
+# Detect 4K vs 1080p. At 4K, 64x64 blocks maintain the exact 2,040 block count of 1080p 32x32,
+# keeping memory traffic strictly within low-power TDP envelopes.
+is_4k  = (src.Width() > 2048)
+blk_sz = is_4k ? 64 : 32
+
 # Load Native x64 MVTools2 plugin (leveraging AVX-512/AVX2 SIMD optimizations)
 LoadPlugin("mvtools2.dll")
 
@@ -31,12 +37,12 @@ LoadPlugin("mvtools2.dll")
 super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Native 1080p Motion Vector Search (No Proxy / Zero Downscale)
-# blksize=32, blksizev=32: 32x32 blocks at native 1080p (~2,040 blocks total)
+# blksize=blk_sz, blksizev=blk_sz: 32x32 blocks at native 1080p (~2,040 blocks total)
 # search=2, searchparam=1: Hexagonal search with tight radius
 # chroma=false: Luma-only search cuts vector computation by 50%
 # levels=1: Single-level search matching super's levels=1
-backward_vec = MAnalyse(super, isb=true,  blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
-forward_vec  = MAnalyse(super, isb=false, blksize=32, blksizev=32, search=2, searchparam=1, chroma=false, levels=1)
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 
 # 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames without vector scaling or proxy interpolation artifacts
