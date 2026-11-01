@@ -52,7 +52,8 @@ forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, overl
 # thSCD1=350, thSCD2=115: High-sensitivity scene-change threshold prevents cut distortion
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=true, thSCD1=350, thSCD2=115)
 
-# 4. Core Pinning: 6 Threads with 6-Frame Lookahead Queue
-# 6 worker threads on 6 physical cores provides high-throughput AVX-512 vector compute
+# 4. Hardware Thread Affinity & Core Pinning: 6 Threads with 6-Frame Lookahead Queue
+# Keeps worker threads within high-IPC Zen 5 P-core domain, preventing Zen 5c latency stalls
 # 6 lookahead frames absorb thread scheduling jitter
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 6)

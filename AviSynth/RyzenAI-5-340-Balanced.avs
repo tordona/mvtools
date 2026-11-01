@@ -54,7 +54,8 @@ forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, searc
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
-# 4. Core Pinning: 4 Threads with 6-Frame Lookahead Queue
-# 4 worker threads provides high throughput across Zen 5 cores without thermal throttling
+# 4. Hardware Thread Affinity & Core Pinning: 4 Threads with 6-Frame Lookahead Queue
+# Keeps worker threads within high-IPC Zen 5 P-core domain, preventing Zen 5c latency stalls
 # 6 lookahead frames absorb thread scheduling jitter for stable 1% low frame times
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 6)
