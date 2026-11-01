@@ -264,8 +264,8 @@ When analyzing the comparison matrix, focus on the following key performance ind
 
 ### 2. Compute Load & Efficiency
 - **System CPU Load % vs. PotPlayer GPU %:**
-  - **ARM64 CPU NEON (`mvtools2.dll`):** Average CPU load is approx. 12-16% across 8 Oryon cores; GPU load stays at $\sim 19-25\%$ (presentation and display composition only).
-  - **Direct3D 12 GPU (`MEnableD3D12(true)`):** Offloads motion search into Adreno GPU compute queues ($\sim 72-75\%$ GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
+  - **ARM64 CPU NEON (`mvtools2.dll`):** Average CPU load is approx. 12-16% across 8 Oryon cores; GPU load stays at ~19-25% (presentation and display composition only).
+  - **Direct3D 12 GPU (`MEnableD3D12(true)`):** Offloads motion search into Adreno GPU compute queues (~72-75% GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
 - **PotPlayer Working Set (RAM):**
   - **Eco Tier:** 315 MB (540p proxy clip reduces cache lines and DRAM pressure).
   - **Balanced Tier:** 384 MB (Full 1080p motion search).

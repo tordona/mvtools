@@ -21,13 +21,24 @@ Instead of relying on deep pyramid levels for macro-motion tracking, Rev 3.0.0 u
 1. **Coarse Pass (`MAnalyse`):** Evaluates macro-motion vectors using large block sizes (`blksize=32` or `16`) with wide search radii.
 2. **Fine Refinement Pass (`MRecalculate` or `MScaleVect`):** Refines vector boundaries down to smaller blocks (`blksize=16` or `8`), resolving fine edges and moving foreground objects without halo tearing.
 
-### 3. CPU Core Pinning & Asymmetric Topology Tuning
-Modern chipsets feature heterogeneous CPU topologies (e.g. Oryon, Cortex-X1/A78/A55, and Intel P-cores/E-cores). If AviSynth spawns more threads than there are high-performance cores, worker threads stall waiting on slow efficiency cores:
-* **Snapdragon X Plus (8x Oryon):** 6–8 uniform threads.
-* **Snapdragon 8cx Gen 3 (4x X1 + 4x A78):** Pinned to 4 threads (strictly Cortex-X1).
-* **Snapdragon 8cx Gen 1/2 (4x Gold + 4x Silver):** Pinned to 3–4 threads (strictly Kryo Gold).
-* **Snapdragon 7c Gen 2 (2x Gold + 6x Silver):** Strictly 2 threads (pins to the 2 Cortex-A76 cores).
-* **Intel Hybrid (P+E Cores):** Pinned to Performance core count to prevent Gracemont stalls.
+### 3. CPU Core Pinning & Asymmetric Topology Tuning (`AvsAffinity.dll`)
+Modern chipsets feature heterogeneous CPU topologies (e.g. Intel Alder/Raptor Lake P+E, AMD Zen 4c/5c, and Qualcomm Snapdragon Cortex-X1/A78/A55). On these architectures, the Windows thread scheduler can migrate compute-intensive video worker threads onto low-IPC Efficiency cores, causing 1% low frame latency spikes and presentation stutter.
+
+All hybrid profiles chain the companion **`AvsAffinity.dll`** clip filter immediately before `Prefetch`:
+```avisynth
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
+Prefetch(threads)
+```
+* **Worker Thread Isolation:** `PinWorkerThreads()` pins only the AviSynth+ worker threads to Performance cores via Win32 `SetThreadAffinityMask` during `GetFrame()` traversal.
+* **Zero Host Blast Radius:** Host media player threads—including audio decoding, DXVA video acceleration, and Direct3D swapchain presentation—remain unconstrained and free to run on Efficiency cores.
+* **Homogeneous Processor Bypass:** On processors with uniform core efficiency (e.g. Snapdragon X Elite/Plus, Intel N100, standard AMD Ryzen CCDs), the filter automatically detects uniform core efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`).
+* **Core Budget Allocations:**
+  * **Snapdragon X Plus (8x Oryon):** 6–8 uniform threads (homogeneous no-op).
+  * **Snapdragon 8cx Gen 3 (4x X1 + 4x A78):** Pinned strictly to Cortex-X1 Prime cores.
+  * **Snapdragon 8cx Gen 1/2 (4x Gold + 4x Silver):** Pinned strictly to Kryo Gold cores.
+  * **Snapdragon 7c Gen 2 (2x Gold + 6x Silver):** Pinned strictly to the 2 Cortex-A76 cores.
+  * **Intel Hybrid (P+E Cores):** Pinned strictly to Performance cores (e.g. Golden Cove) to eliminate Gracemont stalls.
+  * **AMD Hybrid (Zen 5 + Zen 5c):** Pinned strictly to high-frequency Zen 5 cores, leaving 3.4 GHz Zen 5c cores for host playback.
 
 ### 4. Direct3D 12 DirectCompute GPU Offload Toggle (ARM64)
 Snapdragon X Plus and 8cx Gen 3 profiles include an inline toggle:

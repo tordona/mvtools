@@ -39,4 +39,9 @@ xcopy Sources\ARM64\Release\mvtools2.dll out\ARM64\ /y
 xcopy DePan\ARM64\Release\DePan.dll out\ARM64\ /y
 xcopy DePanEstimate\ARM64\Release\DePanEstimate.dll out\ARM64\ /y
 
+@REM AvsAffinity
+xcopy x64\Release\AvsAffinity.dll out\x64\MSVC\ /y
+xcopy ARM64\Release\AvsAffinity.dll out\ARM64\ /y
+
+
 

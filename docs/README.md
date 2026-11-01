@@ -16,6 +16,7 @@ This documentation hub covers the key architectural additions developed in this 
 * **18 Tuned Snapdragon Profiles:** Empirically verified `.avs` scripts with single-level geometry (`levels=1`) preserving memory bus bandwidth.
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
+* **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth worker threads to Performance cores on hybrid architectures.
 
 ---
 

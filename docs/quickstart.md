@@ -14,7 +14,7 @@ An automated setup script is provided in the repository to detect your hardware,
 1. Detects system architecture (ARM64 vs. x86-64) and hardware topology.
 2. Installs Microsoft Visual C++ 2015–2022 Redistributable if missing.
 3. Downloads and silently installs official Daum PotPlayer 64-bit if not present.
-4. Deploys the native `AviSynth.dll` and `mvtools2.dll` directly to PotPlayer.
+4. Deploys native `AviSynth.dll`, `mvtools2.dll`, and companion `AvsAffinity.dll` directly to PotPlayer.
 5. Deploys architecture-filtered profiles (**Snapdragon-only** on ARM64; **AMD/Intel-only** on x86-64).
 6. Auto-configures D3D11 Copy-Back hardware decoding, D3D11 Video Renderer, and activates the optimal **Balanced** profile.
 
@@ -64,7 +64,7 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 ### Step 1: Place MVTools2 Binaries (ARM64)
 1. Navigate to the [Latest MVTools2 Release](https://github.com/tordona/mvtools/releases/latest).
 2. Download **`mvtools2-arm64-v...zip`** under Assets.
-3. Extract **`mvtools2.dll`** (and optionally `mvtools2.dll` for GPU testing) directly into:
+3. Extract **`mvtools2.dll`** and companion **`AvsAffinity.dll`** directly into:
    ```text
    C:\Program Files\DAUM\PotPlayer\
    ```
@@ -123,6 +123,8 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
+# Hardware thread affinity isolation (pins worker threads to P-cores on hybrid CPUs)
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads)
 ```
 
@@ -148,7 +150,7 @@ Follow these steps for standard x86-64 PCs and laptops.
 ### Step 1: Place MVTools2 Binaries (x86-64)
 1. Navigate to the [Latest MVTools2 Release](https://github.com/tordona/mvtools/releases/latest).
 2. Download **`mvtools2-x64-v...zip`** under Assets.
-3. Extract **`mvtools2.dll`** directly into:
+3. Extract **`mvtools2.dll`** and companion **`AvsAffinity.dll`** directly into:
    ```text
    C:\Program Files\DAUM\PotPlayer\
    ```
@@ -196,6 +198,8 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
+# Hardware thread affinity isolation (pins worker threads to P-cores on hybrid CPUs)
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads)
 ```
 

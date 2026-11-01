@@ -1,4 +1,14 @@
 Change log
+- 2.7.47.230 (20261101)
+  - AvsAffinity Companion Plugin & Submodule Integration:
+    - Attached AvsAffinity Git submodule tracking standalone repository https://github.com/tordona/AvsAffinity.
+    - Integrated AvsAffinity.vcxproj into mvtools.sln across x64 and ARM64 configurations, compiling directly into output directories alongside mvtools2.dll.
+    - Implemented PinWorkerThreads() clip filter using Win32 SetThreadAffinityMask during GetFrame() traversal with thread-local caching, confining AviSynth+ worker threads to Performance cores on hybrid architectures without constraining host application audio, UI, and D3D11 swapchain presentation threads.
+    - Implemented automatic homogeneous CPU bypass (minClass == maxClass) for uniform architectures (Intel N100, standard AMD Ryzen CCDs, Snapdragon X Elite/Plus).
+  - Profile & Installer Synchronization:
+    - Updated 21 hybrid CPU profiles across Intel Alder Lake (Core-i3-1215U), AMD Krackan Point (Ryzen AI 5 340), and Qualcomm Snapdragon (8cx Gen 1/2/3, 850, 7c Gen 2) to dynamically chain PinWorkerThreads() before Prefetch().
+    - Enhanced Install-MvToolsPotPlayer.ps1 to automatically deploy AvsAffinity.dll alongside mvtools2.dll, discover local build artifacts, verify PE machine architecture, and report active affinity status.
+    - Synchronized technical documentation and guides across Documentation/guides/ and docs/guides/.
 - 2.7.47.220-arm64 (20261101)
   - Multi-Threading Fallback & Thread Pool Infrastructure:
     - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).

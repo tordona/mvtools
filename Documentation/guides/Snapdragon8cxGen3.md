@@ -83,6 +83,10 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 > - **Eco (`USE_D3D12 = true`):** Reduces CPU load to **5.7%** and GPU load to **30.9%**.  
 > *(Note: Direct3D 12 GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis, with ARM64 CPU NEON remaining the recommended production default).*
 
+> [!TIP]
+> **Hardware Thread Affinity via `AvsAffinity.dll`**  
+> All 8cx Gen 3 profiles dynamically chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` before `Prefetch`. The bundled companion plugin `AvsAffinity.dll` applies Win32 `SetThreadAffinityMask` on each worker thread during frame traversal, programmatically confining MVTools vector compute to the 4x Cortex-X1 Prime cluster (`0xF0`). This prevents Windows Thread Director from migrating heavy SIMD threads onto the 2.4 GHz Cortex-A78 cores, eliminating 1% low frame stuttering without constraining host PotPlayer audio or presentation threads.
+
 > [!NOTE]
 > **Hardware Display Refresh & VSync Timing on Snapdragon 8cx Gen 3**  
 > Certain Snapdragon 8cx Gen 3 hardware platforms (such as the ThinkPad X13s or Surface Pro 9 5G) pair the Qualcomm display controller with an oscillator clock operating at approx. 59.8 Hz rather than an integer 60.00 Hz (even over certain external display connections). During strict 60.000 fps video playback, an excess frame accumulates every 4 to 7 seconds and is discarded by the DXGI swapchain compositor (`DXGI_SWAP_EFFECT_FLIP_DISCARD`) to keep video playback synchronized with audio. These minor discards are confirmed hardware display scanout timing artifacts and do not indicate a CPU/GPU compute bottleneck (frame render latency remains under 0.5 ms).

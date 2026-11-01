@@ -35,9 +35,10 @@ This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **exper
 
 ---
 
-### Primary Plugin Binary
+### Plugin Binaries & Architecture
 
 * **`mvtools2.dll`**: Unified canonical binary containing both the production native ARM64 CPU NEON engine (default) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
+* **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake, AMD Zen 4c/5c, Qualcomm Snapdragon), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
@@ -95,6 +96,9 @@ See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for compl
   - [x64 Runtime Direct Download](https://aka.ms/vs/17/release/vc_redist.x64.exe) (AMD / Intel x86-64 PCs)
 * **AviSynth+ Host**: AviSynth.dll (v3.7.2 or newer, matching target architecture).
 * **DirectX 12 Compatible GPU**: Required only when running the experimental Direct3D 12 engine (mvtools2.dll).
+
+### Bundled Companion Dependencies
+* **AvsAffinity.dll**: Bundled alongside `mvtools2.dll` to manage CPU thread affinity on hybrid Intel, AMD, and ARM64 platforms. Automatically deployed by `Install-MvToolsPotPlayer.ps1`.
 
 ### Optional Dependencies
 * **libfftw3f-3.dll**: Only required if explicitly enabling frequency-domain DCT motion estimation modes (dct >= 5). All standard real-time 60 fps profiles in this repository default to spatial SAD/SATD (dct=0) and do not require FFTW.

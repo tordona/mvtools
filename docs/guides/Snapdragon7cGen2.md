@@ -108,6 +108,10 @@ The Snapdragon 7c Gen 2 features an asymmetric **2+6 big.LITTLE** topology:
 > **Never set `Prefetch` ≥ 3 on this chip.**
 > When AviSynth spawns more than 2 worker threads, Windows thread scheduler places worker threads onto the Cortex-A55 Silver cores. Because an A55 core takes 3.5× longer to complete a frame than an A76 core, the lookahead buffer stalls waiting for the slow thread, dropping the display output from 60 fps to approx. 15 fps.
 
+> [!TIP]
+> **Hardware Core Isolation via `AvsAffinity.dll`**  
+> All Snapdragon 7c Gen 2 profiles dynamically chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` before `Prefetch`. Bundled companion plugin `AvsAffinity.dll` programmatically pins the 2 worker threads to the 2 Kryo 468 Gold (Cortex-A76) cores, actively preventing the Windows scheduler from assigning MVTools compute threads to the in-order Cortex-A55 cores.
+
 ---
 
 ## Summary Configuration Checklist

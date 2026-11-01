@@ -88,8 +88,8 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 6. Click **Apply** → **OK**.
 
 > [!TIP]
-> **The Thread Capping Rule (`Prefetch <= 4`)**  
-> The Snapdragon 8cx Gen 2 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided 8cx Gen 2 scripts strictly cap `Prefetch` to **3 or 4 threads** so that MVTools runs exclusively on the Gold performance cores. Never increase `Prefetch` beyond 4, as dispatching work to the slow Silver cores will cause pipeline stalls and video stutter.
+> **The Thread Capping Rule (`Prefetch <= 4`) & Hardware Pinning (`AvsAffinity.dll`)**  
+> The Snapdragon 8cx Gen 2 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided 8cx Gen 2 scripts strictly cap `Prefetch` to **3 or 4 threads** and dynamically chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`. The bundled companion plugin `AvsAffinity.dll` programmatically pins worker threads to the 4 Gold performance cores (`0xF0`). This prevents the OS scheduler from scheduling MVTools worker threads on the low-IPC Silver cores, eliminating pipeline stalls and video stutter.
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` - Experimental Preview)**  

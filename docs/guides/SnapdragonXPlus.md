@@ -97,6 +97,10 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 > - **Balanced (`USE_D3D12 = true`):** Reduces host CPU load to **6.3%** and working set RAM to **335.9 MB** while sustaining **55.53 fps 1% Low** pacing and zero dropped frames.  
 > *(Note: GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis).*
 
+> [!NOTE]
+> **Homogeneous Architecture & `AvsAffinity.dll`**  
+> Because Qualcomm Snapdragon X Plus and X Elite use uniform Qualcomm Oryon CPU cores across the entire SoC (no low-IPC Efficiency cores), `AvsAffinity.dll` automatically detects uniform efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`), allowing threads to schedule freely across all 8 to 12 Oryon cores without modification to system affinity.
+
 ---
 
 > [!NOTE]

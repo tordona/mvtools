@@ -86,6 +86,10 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
    - **Max Quality:** [`Snapdragon-850-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs)
 6. Click **Apply** → **OK**.
 
+> [!TIP]
+> **Hardware Core Pinning (`AvsAffinity.dll`)**  
+> All Snapdragon 850 profiles dynamically chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` before `Prefetch`. The bundled companion plugin `AvsAffinity.dll` programmatically confines worker threads to the 4 Kryo 385 Gold performance cores (`0xF0`), preventing thread migration to the low-IPC Cortex-A55 cores in ~5 W fanless chassis.
+
 ---
 
 > [!NOTE]
