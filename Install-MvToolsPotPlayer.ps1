@@ -1765,6 +1765,7 @@ function Install-MvToolsRelease {
         $cpuDll = $archPool | Where-Object { $_.Name -ieq "mvtools2.dll" } | Select-Object -First 1
         $depanDll = $archPool | Where-Object { $_.Name -ieq "DePan.dll" } | Select-Object -First 1
         $depanEstDll = $archPool | Where-Object { $_.Name -ieq "DePanEstimate.dll" } | Select-Object -First 1
+        $affinityDll = $archPool | Where-Object { $_.Name -ieq "AvsAffinity.dll" } | Select-Object -First 1
 
         if (-not $cpuDll) {
             throw "Could not locate 'mvtools2.dll' inside the downloaded release archive!"
@@ -1786,6 +1787,10 @@ function Install-MvToolsRelease {
             if ($depanEstDll) {
                 Copy-Item -Path $depanEstDll.FullName -Destination (Join-Path $deployDir "DePanEstimate.dll") -Force -ErrorAction Stop
                 Write-Host "  -> Deployed DePanEstimate.dll to: $deployDir" -ForegroundColor Green
+            }
+            if ($affinityDll) {
+                Copy-Item -Path $affinityDll.FullName -Destination (Join-Path $deployDir "AvsAffinity.dll") -Force -ErrorAction Stop
+                Write-Host "  -> Deployed AvsAffinity.dll to: $deployDir" -ForegroundColor Green
             }
         } catch {
             Write-Host "  [ERROR] Failed to deploy MVTools binaries to '$deployDir': $($_.Exception.Message)" -ForegroundColor Red
@@ -1891,12 +1896,14 @@ function Install-ArchitectureFilteredProfiles {
     $cleanPotDir = $TargetPotPlayerDir.TrimEnd('\/').Replace('\', '/')
     $potMvTools = "$cleanPotDir/mvtools2.dll"
     $potMvToolsD3d12 = $potMvTools
+    $potAffinity = "$cleanPotDir/AvsAffinity.dll"
 
     Get-ChildItem -Path $potAvsDir -Filter "*.avs" | ForEach-Object {
         try {
             $avsContent = [System.IO.File]::ReadAllText($_.FullName)
             # Unified mvtools2.dll
             $avsContent = $avsContent -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
+            $avsContent = $avsContent -replace '(?i)"AvsAffinity\.dll"', "`"$potAffinity`""
             [System.IO.File]::WriteAllText($_.FullName, $avsContent, [System.Text.Encoding]::ASCII)
         } catch {}
     }
@@ -2093,10 +2100,12 @@ function Set-PotPlayerActiveProfile {
     $cleanPotDir = $TargetPotPlayerDir.TrimEnd('\/').Replace('\', '/')
     $potMvTools = "$cleanPotDir/mvtools2.dll"
     $potMvToolsD3d12 = $potMvTools
+    $potAffinity = "$cleanPotDir/AvsAffinity.dll"
 
     $rawAvs = Get-Content -Path $ProfilePath -Raw
     # Unified mvtools2.dll
     $resolvedAvs = $rawAvs -replace '(?i)"mvtools2\.dll"', "`"$potMvTools`""
+    $resolvedAvs = $resolvedAvs -replace '(?i)"AvsAffinity\.dll"', "`"$potAffinity`""
 
     Set-PotPlayerShortcutWorkingDirectory -TargetPotPlayerDir $TargetPotPlayerDir
 
@@ -2213,9 +2222,9 @@ function Copy-AiAgentHardwarePrompt {
     $isArm64 = ($TargetArch -eq "arm64")
     $archDesc = if ($isArm64) { "Windows 11 on ARM64 (AArch64)" } else { "Windows 11 x86-64" }
     $pluginRule = if ($isArm64) {
-        '2. Engine & Plugin Hook: MUST load unified binary via ``LoadPlugin("mvtools2.dll")`` and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)``. Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)``. Hook video via ``src = potplayer_source()``.'
     } else {
-        '2. Engine & Plugin Hook: MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` (DO NOT reference USE_D3D12 or MEnableD3D12 on x64). Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` and optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}`` (DO NOT reference USE_D3D12 or MEnableD3D12 on x64). Hook video via ``src = potplayer_source()``.'
     }
 
     $promptText = @"
@@ -2239,7 +2248,7 @@ $pluginRule
 4. Single-Level Geometry: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced; ``sharp=1`` or ``sharp=2`` Wiener filter for MaxQuality).
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
 6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
-7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), ending with ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. Note that Prefetch controls worker instance concurrency, not OS thread affinity.
+7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``.
 8. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 9. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
 
@@ -2339,9 +2348,10 @@ if ($needAviSynth) {
     }
 }
 
-# Step 5: Ensure Native MVTools2 Binaries
-Write-Host "`n[5/6] Verifying MVTools2 Binaries..." -ForegroundColor Cyan
+# Step 5: Ensure Native MVTools2 & Companion Binaries
+Write-Host "`n[5/6] Verifying MVTools2 & Companion Binaries..." -ForegroundColor Cyan
 $potMvToolsDll = Join-Path $resolvedPotDir "mvtools2.dll"
+$potAvsAffinityDll = Join-Path $resolvedPotDir "AvsAffinity.dll"
 $needMvTools = $true
 
 if (Test-Path $potMvToolsDll) {
@@ -2366,6 +2376,27 @@ if ($needMvTools) {
         }
     } else {
         Write-Error "Failed to install mvtools2.dll into $resolvedPotDir! Video interpolation will fail without this binary."
+    }
+}
+
+# Deploy local build artifacts of AvsAffinity.dll if present
+$localAffinity = @(
+    (Join-Path $RepoRoot "$targetArch\Release\AvsAffinity.dll"),
+    (Join-Path $RepoRoot "AvsAffinity\$targetArch\Release\AvsAffinity.dll"),
+    (Join-Path $PSScriptRoot "$targetArch\Release\AvsAffinity.dll"),
+    (Join-Path $PSScriptRoot "AvsAffinity\$targetArch\Release\AvsAffinity.dll")
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($localAffinity -and -not (Test-Path $potAvsAffinityDll)) {
+    try {
+        Copy-Item -Path $localAffinity -Destination $potAvsAffinityDll -Force -ErrorAction SilentlyContinue
+    } catch {}
+}
+
+if (Test-Path $potAvsAffinityDll) {
+    $machAff = Get-PeMachine -FilePath $potAvsAffinityDll
+    if ($machAff -eq $expectedMachine) {
+        Write-Host ("  -> Verified native AvsAffinity.dll (0x{0:X4}) in PotPlayer directory." -f $machAff) -ForegroundColor Green
     }
 }
 
@@ -2461,6 +2492,7 @@ $potExe = $potExeCandidates | Where-Object { Test-Path $_ } | Select-Object -Fir
 
 $isAviSynthReady = (Test-Path $potAviSynthDll) -and ((Get-PeMachine -FilePath $potAviSynthDll) -eq $expectedMachine)
 $isMvToolsReady = (Test-Path $potMvToolsDll) -and ((Get-PeMachine -FilePath $potMvToolsDll) -eq $expectedMachine)
+$isAffinityReady = (Test-Path $potAvsAffinityDll) -and ((Get-PeMachine -FilePath $potAvsAffinityDll) -eq $expectedMachine)
 $allStagesSuccessful = ($potExe -and $isAviSynthReady -and $isMvToolsReady -and $isVcReady)
 
 if ($allStagesSuccessful) {
@@ -2468,6 +2500,9 @@ if ($allStagesSuccessful) {
     Write-Host " SETUP COMPLETE! 60 fps Motion Interpolation Ready" -ForegroundColor Green
     Write-Host " PotPlayer Executable: $potExe" -ForegroundColor Gray
     Write-Host " Active Profile:       $($selectedMatch.Name)" -ForegroundColor Gray
+    if ($isAffinityReady) {
+        Write-Host " Core Affinity:        AvsAffinity.dll [Active]" -ForegroundColor Gray
+    }
     Write-Host "================================================================`n" -ForegroundColor Green
 
     $shouldLaunch = $Launch -or $userRequestedLaunch

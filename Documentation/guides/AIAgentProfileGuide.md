@@ -1,4 +1,4 @@
-# AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
+﻿# AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
 
 This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
 
@@ -140,6 +140,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    # 4. Load Plugin & Configure Offload
    LoadPlugin("mvtools2.dll")
    # MEnableD3D12(USE_D3D12)             # Include only on ARM64 platforms
+   try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
    # 5. Base Motion Super Clip (Single-Level Geometry)
    # levels=1: Single-level eliminates redundant multi-level pyramid generation
@@ -153,12 +154,14 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    # Directly warps native frames with 1:1 pixel accuracy
    MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
-   # 8. Core Pinning & Lookahead Buffer
+   # 8. Hardware Thread Affinity & Lookahead Buffer
+   last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
    Prefetch(threads, <Lookahead>)
    ```
 
 3. **Core Topology & Thread Allocation Rules (`threads`):**
-   * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores` or `threads <= physical_p_cores` on hybrid architectures). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count), not OS hardware thread affinity.
+   * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores` or `threads <= physical_p_cores` on hybrid architectures). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count).
+   * **Hardware Thread Affinity (`PinWorkerThreads`):** On hybrid architectures (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon), chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` immediately prior to `Prefetch(threads, <Lookahead>)`. This confines worker threads strictly to high-IPC Performance cores while leaving audio decoding, DXVA, and D3D11 presentation swapchains free on Efficiency cores. On homogeneous processors (e.g. Intel N100, AMD Ryzen standard CCDs, Snapdragon X Elite/Plus), `PinWorkerThreads()` automatically detects identical efficiency classes and safely evaluates to a no-op without misconfiguring affinity.
    * Leaving logical threads and background cores free guarantees dedicated CPU headroom for hardware DXVA2/D3D11 decoding, audio synchronization, and Windows DWM presentation, preventing dropped frames.
    * **Homogeneous Cores (Intel 8th–11th Gen, Desktop Core, AMD Zen):**
      * 4-Core CPU (e.g. i5-8259U, i5-1135G7): `threads = 3` (Eco), `threads = 4` (Balanced), `threads = 4` (MaxQuality).
@@ -272,6 +275,6 @@ If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showin
 | **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
 | **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (> 85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. Increase block size (e.g. 16x16 → 32x32).<br>3. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>4. Ensure `blend=false` in `MBlockFps`. |
 | **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
-| **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Increase lookahead queue to `Prefetch(threads, 6)`.<br>2. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
+| **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` is active on hybrid P/E or ARM64 architectures.<br>2. Increase lookahead queue to `Prefetch(threads, 6)`.<br>3. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 1024 → 768, or 768 → 512).<br>2. Ensure single-level geometry `levels=1` is enabled. |
 | **1–2 dropped frames with Render Latency < 0.5 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (e.g. 60.02 Hz or 60.15 Hz panel clock), not a computational bottleneck. |
