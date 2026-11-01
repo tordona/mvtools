@@ -45,6 +45,11 @@ typedef uint8_t BYTE;
 typedef unsigned int (SADFunction)(const uint8_t *pSrc, int nSrcPitch,
   const uint8_t *pRef, int nRefPitch);
 
+typedef void (SADx4Function)(const uint8_t *pSrc, int nSrcPitch,
+  const uint8_t *pRef0, const uint8_t *pRef1,
+  const uint8_t *pRef2, const uint8_t *pRef3,
+  int nRefPitch, sad_t *out_sads);
+
 #endif	// types_HEADER_INCLUDED
 
 
