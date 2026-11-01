@@ -1,0 +1,3 @@
+[submodule "AvsAffinity"]
+	path = AvsAffinity
+	url = https://github.com/tordona/AvsAffinity.git
