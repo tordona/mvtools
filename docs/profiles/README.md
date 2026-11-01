@@ -140,8 +140,8 @@ Prefetch(threads)
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, exhaustive 2D grid motion search, sustained 60 fps
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Oryon architecture, levels=1, search=3 (Exhaustive 7x7 coarse / 5x5 GPU fine), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
+# Revision: 2.2.0 (2026-10-31)
+# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
 # ==============================================================================
 USE_D3D12 = false
 
@@ -150,7 +150,7 @@ use_chroma  = USE_D3D12 ? false : true
 threads     = USE_D3D12 ? 4 : 8
 mem_limit   = USE_D3D12 ? 2048 : 4096
 
-# Subpixel, Block & Exhaustive Search Parameters:
+# Subpixel, Block & Search Parameters:
 fine_rad    = USE_D3D12 ? 2 : 1
 
 SetMemoryMax(mem_limit)
@@ -174,13 +174,13 @@ MEnableD3D12(USE_D3D12)
 # 1. Motion Super Clip
 super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
 
-# 2. Exhaustive Coarse Motion Vector Field Analysis
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=3, searchparam=3, chroma=use_chroma, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=3, searchparam=3, chroma=use_chroma, levels=1, badrange=(-24))
+# 2. Diamond Coarse Motion Vector Field Analysis
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
 
-# 3. Exhaustive Micro-Block Refinement (MRecalculate)
-backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=3, searchparam=fine_rad, chroma=use_chroma, divide=0)
-forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=3, searchparam=fine_rad, chroma=use_chroma, divide=0)
+# 3. Micro-Block Refinement (MRecalculate)
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=use_chroma, divide=0)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=use_chroma, divide=0)
 
 # 4. Dynamic Median Pixel-Flow Motion Interpolation
 MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)

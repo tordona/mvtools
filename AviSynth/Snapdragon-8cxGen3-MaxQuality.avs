@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Highest Achievable Quality, Wide-Radius Refinement, Sustained 60 fps
-# Revision: 2.2.0 (2026-10-28)
-# Changelog: Coarse 32x32 (search=3 GPU / search=2 CPU) -> fine 16x16, Dynamic Median (mode=2, blend=true), threads=4, mem_limit=1536, D3D12 toggle
+# Revision: 2.3.0 (2026-10-31)
+# Changelog: Coarse 32x32 (search=2 Diamond) -> fine 16x16, Dynamic Median (mode=2, blend=true), threads=4, mem_limit=1536, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -17,8 +17,8 @@ USE_D3D12 = false
 # GPU: 4 worker threads; CPU: 4 Cortex-X1 Prime cores (zero asymmetric core stalls)
 threads     = USE_D3D12 ? 4 : 4
 mem_limit   = USE_D3D12 ? 1536 : 1536
-# GPU: Exhaustive 5x5 coarse grid (search=3, searchparam=2) + radius-2 fine refinement utilizes Adreno 690 compute headroom
-search_alg  = USE_D3D12 ? 3 : 2
+# Diamond search (search=2, searchparam=2) provides high tracking fidelity without thermal throttling
+search_alg  = 2
 fine_rad    = USE_D3D12 ? 2 : 1
 
 # Memory allocation and multi-threading filter mode
@@ -50,7 +50,7 @@ super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Wide Coarse Motion Vector Field Analysis
 # 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
-# search=search_alg, searchparam=2: Full 5x5 (25-point) exhaustive grid on GPU; radius-2 hexagonal search on CPU
+# search=search_alg, searchparam=2: Diamond search (~12 points) on both GPU and CPU
 # chroma=false: Luma-focused motion estimation keeps computation inside thermal budget
 # levels=1: Strictly searches base Level 0
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
