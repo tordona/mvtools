@@ -4,12 +4,13 @@
 # Memory: 16 GB Dual-Channel DDR4/LPDDR5 (51.2-83.2 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Fluid 1080p 60 fps, Native 16x16 Vectors (8,160 Blocks), 15 W Sustained Envelope
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-01)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
-# 3 worker threads runs across the 2 high-performance Golden Cove P-cores (2P/4T).
-# Leaves 1 P-thread + all 4 Gracemont E-cores completely unburdened for UHD DXVA decode, D3D11 swapchain, and DWM.
+# 3 worker threads running across the 2 high-performance Golden Cove P-cores (2P/4T).
+# Leaves 1 P-thread + all 4 Gracemont E-cores completely unburdened for UHD DXVA decode,
+# Direct3D 11 swapchain presentation, and Windows DWM.
 threads     = 3
 mem_limit   = 768                 # Ample headroom for native 1080p 16x16 vector search
 

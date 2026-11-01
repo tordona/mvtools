@@ -4,12 +4,13 @@
 # Memory: 16 GB Dual-Channel DDR4/LPDDR5 (51.2-83.2 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-8 W Power Envelope, Minimal Heat, Silent Fan / Passive Playback, 0 Drops
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-01)
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
-# 2 worker threads locks computation strictly to the 2 Golden Cove P-cores (1 thread per P-core).
+# 2 worker threads locks computation strictly to the 2 physical Golden Cove P-cores (1 thread per P-core).
 # Avoids hyperthread contention and E-core scheduling jitter, keeping package draw sub-8 W.
+# Leaves 2 P-threads + all 4 Gracemont E-cores completely unburdened for UHD DXVA decode, D3D11 swapchain, and DWM.
 threads     = 2
 mem_limit   = 512                 # Generous memory pool for 16 GB dual-channel RAM
 
@@ -39,7 +40,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Native 1080p Motion Vector Search (No Proxy / Zero Downscale)
 # blksize=blk_sz, blksizev=blk_sz: 32x32 blocks at native 1080p (~2,040 blocks total)
-# search=2, searchparam=1: Hexagonal search with tight radius
+# search=2, searchparam=1: Tight radius-1 hexagonal search for maximum battery efficiency
 # chroma=false: Luma-only search cuts vector computation by 50%
 # levels=1: Single-level search matching super's levels=1
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
