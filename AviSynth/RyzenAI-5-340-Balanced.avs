@@ -30,6 +30,7 @@ blk_sz = is_4k ? 32 : 16
 
 # Load Native x64 MVTools2 plugin (leveraging Zen 5 dual 512-bit AVX-512 SIMD pipelines)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)

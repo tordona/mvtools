@@ -29,6 +29,7 @@ blk_sz = is_4k ? 32 : 16
 
 # Load Native x64 MVTools2 plugin (leveraging Zen 5 dual 512-bit AVX-512 SIMD pipelines)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Native 1080p Super Clip with Bicubic Subpixel Interpolation
 # sharp=1: Bicubic subpixel interpolation enhances fine detail edge contrast
