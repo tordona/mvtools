@@ -1,180 +1,151 @@
-# mvtools
-Motion estimation and compensation plugin for Avisynth+ and Avisynth v2.6 family.\
-Supporting Y, YUV 4:2:0, 4:2:2, 4:4:4 (also 4:1:0, 4:1:1, 4:4:0, with or without alpha) at native 8, 10, 12, 14 and 16 bit depths,
-32 bit float and planar RGB in selected filters, YUY2 (converted to YV16 internally).\
-Still supporting Windows XP (v141_xp build).\
-Windows x86, x64 and ARM64 versions.\
-From December 20, 2020: Linux port; since 2.7.48 also Linux aarch64 (ARM64) with NEON optimizations.
+# MVTools2 — Native ARM64 & Direct3D 12 GPU Video Motion Interpolation
 
-Files: mvtools2.dll, and the DePan plugins depan.dll, depanestimate.dll (see README_depans.txt)
+### Real-Time 60 fps Playback for Windows on ARM64, Qualcomm Snapdragon & PotPlayer
 
-## Credits: 
+<p align="center">
+  <a href="https://github.com/tordona/mvtools/releases/latest"><img src="https://img.shields.io/github/v/release/tordona/mvtools?color=blue&logo=github" height="20" alt="GitHub Release"></a>
+  <a href="https://tordona.github.io/mvtools/"><img src="https://img.shields.io/badge/Docs-GitHub%20Pages-blue?logo=github" height="20" alt="Documentation Hub"></a>
+  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Platform-Windows%20on%20ARM64-0078D4?logo=windows" height="20" alt="Platform"></a>
+  <a href="AI_PORT_NOTICE.md"><img src="https://img.shields.io/badge/Architecture-ARM64%20NEON%20%2B%20AVX2-410099?logo=arm" height="20" alt="Architecture"></a>
+  <a href="#experimental-feature-notice-direct3d-12-gpu-offload"><img src="https://img.shields.io/badge/GPU%20Engine-Direct3D%2012%20(Experimental)-107C41?logo=directx" height="20" alt="GPU Engine"></a>
+  <a href="#qualcomm-snapdragon-60-fps-real-time-motion-interpolation"><img src="https://img.shields.io/badge/Framerate-24%20fps%20%E2%86%92%2060%20fps%20Real--Time-brightgreen" height="20" alt="Framerate"></a>
+  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Tested%20On-Daum%20PotPlayer%20(D3D11)-E5A00D" height="20" alt="Tested On"></a>
+  <a href="Documentation/gpl.txt"><img src="https://img.shields.io/badge/License-GPL--2.0-blue.svg" height="20" alt="License"></a>
+</p>
+
+![MVTools2 Native ARM64 and Direct3D 12 GPU Offload 60 fps Motion Interpolation Banner](Documentation/images/social-preview-flat.jpg)
+
+**MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
+
+This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **experimental Direct3D 12 DirectCompute GPU offload engine**, enabling real-time 60 fps playback across Qualcomm Snapdragon devices (including Copilot+ PCs and Surface Pro) as well as x86-64 platforms.
+
+> 📖 **Documentation Hub:** Visit [**tordona.github.io/mvtools**](https://tordona.github.io/mvtools/) for browsable profiles, step-by-step setup guides, and benchmark analysis.
+
+---
+
+### Overview & Architectural Differences
+
+| Feature                                  | Implementation                                                                                                                   | Hardware & Compatibility Notes                                                                                         |
+|:---------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
+| **Native Windows on ARM64**              | Native ARM64 NEON SIMD vector implementation running without x86 emulation.                                                      | Provides real-time 60 fps interpolation on Windows on ARM, where software like SVP lacks native ARM64 support.          |
+| **Experimental Direct3D 12 GPU Offload** | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                             |
+| **18 Tuned Snapdragon Profiles**         | Empirically verified `.avs` scripts for **Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen 2**.                           | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
+| **Sub-Millisecond Benchmark Harness**    | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                       |
+| **AI Agent Automated Profiling**         | Standardized prompt guide ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)) for closed-loop self-tuning. | Autonomous hardware autodetection and iterative tuning in Google Antigravity, Cursor, Gemini, or Claude.               |
+
+---
+
+### Plugin Binaries & Architecture
+
+* **`mvtools2.dll`**: Unified canonical binary containing both the production native ARM64 CPU NEON engine (default) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
+* **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake, AMD Zen 4c/5c, Qualcomm Snapdragon), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
+
+> [!WARNING]
+> **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
+> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is currently provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
+>
+> For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
+
+## Qualcomm Snapdragon 60 fps Real-Time Motion Interpolation
+
+This fork provides **18 tuned real-time 60 fps AviSynth motion interpolation profiles** under [`AviSynth/`](AviSynth/) and step-by-step PotPlayer hardware acceleration guides under [`Documentation/guides/`](Documentation/guides/), empirically verified across 6 major Snapdragon SoC generations:
+
+| Platform                       | Cores / GPU                                    | Verified Profiles                                                                                                                                          | Hardware Guide                                                      |
+|:------------------------------ |:---------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| **Snapdragon X Plus / Elite**  | 8–12x Oryon / Adreno X1-85 (~3.8 TFLOPS)       | [Eco](AviSynth/Snapdragon-X-Plus-Eco.avs), [Balanced](AviSynth/Snapdragon-X-Plus-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-X-Plus-MaxQuality.avs)    | [`SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md)     |
+| **Snapdragon 8cx Gen 3 / SQ3** | 4x X1 + 4x A78 / Adreno 690 (~2.2 TFLOPS)      | [Eco](AviSynth/Snapdragon-8cxGen3-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen3-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) | [`Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md) |
+| **Snapdragon 8cx Gen 2 / SQ2** | 4x Gold + 4x Silver / Adreno 680 (~1.3 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) | [`Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) |
+| **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS) | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |
+| **Snapdragon 850**             | 4x Gold + 4x Silver / Adreno 630 (~5 W Fanless) | [Eco](AviSynth/Snapdragon-850-Eco.avs), [Balanced](AviSynth/Snapdragon-850-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-850-MaxQuality.avs)             | [`Snapdragon850.md`](Documentation/guides/Snapdragon850.md)         |
+| **Snapdragon 7c Gen 2**        | 2x Gold + 6x Silver / Adreno 618 (~5 W Fanless) | [Eco](AviSynth/Snapdragon-7cGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-7cGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-7cGen2-MaxQuality.avs)    | [`Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md)   |
+
+For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC ARM64 $\leftrightarrow$ MinGW GCC), see [**`AI_PORT_NOTICE.md`**](AI_PORT_NOTICE.md) and [**`CHANGELOG.md`**](CHANGELOG.md).
+
+---
+
+## Automated Benchmark & Telemetry Test Suite
+
+An automated benchmark harness and comparative matrix suite for reproducible frame pacing and telemetry capture is provided under [`Benchmarks/`](Benchmarks/):
+
+- **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware platform autodetection (ARM64 Snapdragon & x64 PC), and deterministic configuration enforcement.
+- **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**.
+- **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Verified baseline performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
+- **[`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)**: AI Agent Guide & Standardized Prompt for generating and autonomously tuning custom 3-tier profiles (`Eco`, `Balanced`, `MaxQuality`) on new hardware platforms using IDE agents or web assistants.
+
+See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for complete parameter references, usage guides, and verified baseline metrics.
+
+## Credits:
 
 - Manao, Fizick, Tsp, TSchniede, SEt, Vit, Firesledge, cretindesalpes 
+- Intel Corporation for Intel® PresentMon (MIT License; see [`Benchmarks/PresentMon-LICENSE.txt`](Benchmarks/PresentMon-LICENSE.txt))
 
 ## Links
+
 - Doom9 forum: https://forum.doom9.org/showthread.php?t=173356
 - Avisynth wiki: http://avisynth.nl/index.php/MVTools
 - Project host: https://github.com/pinterf/mvtools under mvtools-pfmod branch
 - http://avisynth.nl/index.php/External_filters#64-bit_filters 
 - http://avisynth.org.ru/mvtools/mvtools2.html
+- DTL's fork (experimental features, hardware device motion estimation): https://github.com/DTL2020/mvtools
 
-For more information see also documents folder.
+## System Requirements & Dependencies
 
-## External dependencies: 
+### Required Runtime Dependencies
+* **Microsoft Visual C++ 2015–2022 Redistributable**:
+  - [ARM64 Runtime Direct Download](https://aka.ms/vs/17/release/vc_redist.arm64.exe) (Qualcomm Snapdragon / Windows on ARM)
+  - [x64 Runtime Direct Download](https://aka.ms/vs/17/release/vc_redist.x64.exe) (AMD / Intel x86-64 PCs)
+* **AviSynth+ Host**: AviSynth.dll (v3.7.2 or newer, matching target architecture).
+* **DirectX 12 Compatible GPU**: Required only when running the experimental Direct3D 12 engine (mvtools2.dll).
 
-- fftw3 single precision library, used only at specific dct parameter values (MAnalyse, MRecalculate) and by DePanEstimate
-  - Windows: libfftw3f-3.dll (or fftw3.dll) from http://www.fftw.org/ or look at ICL builds at http://forum.doom9.org/showthread.php?t=173229.
-    Windows on ARM64 needs an ARM64 build of the dll, e.g. from the MSYS2 package mingw-w64-clang-aarch64-fftw (not tested).
-  - Linux: libfftw3f_threads.so.3, package libfftw3-single3 (deb) or fftw-devel (rpm), x86-64 and aarch64 alike.
-  
-- MSVC builds may require Microsoft Visual C++ Redistributables https://www.visualstudio.com/downloads/
-  (the Windows ARM64 llvm-mingw build links its C++ runtime statically, it needs nothing else).
+### Bundled Companion Dependencies
+* **AvsAffinity.dll**: Bundled alongside `mvtools2.dll` to manage CPU thread affinity on hybrid Intel, AMD, and ARM64 platforms. Automatically deployed by `Install-MvToolsPotPlayer.ps1`.
+
+### Optional Dependencies
+* **libfftw3f-3.dll**: Only required if explicitly enabling frequency-domain DCT motion estimation modes (dct >= 5). All standard real-time 60 fps profiles in this repository default to spatial SAD/SATD (dct=0) and do not require FFTW.
 
 ## Build Instructions
 
-Note:
+This fork is designed for **Windows (ARM64 and x86-64)**. Due to native Direct3D 12 GPU compute shaders and Windows Runtime APIs, Linux builds are not supported in this repository; use upstream [`pinterf/mvtools`](https://github.com/pinterf/mvtools) for Linux and macOS environments.
 
-The Windows x86/x64 MSVC and ClangCL builds use external (nasm) assembler source - where there exists.
+Compilation is performed using **Microsoft Visual Studio 2022 or 2026** via [`mvtools.sln`](mvtools.sln).
 
-Other builds use internal SIMD code: x86 intrinsics (MinGW, Linux x86-64; governed by defines in def.h),
-NEON intrinsics on aarch64 (Windows ARM64, Linux aarch64). Every SIMD path has a C equivalent with the same output.
+### Prerequisites
 
-### Windows MSVC
+1. **Visual Studio 2022 or 2026** with the **Desktop development with C++** workload.
+2. **Windows 10 / 11 SDK** (version 10.0.19041.0 or higher).
+3. **Target-Specific Dependencies:**
+   - **ARM64 Builds:** Install the **MSVC v143 - VS 2022 C++ ARM64/ARM64EC build tools** component from the Visual Studio Installer.
+   - **x86-64 / Win32 Builds:** Install [NASM (Netwide Assembler)](https://www.nasm.us/) and enable the Visual Studio build integration via [VSNASM](https://github.com/ShiftMediaProject/VSNASM/releases) (`nasm.props` / `nasm.targets`).
 
-- Visual Studio 2026: open `mvtools.slnx` (Release: v143, Rel_Clang: ClangCL, IntelCpp: Intel C++ Compiler 2025 ICX).
-- Windows XP build (Release_v141_xp): needs **Visual Studio 2022** with the
-  "MSVC v141 - VS 2017 C++ build tools" component; VS 2026 no longer offers the v141_xp toolset.
-  Open `mvtools.sln` in VS 2022 for that configuration.
+---
 
-- Prerequisite: for asm compilation use nasm https://www.nasm.us/ 
-  Visual Studio integration: https://github.com/ShiftMediaProject/VSNASM/releases
+### Building in Visual Studio (Recommended)
 
-  Compiler nasm.exe can appear in e.g. `C:\Program Files\Microsoft Visual Studio\18\Community\VC\`
+1. Open [`mvtools.sln`](mvtools.sln) in Visual Studio.
+2. Select your build target:
+   - **Native ARM64 (Qualcomm Snapdragon & Windows on ARM):**
+     - Configuration: **`Release`**
+     - Platform: **`ARM64`**  
+     *(NASM is automatically bypassed on ARM64; ARM64 NEON intrinsics and Direct3D 12 shaders compile directly via MSVC).*
+   - **x86-64 (AMD & Intel):**
+     - Configuration: **`Release`**
+     - Platform: **`x64`**
+3. Build the solution (**`Build` -> `Build Solution`** or **`Ctrl+Shift+B`**).
+4. Output binaries are generated under `Sources\<Platform>\<Configuration>\`:
+   - `mvtools2.dll` (Direct3D 12 GPU and SIMD motion estimation engine)
+   - `DePan.dll`
+   - `DePanEstimate.dll`
 
-  You can check the files nasm.targets, nasm.props and nasm.xml in e.g. `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Microsoft\VC\v170\BuildCustomizations\`
+---
 
-  For the XP compatible (v141_xp) build, copy them to the v150 BuildCustomizations folder of the VS 2022 installation:
-  `C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v150\BuildCustomizations\`
+### Command-Line Build (MSBuild)
 
-  **Important for the v150 copy:** recent VSNASM files use task parameters
-  (`TrackFileAccess` on `GetOutOfDateItems`, and `AcceptableNonZeroExitCodes`, `StdOutEncoding`,
-  `StdErrEncoding`, `UseMsbuildResourceManager` on `ParallelCustomBuild`/`CustomBuild`) that are
-  not supported by the older `Microsoft.Build.CppTasks.Common.dll` (v15.0) of the v150
-  toolset folder. The v170 copy is fine as-is. In the **v150 copy only**, remove those attributes
-  from `nasm.targets`:
-  - In both `<GetOutOfDateItems>` calls: remove `TrackFileAccess="$(TrackFileAccess)"`
-  - In `<ParallelCustomBuild>`: remove `AcceptableNonZeroExitCodes`, `StdOutEncoding`, `StdErrEncoding`, `UseMsbuildResourceManager`
-  - In `<CustomBuild>`: remove `AcceptableNonZeroExitCodes`, `StdOutEncoding`, `StdErrEncoding`.
-    `StdErrEncoding` is the last attribute, keep the closing `>` of the tag:
-    `MinimalRebuildFromTracking  ="false">` (else MSBuild: "Name cannot begin with the '<' character")
+From a **Developer Command Prompt for Visual Studio**:
 
-  Some nasm versions (e.g. the one valid around 2022.Dec.) will throw a lot of warnings on x265 assembler files. Temporarily they are silenced with -w-macro-params-legacy parameter.
+```cmd
+:: Build native ARM64 release
+msbuild mvtools.sln /p:Configuration=Release /p:Platform=ARM64 -m
 
-* build from IDE
-
-Note: CMake is not used for the MSVC builds (CMakeLists.txt refers to the solution); the sources also
-compile with MSVC for ARM64, but the solution has no ARM64 configuration (use the llvm-mingw build below).
-
-### Windows Visual Studio + Intel C++ Compiler ICX
-
-- Prerequisite: Intel C++ Compiler 2025 (ICX) + Visual Studio integration
-
-* build from IDE, configuration IntelCpp
-
-### Windows GCC
-(mingw installed by msys2, x86/x64)
-From the 'build' folder under project root:
-
-    del ..\CMakeCache.txt
-    cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=on
-    @rem test: cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=off
-    cmake --build . --config Release  
-
-### Windows on ARM64, cross-compiled on x64 Windows (llvm-mingw)
-
-No ARM64 hardware is needed. Prerequisites:
-- llvm-mingw, UCRT flavour (`llvm-mingw-<tag>-ucrt-x86_64.zip`) from https://github.com/mstorsjo/llvm-mingw/releases
-- CMake and Ninja (e.g. `pip install ninja`) on PATH
-
-From the project root:
-
-    set LLVM_MINGW_ROOT=C:\path\to\llvm-mingw-<tag>-ucrt-x86_64
-    build_arm64_mingw.bat
-
-The DLLs (MvTools2, DePan, DePanEstimate) are copied to `out\ARM64\llvm-mingw`; the build directory is
-`build\arm64_mingw`. The toolchain file is `cmake/toolchains/llvm-mingw-aarch64.cmake`, it can be used with
-plain cmake as well (`-G Ninja -DCMAKE_TOOLCHAIN_FILE=... -DLLVM_MINGW_ROOT=...`).
-
-### Windows on ARM64, built on an ARM64 Windows machine (MSYS2 CLANGARM64)
-
-Not tested. The MSYS2 CLANGARM64 environment runs on Windows on ARM64 only (its tools are ARM64 programs).
-In a CLANGARM64 shell:
-
-    pacman -S mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-cmake mingw-w64-clang-aarch64-ninja
-    cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
-    cmake --build build
-
-The NEON code paths are enabled automatically for the aarch64 target. The DLLs depend on the libc++
-runtime of the environment unless linked statically (add `-DCMAKE_SHARED_LINKER_FLAGS=-static` to the first cmake line).
-
-## Linux build instructions
-
-x86-64 and aarch64 (ARM64) alike; on aarch64 the NEON code paths are enabled automatically
-(ENABLE_NEON_SIMD), on x86-64 the SSE/AVX ones (ENABLE_INTEL_SIMD). GCC and Clang
-(aarch64 tested with GCC 11, 12 and Clang 15).
-
-* Clone repo
-
-        git clone https://github.com/pinterf/mvtools
-        cd mvtools
-        cmake -B build -S .
-        cmake --build build
-
-  Useful hints:        
-  build after clean:
-
-      cmake --build build --clean-first
-
-  delete CMake cache
-
-      rm build/CMakeCache.txt
-
-  a C-only build (for testing):
-
-      cmake -B build -S . -DENABLE_INTEL_SIMD=OFF -DENABLE_NEON_SIMD=OFF
-
-* Find binaries at
-
-        build/Sources/libmvtools2.so
-        build/DePan/libdepan.so
-        build/DePanEstimate/libdepanestimate.so
-
-* Install binaries
-
-        cd build
-        sudo make install
-
-* Packaging note
-
-  Build with the bundled Avisynth headers (`Sources/include`, `DePan/include`, `DePanEstimate/include`);
-  do not remove them or replace them with the system headers (e.g. `pkg-config --cflags avisynth`).
-  The plugins do not link against an Avisynth+ library, the header only describes the interface, and it
-  works with older hosts as well: features of a newer interface version (e.g. the V12 global lock used
-  around fftw plan creation) are called only when the host reports that version, otherwise a fallback is used.
-  A plugin built with the bundled header runs on older Avisynth+ releases (e.g. 3.7.5) too, while an older
-  system header fails to compile (`'class IScriptEnvironment' has no member named 'AcquireGlobalLock'`).
-
-## Support
-
-If you find this project useful, you can support the development:
-
-- Buy Me a Coffee: https://www.buymeacoffee.com/pinterf
-- PayPal: https://www.paypal.com/donate/?business=LHUTN4H5N9B86&no_recurring=0&item_name=Avisynth+and+occasional+VapourSynth+developer.+&currency_code=EUR
-
-## History
-
-Modification base:
-
-- mvtools2, 2.6.0.5 64 bit version from
-  http://avisynth.nl/index.php/AviSynth%2B#AviSynth.2B_x64_plugins
+:: Build x86-64 release
+msbuild mvtools.sln /p:Configuration=Release /p:Platform=x64 -m
+```
