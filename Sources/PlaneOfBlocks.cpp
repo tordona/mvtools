@@ -480,6 +480,10 @@ void PlaneOfBlocks::RecalculateMVs(
   _smooth = smooth;
   _thSAD = thSAD;
 
+  penaltyNew = _pnew; // penalty for new vector
+  LSAD = _lsad;       // SAD limit for lambda using
+  tryMany = false;
+
   // -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
   // fixme: consider disabling internal mt, it's giving inconsistent results when used
   Slicer			slicer(_mt_flag);
@@ -2913,6 +2917,8 @@ void	PlaneOfBlocks::search_mv_slice(Slicer::TaskData &td)
   int nBlkSizeX_Ovr[3] = { (nBlkSizeX - nOverlapX), (nBlkSizeX - nOverlapX) >> nLogxRatioUV, (nBlkSizeX - nOverlapX) >> nLogxRatioUV };
   int nBlkSizeY_Ovr[3] = { (nBlkSizeY - nOverlapY), (nBlkSizeY - nOverlapY) >> nLogyRatioUV, (nBlkSizeY - nOverlapY) >> nLogyRatioUV };
 
+  PROFILE_START(MOTION_PROFILE_ME);
+
   for (workarea.blky = workarea.blky_beg; workarea.blky < workarea.blky_end; workarea.blky++)
   {
     workarea.blkScanDir = (workarea.blky % 2 == 0 || !_meander_flag) ? 1 : -1;
@@ -2943,7 +2949,6 @@ void	PlaneOfBlocks::search_mv_slice(Slicer::TaskData &td)
       workarea.blkIdx = workarea.blky*nBlkX + workarea.blkx;
       workarea.iter = 0;
       //			DebugPrintf("BlkIdx = %d \n", workarea.blkIdx);
-      PROFILE_START(MOTION_PROFILE_ME);
 
       // Resets the global predictor (it may have been clipped during the
       // previous block scan)
@@ -3035,8 +3040,6 @@ void	PlaneOfBlocks::search_mv_slice(Slicer::TaskData &td)
       pBlkData[workarea.blkx*N_PER_BLOCK + 1] = workarea.bestMV.y;
       pBlkData[workarea.blkx*N_PER_BLOCK + 2] = *(uint32_t *)(&workarea.bestMV.sad);
 
-      PROFILE_STOP(MOTION_PROFILE_ME);
-
 
       if (smallestPlane)
       {
@@ -3081,6 +3084,10 @@ void	PlaneOfBlocks::search_mv_slice(Slicer::TaskData &td)
     workarea.y[1] += nBlkSizeY_Ovr[1];
     workarea.y[2] += nBlkSizeY_Ovr[2];
   }	// for workarea.blky
+
+  PROFILE_STOP(MOTION_PROFILE_ME);
+
+  PROFILE_STOP(MOTION_PROFILE_ME);
 
   planeSAD += workarea.planeSAD; // for debug, plus fixme outer planeSAD is not used
   sumLumaChange += workarea.sumLumaChange;
@@ -3174,6 +3181,8 @@ void	PlaneOfBlocks::recalculate_mv_slice(Slicer::TaskData &td)
   bool safeBlockAreaFor32bitCalc = nBlkSizeXMulY < 1675;
 
   // Functions using float must not be used here
+  PROFILE_START(MOTION_PROFILE_ME);
+
   for (workarea.blky = workarea.blky_beg; workarea.blky < workarea.blky_end; workarea.blky++)
   {
     workarea.blkScanDir = (workarea.blky % 2 == 0 || !_meander_flag) ? 1 : -1;
@@ -3203,7 +3212,6 @@ void	PlaneOfBlocks::recalculate_mv_slice(Slicer::TaskData &td)
       workarea.blkx = blkxStart + iblkx*workarea.blkScanDir;
       workarea.blkIdx = workarea.blky*nBlkX + workarea.blkx;
       //		DebugPrintf("BlkIdx = %d \n", workarea.blkIdx);
-      PROFILE_START(MOTION_PROFILE_ME);
 
 #if (ALIGN_SOURCEBLOCK > 1)
       //store the pitch
@@ -3439,9 +3447,6 @@ void	PlaneOfBlocks::recalculate_mv_slice(Slicer::TaskData &td)
       pBlkData[workarea.blkx*N_PER_BLOCK + 0] = workarea.bestMV.x;
       pBlkData[workarea.blkx*N_PER_BLOCK + 1] = workarea.bestMV.y;
       pBlkData[workarea.blkx*N_PER_BLOCK + 2] = workarea.bestMV.sad;
-
-
-      PROFILE_STOP(MOTION_PROFILE_ME);
 
       if (smallestPlane)
       {

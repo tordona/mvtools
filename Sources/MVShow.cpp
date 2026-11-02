@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Show the motion vectors of a clip
 // Author: Manao
 // Copyright(c)2006 A.G.Balakhnin aka Fizick - YUY2, overlap
@@ -43,7 +44,7 @@ mvClip(vectors, nSCD1, nSCD2, env, 1, 0)
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   nScale = _scale;
   if ( nScale < 1 )
       nScale = 1;

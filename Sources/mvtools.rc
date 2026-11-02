@@ -1,6 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
 #include <windows.h>
+#include "version.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // English resources
@@ -15,8 +16,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,7,48
- PRODUCTVERSION 2,7,48
+ FILEVERSION FILEVERSION_VAL
+ PRODUCTVERSION FILEVERSION_VAL
  FILEFLAGSMASK 0x0L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -34,12 +35,12 @@ BEGIN
             VALUE "Comments", "Motion estimation and compensation"
             VALUE "CompanyName", "A.G.Balakhnin aka Fizick"
             VALUE "FileDescription", "MVTools plugin for AviSynth 2.6/Avisynth+ API"
-            VALUE "FileVersion", "2.7.48"
+            VALUE "FileVersion", FILEVERSION_STR
             VALUE "InternalName", "mvtools2"
             VALUE "LegalCopyright", "(C)2004 Manao, (C)2005-2016 Fizick, (C)2008 TSchniede under GNU GPL v2, (C)-2026 pinterf et al."
             VALUE "OriginalFilename", "mvtools2.dll"
             VALUE "ProductName", "mvtools2"
-            VALUE "ProductVersion", "2.7.48"
+            VALUE "ProductVersion", FILEVERSION_STR
         END
     END
     BLOCK "VarFileInfo"

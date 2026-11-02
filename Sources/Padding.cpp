@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Author: Manao
 // Copyright(c)2006 A.G.Balakhnin aka Fizick - YUY2
 

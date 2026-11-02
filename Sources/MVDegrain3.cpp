@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Make a motion compensate temporal denoiser
 // Copyright(c)2006 A.G.Balakhnin aka Fizick
 // See legal notice in Copying.txt for more information
@@ -268,7 +269,7 @@ MVDegrainX::MVDegrainX(
   YUVplanes = _YUVplanes;
   nLimit = _nLimit;
   nLimitC = _nLimitC;
-  cpuFlags = _isse2 ? env_ptr->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env_ptr->GetCPUFlags()) : 0;
 
   CheckSimilarity(*mvClipB[0], "mvbw", env_ptr);
   CheckSimilarity(*mvClipF[0], "mvfw", env_ptr);

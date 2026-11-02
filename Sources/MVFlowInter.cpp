@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Pixels flow motion interplolation function
 // Copyright(c)2005-2006 A.G.Balakhnin aka Fizick
 
@@ -40,7 +41,7 @@ MVFlowInter::MVFlowInter(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, in
 
   time256 = _time256;
   ml = _ml;
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   blend = _blend;
 
   CheckSimilarity(mvClipB, "mvbw", env);

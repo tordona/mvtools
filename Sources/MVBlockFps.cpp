@@ -1,3 +1,4 @@
+#include "cpu.h"
 // MVTOOLS plugin for Avisynth
 // Block motion interpolation function
 // Copyright(c)2005-2016 A.G.Balakhnin aka Fizick
@@ -51,7 +52,7 @@ MVBlockFps::MVBlockFps(
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse2 ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   numeratorOld = vi.fps_numerator;
   denominatorOld = vi.fps_denominator;

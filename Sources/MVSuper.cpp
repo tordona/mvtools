@@ -1,3 +1,4 @@
+#include "cpu.h"
 // MVTools v2
 
 // Copyright(c)2008 A.G.Balakhnin aka Fizick
@@ -75,7 +76,7 @@ MVSuper::MVSuper(
   nVPad = _vPad;
   rfilter = _rfilter;
   sharp = _sharp; // pel2 interpolation type
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   chroma = _chroma;
   if (vi.IsRGB())

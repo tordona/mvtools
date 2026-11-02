@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Make a motion compensate temporal denoiser
 // Author: Manao
 // Copyright(c)2006 A.G.Balakhnin aka Fizick (YUY2, overlap, edges processing)
@@ -59,7 +60,7 @@ MVCompensate::MVCompensate(
   try { env_ptr->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-  cpuFlags = _isse2 ? env_ptr->GetCPUFlags() : 0;
+  cpuFlags = _isse2 ? get_simd_cpu_flags(env_ptr->GetCPUFlags()) : 0;
 
   // actual format can differ from the base clip of vectors
   pixelsize_super = super->GetVideoInfo().ComponentSize();
