@@ -298,6 +298,7 @@ __pycache__/
 *.mp4
 Benchmarks/BenchmarkResults/
 Benchmarks/tools/
+Benchmarks/pinterf/
 
 # Machine-specific evaluation profiles
 AviSynth/Core-i7-*.avs

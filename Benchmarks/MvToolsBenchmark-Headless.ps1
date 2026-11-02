@@ -93,7 +93,7 @@ function Run-HeadlessRun {
     $sanitizedLabel = $Label -replace '[^a-zA-Z0-9_]', '_'
     $avsFile = Join-Path $tempDir "$sanitizedLabel.avs"
 
-    $d3d12Line = if ($UseD3D12) { "MEnableD3D12(true)" } else { "MEnableD3D12(false)" }
+    $d3d12Line = if ($UseD3D12) { "try { MEnableD3D12(true) } catch(err) { }" } else { "try { MEnableD3D12(false) } catch(err) { }" }
 
     $avsContent = @"
 LoadPlugin("$($resolvedDll -replace '\\', '/')")
@@ -145,7 +145,13 @@ Prefetch($Threads)
         $fps = [math]::Round($renderedFrames / $elapsedSec, 2)
     }
 
-    Write-Host "    Rendered $renderedFrames frames in $elapsedSec s (Throughput: $fps fps)" -ForegroundColor Green
+    $totalCpuSec = [math]::Round($p.TotalProcessorTime.TotalSeconds, 2)
+    $cores = [Environment]::ProcessorCount
+    $avgCores = if ($elapsedSec -gt 0) { [math]::Round($totalCpuSec / $elapsedSec, 2) } else { 0.0 }
+    $cpuLoadPct = if ($elapsedSec -gt 0) { [math]::Round(($totalCpuSec / ($elapsedSec * $cores)) * 100, 1) } else { 0.0 }
+    $cpuMsPerFrame = if ($renderedFrames -gt 0) { [math]::Round(($totalCpuSec / $renderedFrames) * 1000, 1) } else { 0.0 }
+
+    Write-Host "    Rendered $renderedFrames frames in $elapsedSec s (Throughput: $fps fps | CPU Time: $totalCpuSec s | Avg Cores: $avgCores | Load: $cpuLoadPct%)" -ForegroundColor Green
 
     return [PSCustomObject]@{
         Label          = $Label
@@ -154,6 +160,10 @@ Prefetch($Threads)
         RenderedFrames = $renderedFrames
         ElapsedSec     = $elapsedSec
         RenderFps      = $fps
+        CpuSec         = $totalCpuSec
+        AvgCores       = $avgCores
+        CpuLoad        = "$cpuLoadPct%"
+        CpuMsPerFrame  = "$cpuMsPerFrame ms"
     }
 }
 
@@ -184,7 +194,7 @@ Write-Host "`n==================================================================
 Write-Host " Benchmark Results Summary" -ForegroundColor Cyan
 Write-Host "========================================================================" -ForegroundColor Cyan
 
-$results | Format-Table -Property Label, Backend, RenderedFrames, ElapsedSec, RenderFps -AutoSize
+$results | Format-Table -Property Label, Backend, RenderedFrames, ElapsedSec, RenderFps, CpuSec, AvgCores, CpuLoad, CpuMsPerFrame -AutoSize
 
 # Generate Structured Markdown Report
 if ($results.Count -ge 2) {
@@ -200,13 +210,13 @@ if ($results.Count -ge 2) {
     $reportLines.Add("* **Worker Threads:** $Threads")
     $reportLines.Add("* **Input Source Frames:** $FrameCount")
     $reportLines.Add("")
-    $reportLines.Add("## Throughput Comparison")
-    $reportLines.Add("| Configuration | Compute Backend | Rendered Frames | Elapsed Time | Throughput (FPS) | Relative Speedup |")
-    $reportLines.Add("| :--- | :---: | :---: | :---: | :---: | :---: |")
+    $reportLines.Add("## Throughput & CPU Utilization Comparison")
+    $reportLines.Add("| Configuration | Compute Backend | Rendered Frames | Elapsed Time | Throughput (FPS) | Relative Speedup | Total CPU Time | Avg Active Cores | CPU Load % | CPU Cost / Frame |")
+    $reportLines.Add("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
 
     foreach ($res in $results) {
         $speedup = if ($baseFps -gt 0) { [math]::Round($res.RenderFps / $baseFps, 2) } else { 1.0 }
-        $reportLines.Add("| $($res.Label) | $($res.Backend) | $($res.RenderedFrames) | $($res.ElapsedSec) s | $($res.RenderFps) fps | **${speedup}x** |")
+        $reportLines.Add("| $($res.Label) | $($res.Backend) | $($res.RenderedFrames) | $($res.ElapsedSec) s | $($res.RenderFps) fps | **${speedup}x** | $($res.CpuSec) s | $($res.AvgCores) | $($res.CpuLoad) | $($res.CpuMsPerFrame) |")
     }
 
     $reportLines.Add("")
