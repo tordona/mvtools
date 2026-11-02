@@ -18,6 +18,16 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 #include "AvstpFallbackPool.h"
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
@@ -34,6 +44,60 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 
 namespace
 {
+
+#ifdef _WIN32
+static DWORD_PTR query_effective_affinity_mask ()
+{
+	HANDLE    hThread  = GetCurrentThread ();
+	DWORD_PTR procMask = 0;
+	DWORD_PTR sysMask  = 0;
+
+	if (! GetProcessAffinityMask (GetCurrentProcess (), &procMask, &sysMask) || procMask == 0)
+	{
+		return 0;
+	}
+
+	DWORD_PTR prevThreadMask = SetThreadAffinityMask (hThread, procMask);
+	if (prevThreadMask != 0 && prevThreadMask != procMask)
+	{
+		SetThreadAffinityMask (hThread, prevThreadMask);
+		return prevThreadMask;
+	}
+
+	return procMask;
+}
+
+static int count_affinity_cores (DWORD_PTR mask)
+{
+	if (mask == 0)
+	{
+		return 0;
+	}
+
+	int count = 0;
+	while (mask != 0)
+	{
+		count += int (mask & 1);
+		mask >>= 1;
+	}
+
+	return count;
+}
+#endif
+
+// Concurrency tracking: counts active dispatchers in flight and distinct caller threads
+std::atomic <int> g_active_dispatchers { 0 };
+std::atomic <int> g_distinct_caller_threads { 0 };
+thread_local bool s_thread_seen = false;
+
+static void register_caller_thread ()
+{
+	if (! s_thread_seen)
+	{
+		s_thread_seen = true;
+		g_distinct_caller_threads.fetch_add (1, std::memory_order_relaxed);
+	}
+}
 
 // One per avstp_TaskDispatcher: counts the tasks of that batch still
 // outstanding, so wait_completion() can block until it reaches zero.
@@ -57,7 +121,8 @@ class Pool
 {
 public:
 
-	Pool ()
+	explicit Pool (unsigned long long affinity_mask)
+		: _affinity_mask (affinity_mask)
 	{
 		const int      n = AvstpFallbackPool::get_nbr_threads ();
 		_workers.reserve (n);
@@ -94,6 +159,13 @@ private:
 
 	void	worker_loop ()
 	{
+#ifdef _WIN32
+		if (_affinity_mask != 0)
+		{
+			SetThreadAffinityMask (GetCurrentThread (), static_cast <DWORD_PTR> (_affinity_mask));
+		}
+#endif
+
 		for (;;)
 		{
 			Job	job;
@@ -132,7 +204,8 @@ private:
 	std::mutex                 _queue_mtx;
 	std::condition_variable    _queue_cv;
 	std::queue <Job>           _queue;
-	bool                       _stop_flag = false;
+	unsigned long long         _affinity_mask = 0;
+	bool                       _stop_flag     = false;
 
 	               Pool (const Pool &other)            = delete;
 	               Pool (Pool &&other)                 = delete;
@@ -156,8 +229,40 @@ Pool *		g_pool_ptr = 0;
 
 int	AvstpFallbackPool::get_nbr_threads ()
 {
+	register_caller_thread ();
+
+#ifdef _WIN32
+	DWORD_PTR aff_mask  = query_effective_affinity_mask ();
+	DWORD_PTR proc_mask = 0;
+	DWORD_PTR sys_mask  = 0;
+	GetProcessAffinityMask (GetCurrentProcess (), &proc_mask, &sys_mask);
+
+	// Detect if worker threads are pinned to a specific core set (e.g. AvsAffinity on hybrid Zen 5/5c or P/E)
+	const bool is_affinity_pinned = (aff_mask != 0 && sys_mask != 0 && aff_mask != sys_mask);
+
+	// Detect if AviSynth+ frame-level multi-threading (Prefetch) is active
+	const bool is_frame_mt_active = (g_active_dispatchers.load (std::memory_order_relaxed) > 0)
+	                             || (g_distinct_caller_threads.load (std::memory_order_relaxed) > 1);
+
+	// When AviSynth+ frame MT is active or thread affinity pinning is in effect:
+	// Multi-threaded horizontal slicing causes severe thread over-subscription and breaks
+	// motion predictor causality across horizontal slice boundaries. Throttling to 1
+	// sequential slice per frame guarantees bit-exact motion search with zero tearing,
+	// while Prefetch handles 100% linear core utilization across frames.
+	if (is_affinity_pinned || is_frame_mt_active)
+	{
+		return 1;
+	}
+
+	const int p_cores = count_affinity_cores (aff_mask != 0 ? aff_mask : proc_mask);
+	if (p_cores > 0)
+	{
+		return p_cores;
+	}
+#endif
+
 	static const int	nbr_threads =
-		std::max (1, int (std::thread::hardware_concurrency ()));
+		(std::max) (1, int (std::thread::hardware_concurrency ()));
 
 	return (nbr_threads);
 }
@@ -166,6 +271,9 @@ int	AvstpFallbackPool::get_nbr_threads ()
 
 avstp_TaskDispatcher *	AvstpFallbackPool::create_dispatcher ()
 {
+	register_caller_thread ();
+	g_active_dispatchers.fetch_add (1, std::memory_order_acq_rel);
+
 	return (reinterpret_cast <avstp_TaskDispatcher *> (new Dispatcher));
 }
 
@@ -174,6 +282,7 @@ avstp_TaskDispatcher *	AvstpFallbackPool::create_dispatcher ()
 void	AvstpFallbackPool::destroy_dispatcher (avstp_TaskDispatcher *td_ptr)
 {
 	delete reinterpret_cast <Dispatcher *> (td_ptr);
+	g_active_dispatchers.fetch_sub (1, std::memory_order_acq_rel);
 }
 
 
@@ -188,6 +297,18 @@ int	AvstpFallbackPool::enqueue_task (avstp_TaskDispatcher *td_ptr, avstp_TaskPtr
 	}
 	else
 	{
+		register_caller_thread ();
+
+		// When operating in single-slice mode (e.g. under AviSynth+ MT or AvsAffinity),
+		// execute the task inline in the caller's thread. This eliminates queue overhead,
+		// thread context switches, and condition variable latency, while keeping execution
+		// strictly on the caller's pinned Performance core.
+		if (get_nbr_threads () == 1)
+		{
+			task_ptr (td_ptr, user_data_ptr);
+			return (avstp_Err_OK);
+		}
+
 		Dispatcher *	disp_ptr = reinterpret_cast <Dispatcher *> (td_ptr);
 
 		disp_ptr->_pending.fetch_add (1, std::memory_order_relaxed);
@@ -201,7 +322,11 @@ int	AvstpFallbackPool::enqueue_task (avstp_TaskDispatcher *td_ptr, avstp_TaskPtr
 		std::lock_guard <std::mutex>	lock (g_pool_mtx);
 		if (g_pool_ptr == 0)
 		{
-			g_pool_ptr = new Pool;
+			unsigned long long aff_mask = 0;
+#ifdef _WIN32
+			aff_mask = static_cast <unsigned long long> (query_effective_affinity_mask ());
+#endif
+			g_pool_ptr = new Pool (aff_mask);
 		}
 		g_pool_ptr->submit (job);
 	}
