@@ -211,33 +211,45 @@ MVBlockFps::MVBlockFps(
   nPitchY = AlignNumber(nWidthP, 16);
   nPitchUV = AlignNumber(nWidthPUV, 16);
 
-  // PF remark: masks are 8 bits
-  MaskFullYB = new BYTE[nHeightP*nPitchY];
-  MaskFullYF = new BYTE[nHeightP*nPitchY];
-  if (!isGrey) {
-    MaskFullUVB = new BYTE[nHeightPUV*nPitchUV];
-    MaskFullUVF = new BYTE[nHeightPUV*nPitchUV];
-  }
+  // PF remark: masks are 8 bits (elided for modes 0..2)
+  MaskFullYB = nullptr;
+  MaskFullYF = nullptr;
+  MaskFullUVB = nullptr;
+  MaskFullUVF = nullptr;
+  MaskOccY = nullptr;
+  MaskOccUV = nullptr;
+  smallMaskF = nullptr;
+  smallMaskB = nullptr;
+  smallMaskO = nullptr;
+  upsizer = nullptr;
+  upsizerUV = nullptr;
 
-  MaskOccY = new BYTE[nHeightP*nPitchY];
-  if (!isGrey) {
-    MaskOccUV = new BYTE[nHeightPUV*nPitchUV];
-  }
+  if (mode >= 3 && mode <= 8) {
+    MaskFullYB = new BYTE[nHeightP*nPitchY];
+    MaskFullYF = new BYTE[nHeightP*nPitchY];
+    if (!isGrey) {
+      MaskFullUVB = new BYTE[nHeightPUV*nPitchUV];
+      MaskFullUVF = new BYTE[nHeightPUV*nPitchUV];
+    }
 
-  smallMaskF = new BYTE[nBlkXP*nBlkYP];
-  smallMaskB = new BYTE[nBlkXP*nBlkYP];
-  smallMaskO = new BYTE[nBlkXP*nBlkYP];
+    MaskOccY = new BYTE[nHeightP*nPitchY];
+    if (!isGrey) {
+      MaskOccUV = new BYTE[nHeightPUV*nPitchUV];
+    }
+
+    smallMaskF = new BYTE[nBlkXP*nBlkYP];
+    smallMaskB = new BYTE[nBlkXP*nBlkYP];
+    smallMaskO = new BYTE[nBlkXP*nBlkYP];
+
+    upsizer = new SimpleResize(nWidthP, nHeightP, nBlkXP, nBlkYP, cpuFlags);
+    if (!isGrey)
+      upsizerUV = new SimpleResize(nWidthPUV, nHeightPUV, nBlkXP, nBlkYP, cpuFlags);
+  }
 
   const int tmpBlkAlign = 16;
 
   nBlkPitch = AlignNumber(nBlkSizeX, tmpBlkAlign); // padded to 16 , 2.5.11.22
   TmpBlock = (BYTE *)_aligned_malloc(nBlkPitch*nBlkSizeY*pixelsize_super, tmpBlkAlign); // new BYTE[nBlkPitch*nBlkSizeY*pixelsize_super]; // may be more padding?
-
-  int CPUF_Resize = env->GetCPUFlags();
-
-  upsizer = new SimpleResize(nWidthP, nHeightP, nBlkXP, nBlkYP, cpuFlags);
-  if (!isGrey)
-    upsizerUV = new SimpleResize(nWidthPUV, nHeightPUV, nBlkXP, nBlkYP, cpuFlags);
 
 
   const int tmpDstAlign = 16;
@@ -398,11 +410,757 @@ inline pixel_t MEDIAN(pixel_t a, pixel_t b, pixel_t c)
   return m;
 }
 
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+static MV_FORCEINLINE void ResultBlock_Mode0_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+            vst1q_u8(pDst + w, vMca);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+
+            vst1_u8(pDst + w, vmovn_u16(mca_w));
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            pDst[w] = (uint8_t)((pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode1_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t mcb_lo = vmovl_u8(vget_low_u8(vMCB));
+            uint16x8_t mcf_lo = vmovl_u8(vget_low_u8(vMCF));
+            uint16x8_t mca_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_lo, t), mcf_lo, inv_t), 8);
+
+            uint16x8_t mcb_hi = vmovl_u8(vget_high_u8(vMCB));
+            uint16x8_t mcf_hi = vmovl_u8(vget_high_u8(vMCF));
+            uint16x8_t mca_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_hi, t), mcf_hi, inv_t), 8);
+
+            uint8x16_t vMca = vcombine_u8(vmovn_u16(mca_lo), vmovn_u16(mca_hi));
+
+            uint8x16_t min_rs = vminq_u8(vRef, vSrc);
+            uint8x16_t max_rs = vmaxq_u8(vRef, vSrc);
+            uint8x16_t vSta   = vminq_u8(vmaxq_u8(vMca, min_rs), max_rs);
+
+            vst1q_u8(pDst + w, vSta);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t mcb_w = vmovl_u8(vMCB);
+            uint16x8_t mcf_w = vmovl_u8(vMCF);
+            uint16x8_t mca_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(mcb_w, t), mcf_w, inv_t), 8);
+
+            uint8x8_t vMca = vmovn_u16(mca_w);
+            uint8x8_t min_rs = vmin_u8(vRef, vSrc);
+            uint8x8_t max_rs = vmax_u8(vRef, vSrc);
+            uint8x8_t vSta   = vmin_u8(vmax_u8(vMca, min_rs), max_rs);
+
+            vst1_u8(pDst + w, vSta);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int mca = (pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8;
+            pDst[w] = (uint8_t)MEDIAN<uint8_t>(pRef[w], pSrc[w], (uint8_t)mca);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode2_NEON(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const uint16_t t = (uint16_t)time256;
+    const uint16_t inv_t = (uint16_t)(256 - time256);
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            uint8x16_t vRef = vld1q_u8(pRef + w);
+            uint8x16_t vSrc = vld1q_u8(pSrc + w);
+            uint8x16_t vMCB = vld1q_u8(pMCB + w);
+            uint8x16_t vMCF = vld1q_u8(pMCF + w);
+
+            uint16x8_t ref_lo = vmovl_u8(vget_low_u8(vRef));
+            uint16x8_t src_lo = vmovl_u8(vget_low_u8(vSrc));
+            uint16x8_t avg_lo = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_lo, t), src_lo, inv_t), 8);
+
+            uint16x8_t ref_hi = vmovl_u8(vget_high_u8(vRef));
+            uint16x8_t src_hi = vmovl_u8(vget_high_u8(vSrc));
+            uint16x8_t avg_hi = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_hi, t), src_hi, inv_t), 8);
+
+            uint8x16_t vAvg = vcombine_u8(vmovn_u16(avg_lo), vmovn_u16(avg_hi));
+
+            uint8x16_t min_bf = vminq_u8(vMCB, vMCF);
+            uint8x16_t max_bf = vmaxq_u8(vMCB, vMCF);
+            uint8x16_t vDyn   = vminq_u8(vmaxq_u8(vAvg, min_bf), max_bf);
+
+            vst1q_u8(pDst + w, vDyn);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            uint8x8_t vRef = vld1_u8(pRef + w);
+            uint8x8_t vSrc = vld1_u8(pSrc + w);
+            uint8x8_t vMCB = vld1_u8(pMCB + w);
+            uint8x8_t vMCF = vld1_u8(pMCF + w);
+
+            uint16x8_t ref_w = vmovl_u8(vRef);
+            uint16x8_t src_w = vmovl_u8(vSrc);
+            uint16x8_t avg_w = vshrq_n_u16(vmlaq_n_u16(vmulq_n_u16(ref_w, t), src_w, inv_t), 8);
+
+            uint8x8_t vAvg = vmovn_u16(avg_w);
+            uint8x8_t min_bf = vmin_u8(vMCB, vMCF);
+            uint8x8_t max_bf = vmax_u8(vMCB, vMCF);
+            uint8x8_t vDyn   = vmin_u8(vmax_u8(vAvg, min_bf), max_bf);
+
+            vst1_u8(pDst + w, vDyn);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int avg = (pRef[w] * time256 + pSrc[w] * (256 - time256)) >> 8;
+            pDst[w] = (uint8_t)MEDIAN<uint8_t>((uint8_t)avg, pMCB[w], pMCF[w]);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+#endif
+
+#if defined(INTEL_INTRINSICS)
+#include <emmintrin.h>
+#include <immintrin.h>
+
+static MV_FORCEINLINE void ResultBlock_Mode0_SSE2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const __m128i zero = _mm_setzero_si128();
+    const __m128i vT = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT), _mm_mullo_epi16(mcf_lo, vInvT)), 8);
+
+            __m128i mcb_hi = _mm_unpackhi_epi8(vMCB, zero);
+            __m128i mcf_hi = _mm_unpackhi_epi8(vMCF, zero);
+            __m128i mca_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_hi, vT), _mm_mullo_epi16(mcf_hi, vInvT)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, mca_hi);
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vMca);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT), _mm_mullo_epi16(mcf_lo, vInvT)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, zero);
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vMca);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            pDst[w] = static_cast<uint8_t>((pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode0_AVX2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    if (nBlkSizeX < 32)
+    {
+        ResultBlock_Mode0_SSE2(pDst, dst_pitch, pMCB, MCB_pitch, pMCF, MCF_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+    }
+
+    const __m256i zero256 = _mm256_setzero_si256();
+    const __m256i vT256 = _mm256_set1_epi16(static_cast<short>(time256));
+    const __m256i vInvT256 = _mm256_set1_epi16(static_cast<short>(256 - time256));
+    const __m128i zero128 = _mm_setzero_si128();
+    const __m128i vT128 = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT128 = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 32 <= nBlkSizeX; w += 32)
+        {
+            __m256i vMCB = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCB + w));
+            __m256i vMCF = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCF + w));
+
+            __m256i mcb_lo = _mm256_unpacklo_epi8(vMCB, zero256);
+            __m256i mcf_lo = _mm256_unpacklo_epi8(vMCF, zero256);
+            __m256i mca_lo = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(mcb_lo, vT256), _mm256_mullo_epi16(mcf_lo, vInvT256)), 8);
+
+            __m256i mcb_hi = _mm256_unpackhi_epi8(vMCB, zero256);
+            __m256i mcf_hi = _mm256_unpackhi_epi8(vMCF, zero256);
+            __m256i mca_hi = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(mcb_hi, vT256), _mm256_mullo_epi16(mcf_hi, vInvT256)), 8);
+
+            __m256i vMca = _mm256_packus_epi16(mca_lo, mca_hi);
+            _mm256_storeu_si256(reinterpret_cast<__m256i *>(pDst + w), vMca);
+        }
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero128);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero128);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT128), _mm_mullo_epi16(mcf_lo, vInvT128)), 8);
+
+            __m128i mcb_hi = _mm_unpackhi_epi8(vMCB, zero128);
+            __m128i mcf_hi = _mm_unpackhi_epi8(vMCF, zero128);
+            __m128i mca_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_hi, vT128), _mm_mullo_epi16(mcf_hi, vInvT128)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, mca_hi);
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vMca);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero128);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero128);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT128), _mm_mullo_epi16(mcf_lo, vInvT128)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, zero128);
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vMca);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            pDst[w] = static_cast<uint8_t>((pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8);
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+    }
+    _mm256_zeroupper();
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode1_SSE2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const __m128i zero = _mm_setzero_si128();
+    const __m128i vT = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vRef = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT), _mm_mullo_epi16(mcf_lo, vInvT)), 8);
+
+            __m128i mcb_hi = _mm_unpackhi_epi8(vMCB, zero);
+            __m128i mcf_hi = _mm_unpackhi_epi8(vMCF, zero);
+            __m128i mca_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_hi, vT), _mm_mullo_epi16(mcf_hi, vInvT)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, mca_hi);
+
+            __m128i min_rs = _mm_min_epu8(vRef, vSrc);
+            __m128i max_rs = _mm_max_epu8(vRef, vSrc);
+            __m128i vSta   = _mm_min_epu8(_mm_max_epu8(vMca, min_rs), max_rs);
+
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vSta);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vRef = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT), _mm_mullo_epi16(mcf_lo, vInvT)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, zero);
+
+            __m128i min_rs = _mm_min_epu8(vRef, vSrc);
+            __m128i max_rs = _mm_max_epu8(vRef, vSrc);
+            __m128i vSta   = _mm_min_epu8(_mm_max_epu8(vMca, min_rs), max_rs);
+
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vSta);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int mca = (pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8;
+            pDst[w] = static_cast<uint8_t>(MEDIAN<uint8_t>(pRef[w], pSrc[w], static_cast<uint8_t>(mca)));
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode1_AVX2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    if (nBlkSizeX < 32)
+    {
+        ResultBlock_Mode1_SSE2(pDst, dst_pitch, pMCB, MCB_pitch, pMCF, MCF_pitch, pRef, ref_pitch, pSrc, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+    }
+
+    const __m256i zero256 = _mm256_setzero_si256();
+    const __m256i vT256 = _mm256_set1_epi16(static_cast<short>(time256));
+    const __m256i vInvT256 = _mm256_set1_epi16(static_cast<short>(256 - time256));
+    const __m128i zero128 = _mm_setzero_si128();
+    const __m128i vT128 = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT128 = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 32 <= nBlkSizeX; w += 32)
+        {
+            __m256i vRef = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pRef + w));
+            __m256i vSrc = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pSrc + w));
+            __m256i vMCB = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCB + w));
+            __m256i vMCF = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCF + w));
+
+            __m256i mcb_lo = _mm256_unpacklo_epi8(vMCB, zero256);
+            __m256i mcf_lo = _mm256_unpacklo_epi8(vMCF, zero256);
+            __m256i mca_lo = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(mcb_lo, vT256), _mm256_mullo_epi16(mcf_lo, vInvT256)), 8);
+
+            __m256i mcb_hi = _mm256_unpackhi_epi8(vMCB, zero256);
+            __m256i mcf_hi = _mm256_unpackhi_epi8(vMCF, zero256);
+            __m256i mca_hi = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(mcb_hi, vT256), _mm256_mullo_epi16(mcf_hi, vInvT256)), 8);
+
+            __m256i vMca = _mm256_packus_epi16(mca_lo, mca_hi);
+
+            __m256i min_rs = _mm256_min_epu8(vRef, vSrc);
+            __m256i max_rs = _mm256_max_epu8(vRef, vSrc);
+            __m256i vSta   = _mm256_min_epu8(_mm256_max_epu8(vMca, min_rs), max_rs);
+
+            _mm256_storeu_si256(reinterpret_cast<__m256i *>(pDst + w), vSta);
+        }
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vRef = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero128);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero128);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT128), _mm_mullo_epi16(mcf_lo, vInvT128)), 8);
+
+            __m128i mcb_hi = _mm_unpackhi_epi8(vMCB, zero128);
+            __m128i mcf_hi = _mm_unpackhi_epi8(vMCF, zero128);
+            __m128i mca_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_hi, vT128), _mm_mullo_epi16(mcf_hi, vInvT128)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, mca_hi);
+
+            __m128i min_rs = _mm_min_epu8(vRef, vSrc);
+            __m128i max_rs = _mm_max_epu8(vRef, vSrc);
+            __m128i vSta   = _mm_min_epu8(_mm_max_epu8(vMca, min_rs), max_rs);
+
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vSta);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vRef = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i mcb_lo = _mm_unpacklo_epi8(vMCB, zero128);
+            __m128i mcf_lo = _mm_unpacklo_epi8(vMCF, zero128);
+            __m128i mca_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(mcb_lo, vT128), _mm_mullo_epi16(mcf_lo, vInvT128)), 8);
+
+            __m128i vMca = _mm_packus_epi16(mca_lo, zero128);
+
+            __m128i min_rs = _mm_min_epu8(vRef, vSrc);
+            __m128i max_rs = _mm_max_epu8(vRef, vSrc);
+            __m128i vSta   = _mm_min_epu8(_mm_max_epu8(vMca, min_rs), max_rs);
+
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vSta);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int mca = (pMCB[w] * time256 + pMCF[w] * (256 - time256)) >> 8;
+            pDst[w] = static_cast<uint8_t>(MEDIAN<uint8_t>(pRef[w], pSrc[w], static_cast<uint8_t>(mca)));
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+    _mm256_zeroupper();
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode2_SSE2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    const __m128i zero = _mm_setzero_si128();
+    const __m128i vT = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vRef = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i ref_lo = _mm_unpacklo_epi8(vRef, zero);
+            __m128i src_lo = _mm_unpacklo_epi8(vSrc, zero);
+            __m128i avg_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_lo, vT), _mm_mullo_epi16(src_lo, vInvT)), 8);
+
+            __m128i ref_hi = _mm_unpackhi_epi8(vRef, zero);
+            __m128i src_hi = _mm_unpackhi_epi8(vSrc, zero);
+            __m128i avg_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_hi, vT), _mm_mullo_epi16(src_hi, vInvT)), 8);
+
+            __m128i vAvg = _mm_packus_epi16(avg_lo, avg_hi);
+
+            __m128i min_bf = _mm_min_epu8(vMCB, vMCF);
+            __m128i max_bf = _mm_max_epu8(vMCB, vMCF);
+            __m128i vDyn   = _mm_min_epu8(_mm_max_epu8(vAvg, min_bf), max_bf);
+
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vDyn);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vRef = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i ref_lo = _mm_unpacklo_epi8(vRef, zero);
+            __m128i src_lo = _mm_unpacklo_epi8(vSrc, zero);
+            __m128i avg_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_lo, vT), _mm_mullo_epi16(src_lo, vInvT)), 8);
+
+            __m128i vAvg = _mm_packus_epi16(avg_lo, zero);
+
+            __m128i min_bf = _mm_min_epu8(vMCB, vMCF);
+            __m128i max_bf = _mm_max_epu8(vMCB, vMCF);
+            __m128i vDyn   = _mm_min_epu8(_mm_max_epu8(vAvg, min_bf), max_bf);
+
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vDyn);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int avg = (pRef[w] * time256 + pSrc[w] * (256 - time256)) >> 8;
+            pDst[w] = static_cast<uint8_t>(MEDIAN<uint8_t>(static_cast<uint8_t>(avg), pMCB[w], pMCF[w]));
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+}
+
+static MV_FORCEINLINE void ResultBlock_Mode2_AVX2(
+    uint8_t *pDst, int dst_pitch,
+    const uint8_t *pMCB, int MCB_pitch,
+    const uint8_t *pMCF, int MCF_pitch,
+    const uint8_t *pRef, int ref_pitch,
+    const uint8_t *pSrc, int src_pitch,
+    int nBlkSizeX, int nBlkSizeY, int time256)
+{
+    if (nBlkSizeX < 32)
+    {
+        ResultBlock_Mode2_SSE2(pDst, dst_pitch, pMCB, MCB_pitch, pMCF, MCF_pitch, pRef, ref_pitch, pSrc, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+    }
+
+    const __m256i zero256 = _mm256_setzero_si256();
+    const __m256i vT256 = _mm256_set1_epi16(static_cast<short>(time256));
+    const __m256i vInvT256 = _mm256_set1_epi16(static_cast<short>(256 - time256));
+    const __m128i zero128 = _mm_setzero_si128();
+    const __m128i vT128 = _mm_set1_epi16(static_cast<short>(time256));
+    const __m128i vInvT128 = _mm_set1_epi16(static_cast<short>(256 - time256));
+
+    for (int h = 0; h < nBlkSizeY; h++)
+    {
+        int w = 0;
+        for (; w + 32 <= nBlkSizeX; w += 32)
+        {
+            __m256i vRef = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pRef + w));
+            __m256i vSrc = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pSrc + w));
+            __m256i vMCB = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCB + w));
+            __m256i vMCF = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(pMCF + w));
+
+            __m256i ref_lo = _mm256_unpacklo_epi8(vRef, zero256);
+            __m256i src_lo = _mm256_unpacklo_epi8(vSrc, zero256);
+            __m256i avg_lo = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(ref_lo, vT256), _mm256_mullo_epi16(src_lo, vInvT256)), 8);
+
+            __m256i ref_hi = _mm256_unpackhi_epi8(vRef, zero256);
+            __m256i src_hi = _mm256_unpackhi_epi8(vSrc, zero256);
+            __m256i avg_hi = _mm256_srli_epi16(_mm256_add_epi16(_mm256_mullo_epi16(ref_hi, vT256), _mm256_mullo_epi16(src_hi, vInvT256)), 8);
+
+            __m256i vAvg = _mm256_packus_epi16(avg_lo, avg_hi);
+
+            __m256i min_bf = _mm256_min_epu8(vMCB, vMCF);
+            __m256i max_bf = _mm256_max_epu8(vMCB, vMCF);
+            __m256i vDyn   = _mm256_min_epu8(_mm256_max_epu8(vAvg, min_bf), max_bf);
+
+            _mm256_storeu_si256(reinterpret_cast<__m256i *>(pDst + w), vDyn);
+        }
+        for (; w + 16 <= nBlkSizeX; w += 16)
+        {
+            __m128i vRef = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i ref_lo = _mm_unpacklo_epi8(vRef, zero128);
+            __m128i src_lo = _mm_unpacklo_epi8(vSrc, zero128);
+            __m128i avg_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_lo, vT128), _mm_mullo_epi16(src_lo, vInvT128)), 8);
+
+            __m128i ref_hi = _mm_unpackhi_epi8(vRef, zero128);
+            __m128i src_hi = _mm_unpackhi_epi8(vSrc, zero128);
+            __m128i avg_hi = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_hi, vT128), _mm_mullo_epi16(src_hi, vInvT128)), 8);
+
+            __m128i vAvg = _mm_packus_epi16(avg_lo, avg_hi);
+
+            __m128i min_bf = _mm_min_epu8(vMCB, vMCF);
+            __m128i max_bf = _mm_max_epu8(vMCB, vMCF);
+            __m128i vDyn   = _mm_min_epu8(_mm_max_epu8(vAvg, min_bf), max_bf);
+
+            _mm_storeu_si128(reinterpret_cast<__m128i *>(pDst + w), vDyn);
+        }
+        if (w + 8 <= nBlkSizeX)
+        {
+            __m128i vRef = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pRef + w));
+            __m128i vSrc = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pSrc + w));
+            __m128i vMCB = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCB + w));
+            __m128i vMCF = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(pMCF + w));
+
+            __m128i ref_lo = _mm_unpacklo_epi8(vRef, zero128);
+            __m128i src_lo = _mm_unpacklo_epi8(vSrc, zero128);
+            __m128i avg_lo = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(ref_lo, vT128), _mm_mullo_epi16(src_lo, vInvT128)), 8);
+
+            __m128i vAvg = _mm_packus_epi16(avg_lo, zero128);
+
+            __m128i min_bf = _mm_min_epu8(vMCB, vMCF);
+            __m128i max_bf = _mm_max_epu8(vMCB, vMCF);
+            __m128i vDyn   = _mm_min_epu8(_mm_max_epu8(vAvg, min_bf), max_bf);
+
+            _mm_storel_epi64(reinterpret_cast<__m128i *>(pDst + w), vDyn);
+            w += 8;
+        }
+        for (; w < nBlkSizeX; w++)
+        {
+            int avg = (pRef[w] * time256 + pSrc[w] * (256 - time256)) >> 8;
+            pDst[w] = static_cast<uint8_t>(MEDIAN<uint8_t>(static_cast<uint8_t>(avg), pMCB[w], pMCF[w]));
+        }
+        pDst += dst_pitch;
+        pMCB += MCB_pitch;
+        pMCF += MCF_pitch;
+        pRef += ref_pitch;
+        pSrc += src_pitch;
+    }
+    _mm256_zeroupper();
+}
+#endif
+
 template<typename pixel_t>
 void MVBlockFps::ResultBlock(BYTE *pDst8, int dst_pitch, const BYTE * pMCB8, int MCB_pitch, const BYTE * pMCF8, int MCF_pitch,
   const BYTE * pRef8, int ref_pitch, const BYTE * pSrc8, int src_pitch, BYTE *maskB, int mask_pitch, BYTE *maskF,
   BYTE *pOcc, int nBlkSizeX, int nBlkSizeY, int time256, int mode, int bits_per_pixel)
 {
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+  if constexpr (sizeof(pixel_t) == 1)
+  {
+    if (mode == 2)
+    {
+      ResultBlock_Mode2_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 1)
+    {
+      ResultBlock_Mode1_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+    else if (mode == 0)
+    {
+      ResultBlock_Mode0_NEON(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                             nBlkSizeX, nBlkSizeY, time256);
+      return;
+    }
+  }
+#elif defined(INTEL_INTRINSICS)
+  if constexpr (sizeof(pixel_t) == 1)
+  {
+    if ((cpuFlags & CPUF_AVX2) != 0)
+    {
+      if (mode == 2)
+      {
+        ResultBlock_Mode2_AVX2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+      else if (mode == 1)
+      {
+        ResultBlock_Mode1_AVX2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+      else if (mode == 0)
+      {
+        ResultBlock_Mode0_AVX2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+    }
+    else if ((cpuFlags & CPUF_SSE2) != 0)
+    {
+      if (mode == 2)
+      {
+        ResultBlock_Mode2_SSE2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+      else if (mode == 1)
+      {
+        ResultBlock_Mode1_SSE2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               pRef8, ref_pitch, pSrc8, src_pitch, nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+      else if (mode == 0)
+      {
+        ResultBlock_Mode0_SSE2(pDst8, dst_pitch, pMCB8, MCB_pitch, pMCF8, MCF_pitch,
+                               nBlkSizeX, nBlkSizeY, time256);
+        return;
+      }
+    }
+  }
+#endif
   pixel_t *pDst = reinterpret_cast<pixel_t *>(pDst8);
   const pixel_t *pMCB = reinterpret_cast<const pixel_t *>(pMCB8);
   const pixel_t *pMCF = reinterpret_cast<const pixel_t *>(pMCF8);
@@ -671,16 +1429,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
     pPlanesF[1] = pRefFGOF->GetFrame(0)->GetPlane(UPLANE);
     pPlanesF[2] = pRefFGOF->GetFrame(0)->GetPlane(VPLANE);
 
-    // Masks are 8 bit
-    MemZoneSet(MaskFullYB, 0, nWidthP, nHeightP, 0, 0, nPitchY); // put zeros
-    MemZoneSet(MaskFullYF, 0, nWidthP, nHeightP, 0, 0, nPitchY);
-
     PROFILE_START(MOTION_PROFILE_COMPENSATION);
     int blocks = mvClipB.GetBlkCount();
 
     // int maxoffset = nPitchY*(nHeightP-nBlkSizeY)-nBlkSizeX; not used
 
     if (mode >= 3 && mode <= 8) {
+      // Masks are 8 bit (only required for modes 3..8)
+      MemZoneSet(MaskFullYB, 0, nWidthP, nHeightP, 0, 0, nPitchY); // put zeros
+      MemZoneSet(MaskFullYF, 0, nWidthP, nHeightP, 0, 0, nPitchY);
 
       PROFILE_START(MOTION_PROFILE_MASK);
       if (mode <= 5)
@@ -834,13 +1591,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
           pSrc[1] += nBlkSizeX_UV * pixelsize_super;
           pSrc[2] += nBlkSizeX_UV * pixelsize_super;
         }
-        pMaskFullYB += nBlkSizeX;
-        pMaskFullYF += nBlkSizeX;
-        pMaskOccY += nBlkSizeX;
-        if (!isGrey) {
-          pMaskFullUVB += nBlkSizeX_UV;
-          pMaskFullUVF += nBlkSizeX_UV;
-          pMaskOccUV += nBlkSizeX_UV;
+        if (mode >= 3) {
+          pMaskFullYB += nBlkSizeX;
+          pMaskFullYF += nBlkSizeX;
+          pMaskOccY += nBlkSizeX;
+          if (!isGrey) {
+            pMaskFullUVB += nBlkSizeX_UV;
+            pMaskFullUVF += nBlkSizeX_UV;
+            pMaskOccUV += nBlkSizeX_UV;
+          }
         }
 
         if (!((i + 1) % nBlkX))
@@ -878,13 +1637,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
             pSrc[1] += nBlkSizeY_UV * nSrcPitches[1] - nBlkSizeX_UV * nBlkX*pixelsize_super;
             pSrc[2] += nBlkSizeY_UV * nSrcPitches[2] - nBlkSizeX_UV * nBlkX*pixelsize_super;
           }
-          pMaskFullYB  += nBlkSizeY    * nPitchY  - nBlkSizeX    *nBlkX;
-          pMaskFullYF += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
-          pMaskOccY += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
-          if (!isGrey) {
-            pMaskFullUVB += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
-            pMaskFullUVF += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
-            pMaskOccUV += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+          if (mode >= 3) {
+            pMaskFullYB  += nBlkSizeY    * nPitchY  - nBlkSizeX    *nBlkX;
+            pMaskFullYF += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
+            pMaskOccY += nBlkSizeY * nPitchY - nBlkSizeX * nBlkX;
+            if (!isGrey) {
+              pMaskFullUVB += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+              pMaskFullUVF += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+              pMaskOccUV += nBlkSizeY_UV * nPitchUV - nBlkSizeX_UV * nBlkX;
+            }
           }
         }
       }
@@ -1116,13 +1877,15 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
           pSrc[1] += nSrcPitches[1] * nBlkSizeYOverlapDiff_UV;
           pSrc[2] += nSrcPitches[2] * nBlkSizeYOverlapDiff_UV;
         }
-        pMaskFullYB += nPitchY*nBlkSizeYOverlapDiff;
-        pMaskFullYF += nPitchY * nBlkSizeYOverlapDiff;
-        pMaskOccY += nPitchY * nBlkSizeYOverlapDiff;
-        if (!isGrey) {
-          pMaskFullUVB += nPitchUV * nBlkSizeYOverlapDiff_UV;
-          pMaskFullUVF += nPitchUV * nBlkSizeYOverlapDiff_UV;
-          pMaskOccUV += nPitchUV * nBlkSizeYOverlapDiff_UV;
+        if (mode >= 3) {
+          pMaskFullYB += nPitchY*nBlkSizeYOverlapDiff;
+          pMaskFullYF += nPitchY * nBlkSizeYOverlapDiff;
+          pMaskOccY += nPitchY * nBlkSizeYOverlapDiff;
+          if (!isGrey) {
+            pMaskFullUVB += nPitchUV * nBlkSizeYOverlapDiff_UV;
+            pMaskFullUVF += nPitchUV * nBlkSizeYOverlapDiff_UV;
+            pMaskOccUV += nPitchUV * nBlkSizeYOverlapDiff_UV;
+          }
         }
       }  // for by
         // post 2.5.1.22 bug: the copy from internal 16 bit array to destination was missing for overlaps!

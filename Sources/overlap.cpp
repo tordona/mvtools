@@ -28,6 +28,7 @@
 #ifdef INTEL_INTRINSICS
 #include <emmintrin.h>
 #include <smmintrin.h>
+#include <immintrin.h>
 #endif
 #include "BlockSizes.h"
 #ifdef NEON_INTRINSICS
@@ -717,6 +718,182 @@ void Overlaps_uint8_t_sse4(uint16_t* pDst0, int nDstPitch, const unsigned char* 
     pWin += nWinPitch;
   }
 }
+#ifndef _mm256_loadu2_m128i
+#define _mm256_loadu2_m128i(hiaddr, loaddr) \
+    _mm256_set_m128i(_mm_loadu_si128(hiaddr), _mm_loadu_si128(loaddr))
+#endif
+
+#ifndef _mm256_storeu2_m128i
+#define _mm256_storeu2_m128i(hiaddr, loaddr, a) \
+    do { \
+      __m256i _a = (a); \
+      _mm_storeu_si128((loaddr), _mm256_castsi256_si128(_a)); \
+      _mm_storeu_si128((hiaddr), _mm256_extracti128_si256(_a, 1)); \
+    } while (0)
+#endif
+
+template <int blockWidth, int blockHeight>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("avx2")))
+#endif
+void Overlaps_uint8_t_avx2(uint16_t* pDst0, int nDstPitch, const unsigned char* pSrc, int nSrcPitch, short* pWin, int nWinPitch)
+{
+  if constexpr (blockWidth % 16 == 0) {
+    uint16_t* pDst = pDst0;
+    const __m256i rounder_32 = _mm256_set1_epi32(32);
+
+    for (int j = 0; j < blockHeight; j++) {
+      for (int x = 0; x < blockWidth; x += 16) {
+        __m256i win = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pWin + x));
+        __m256i src = _mm256_cvtepu8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pSrc + x)));
+        __m256i reslo = _mm256_mullo_epi16(src, win);
+        __m256i reshi = _mm256_mulhi_epi16(src, win);
+        __m256i res32lo = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpacklo_epi16(reslo, reshi), rounder_32), 6);
+        __m256i res32hi = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpackhi_epi16(reslo, reshi), rounder_32), 6);
+        __m256i res = _mm256_packs_epi32(res32lo, res32hi);
+        __m256i dst = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pDst + x));
+        dst = _mm256_add_epi16(dst, res);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(pDst + x), dst);
+      }
+      pDst += nDstPitch;
+      pSrc += nSrcPitch;
+      pWin += nWinPitch;
+    }
+    _mm256_zeroupper();
+  }
+  else if constexpr (blockWidth == 24) {
+    uint16_t* pDst = pDst0;
+    const __m256i rounder_32 = _mm256_set1_epi32(32);
+    int j = 0;
+    for (; j + 1 < blockHeight; j += 2) {
+      // Row j: first 16 pixels
+      __m256i win0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pWin));
+      __m256i src0 = _mm256_cvtepu8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pSrc)));
+      __m256i reslo0 = _mm256_mullo_epi16(src0, win0);
+      __m256i reshi0 = _mm256_mulhi_epi16(src0, win0);
+      __m256i res32lo0 = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpacklo_epi16(reslo0, reshi0), rounder_32), 6);
+      __m256i res32hi0 = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpackhi_epi16(reslo0, reshi0), rounder_32), 6);
+      __m256i res0 = _mm256_packs_epi32(res32lo0, res32hi0);
+      __m256i dst0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pDst));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(pDst), _mm256_add_epi16(dst0, res0));
+
+      // Row j + 1: first 16 pixels
+      __m256i win1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pWin + nWinPitch));
+      __m256i src1 = _mm256_cvtepu8_epi16(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pSrc + nSrcPitch)));
+      __m256i reslo1 = _mm256_mullo_epi16(src1, win1);
+      __m256i reshi1 = _mm256_mulhi_epi16(src1, win1);
+      __m256i res32lo1 = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpacklo_epi16(reslo1, reshi1), rounder_32), 6);
+      __m256i res32hi1 = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpackhi_epi16(reslo1, reshi1), rounder_32), 6);
+      __m256i res1 = _mm256_packs_epi32(res32lo1, res32hi1);
+      __m256i dst1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pDst + nDstPitch));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(pDst + nDstPitch), _mm256_add_epi16(dst1, res1));
+
+      // Remaining 8 pixels of row j and row j + 1 combined
+      __m256i win_tail = _mm256_loadu2_m128i(reinterpret_cast<const __m128i*>(pWin + nWinPitch + 16), reinterpret_cast<const __m128i*>(pWin + 16));
+      __m128i src_tail8 = _mm_unpacklo_epi64(
+        _mm_loadl_epi64(reinterpret_cast<const __m128i*>(pSrc + 16)),
+        _mm_loadl_epi64(reinterpret_cast<const __m128i*>(pSrc + nSrcPitch + 16)));
+      __m256i src_tail = _mm256_cvtepu8_epi16(src_tail8);
+      __m256i reslo_t = _mm256_mullo_epi16(src_tail, win_tail);
+      __m256i reshi_t = _mm256_mulhi_epi16(src_tail, win_tail);
+      __m256i res32lo_t = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpacklo_epi16(reslo_t, reshi_t), rounder_32), 6);
+      __m256i res32hi_t = _mm256_srli_epi32(_mm256_add_epi32(_mm256_unpackhi_epi16(reslo_t, reshi_t), rounder_32), 6);
+      __m256i res_t = _mm256_packs_epi32(res32lo_t, res32hi_t);
+      __m256i dst_t = _mm256_loadu2_m128i(reinterpret_cast<const __m128i*>(pDst + nDstPitch + 16), reinterpret_cast<const __m128i*>(pDst + 16));
+      dst_t = _mm256_add_epi16(dst_t, res_t);
+      _mm256_storeu2_m128i(reinterpret_cast<__m128i*>(pDst + nDstPitch + 16), reinterpret_cast<__m128i*>(pDst + 16), dst_t);
+
+      pDst += nDstPitch * 2;
+      pSrc += nSrcPitch * 2;
+      pWin += nWinPitch * 2;
+    }
+    if constexpr (blockHeight % 2 != 0) {
+      Overlaps_uint8_t_sse4<24, 1>(pDst, nDstPitch, pSrc, nSrcPitch, pWin, nWinPitch);
+    }
+    _mm256_zeroupper();
+  }
+  else {
+    Overlaps_uint8_t_sse4<blockWidth, blockHeight>(pDst0, nDstPitch, pSrc, nSrcPitch, pWin, nWinPitch);
+  }
+}
+
+template <int blockWidth, int blockHeight>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("avx2")))
+#endif
+void Overlaps_uint16_t_avx2(uint16_t* pDst0, int nDstPitch, const unsigned char* pSrc, int nSrcPitch, short* pWin, int nWinPitch)
+{
+  if constexpr (blockWidth % 8 == 0) {
+    int* pDst = reinterpret_cast<int*>(pDst0);
+    for (int j = 0; j < blockHeight; j++) {
+      for (int x = 0; x < blockWidth; x += 8) {
+        __m256i win = _mm256_cvtepi16_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pWin + x)));
+        __m256i src = _mm256_cvtepu16_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pSrc + x * 2)));
+        __m256i res = _mm256_mullo_epi32(src, win);
+        __m256i dst = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pDst + x));
+        dst = _mm256_add_epi32(dst, res);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(pDst + x), dst);
+      }
+      pDst += nDstPitch;
+      pSrc += nSrcPitch;
+      pWin += nWinPitch;
+    }
+    _mm256_zeroupper();
+  }
+  else if constexpr (blockWidth == 12) {
+    int* pDst = reinterpret_cast<int*>(pDst0);
+    const unsigned char* pSrcRow = pSrc;
+    short* pWinRow = pWin;
+    for (int j = 0; j < blockHeight; j++) {
+      __m256i win = _mm256_cvtepi16_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pWinRow)));
+      __m256i src = _mm256_cvtepu16_epi32(_mm_loadu_si128(reinterpret_cast<const __m128i*>(pSrcRow)));
+      __m256i res = _mm256_mullo_epi32(src, win);
+      __m256i dst = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(pDst));
+      dst = _mm256_add_epi32(dst, res);
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(pDst), dst);
+
+      pDst += nDstPitch;
+      pSrcRow += nSrcPitch;
+      pWinRow += nWinPitch;
+    }
+    _mm256_zeroupper();
+    Overlaps_uint16_t_sse4<4, blockHeight>(reinterpret_cast<uint16_t*>(reinterpret_cast<int*>(pDst0) + 8), nDstPitch, pSrc + 16, nSrcPitch, pWin + 8, nWinPitch);
+  }
+  else {
+    Overlaps_uint16_t_sse4<blockWidth, blockHeight>(pDst0, nDstPitch, pSrc, nSrcPitch, pWin, nWinPitch);
+  }
+}
+
+template <int blockWidth, int blockHeight>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("avx2")))
+#endif
+void Overlaps_float_avx2(uint16_t* pDst0, int nDstPitch, const unsigned char* pSrc0, int nSrcPitch, short* pWin0, int nWinPitch)
+{
+  if constexpr (blockWidth % 8 == 0) {
+    float* pDst = reinterpret_cast<float*>(pDst0);
+    const __m256 win_scale = _mm256_set1_ps(1.0f / 2048.0f);
+    for (int j = 0; j < blockHeight; j++) {
+      const float* pSrc = reinterpret_cast<const float*>(pSrc0);
+      for (int x = 0; x < blockWidth; x += 8) {
+        __m128i win16 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pWin0 + x));
+        __m256 win = _mm256_mul_ps(_mm256_cvtepi32_ps(_mm256_cvtepi16_epi32(win16)), win_scale);
+        __m256 src = _mm256_loadu_ps(pSrc + x);
+        __m256 dst = _mm256_loadu_ps(pDst + x);
+        dst = _mm256_add_ps(dst, _mm256_mul_ps(src, win));
+        _mm256_storeu_ps(pDst + x, dst);
+      }
+      pDst += nDstPitch;
+      pSrc0 += nSrcPitch;
+      pWin0 += nWinPitch;
+    }
+    _mm256_zeroupper();
+  }
+  else {
+    Overlaps_float_C<blockWidth, blockHeight>(pDst0, nDstPitch, pSrc0, nSrcPitch, pWin0, nWinPitch);
+  }
+}
+
 #endif // INTEL_INTRINSICS
 
 OverlapsFunction *get_overlaps_function(int BlockX, int BlockY, int pixelsize, arch_t arch)
@@ -789,6 +966,13 @@ func_overlaps[make_tuple(x, y, 4, USE_NEON)] = Overlaps_float_neon<x, y>;
     func_overlaps[make_tuple(2 , 2 , 1, USE_SSE2)] = Overlaps2x2_sse2;
 #endif
 #ifdef INTEL_INTRINSICS
+#define MAKE_OVR_AVX2(x, y) \
+func_overlaps[make_tuple(x, y, 1, USE_AVX2)] = Overlaps_uint8_t_avx2<x, y>; \
+func_overlaps[make_tuple(x, y, 2, USE_AVX2)] = Overlaps_uint16_t_avx2<x, y>; \
+func_overlaps[make_tuple(x, y, 4, USE_AVX2)] = Overlaps_float_avx2<x, y>;
+    MVTOOLS_BLOCKSIZES(MAKE_OVR_AVX2)
+#undef MAKE_OVR_AVX2
+
     // define sse4 for 16 bits
 #ifdef USE_OVERLAPS_ASM
 #define MAKE_OVR_FN(x, y) \
