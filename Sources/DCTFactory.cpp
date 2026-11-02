@@ -1,3 +1,4 @@
+#include "cpu.h"
 /*****************************************************************************
 
         DCTFactory.cpp
@@ -62,7 +63,7 @@ DCTFactory::DCTFactory(int dctmode, bool isse, int blksizex, int blksizey, int p
     throw AvisynthError(e.what());
   }
 
-  cpuflags = env.GetCPUFlags();
+  cpuflags = get_simd_cpu_flags(env.GetCPUFlags());
 
   int avisynth_if_ver = 6;
   try {

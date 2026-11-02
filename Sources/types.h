@@ -30,6 +30,9 @@ http://sam.zoy.org/wtfpl/COPYING for more details.
 #if defined(_MSC_VER) && !defined(INTEL_INTRINSICS) && !defined(NEON_INTRINSICS) && (defined(_M_IX86) || defined(_M_X64))
 #define INTEL_INTRINSICS
 #endif
+#if defined(_MSC_VER) && !defined(NEON_INTRINSICS) && (defined(_M_ARM64) || defined(__aarch64__))
+#define NEON_INTRINSICS
+#endif
 
 typedef int sad_t;
 typedef int64_t bigsad_t; // 16 bit overflow cases

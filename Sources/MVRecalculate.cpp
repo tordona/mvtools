@@ -57,7 +57,7 @@ MVRecalculate::MVRecalculate(
 
   _srd_arr.resize(_nbr_srd);
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   pixelsize = vi.ComponentSize();
   bits_per_pixel = vi.BitsPerComponent();
@@ -318,7 +318,7 @@ MVRecalculate::MVRecalculate(
   analysisData.nFlags |= (_isse) ? MOTION_USE_ISSE : 0;
   analysisData.nFlags |= (analysisData.isBackward) ? MOTION_IS_BACKWARD : 0;
   analysisData.nFlags |= (chroma) ? MOTION_USE_CHROMA_MOTION : 0;
-  analysisData.nFlags |= conv_cpuf_flags_to_cpu(env->GetCPUFlags());
+  analysisData.nFlags |= conv_cpuf_flags_to_cpu(get_simd_cpu_flags(env->GetCPUFlags()));
 
   _vectorfields_aptr = std::unique_ptr <GroupOfPlanes>(new GroupOfPlanes(
     analysisData.nBlkSizeX,

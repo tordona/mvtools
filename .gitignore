@@ -292,3 +292,13 @@ __pycache__/
 
 # Cake -
 # tools/
+
+# Benchmark artifacts & media
+*.csv
+*.mp4
+Benchmarks/BenchmarkResults/
+Benchmarks/tools/
+
+# Machine-specific evaluation profiles
+AviSynth/Core-i7-*.avs
+AviSynth/Xeon-*.avs

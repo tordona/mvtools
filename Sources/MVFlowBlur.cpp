@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Pixels flow motion blur function
 // Copyright(c)2005 A.G.Balakhnin aka Fizick
 
@@ -38,7 +39,7 @@ MVFlowBlur::MVFlowBlur(PClip _child, PClip super, PClip _mvbw, PClip _mvfw, int 
 
   blur256 = _blur256;
   prec = _prec;
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   CheckSimilarity(mvClipB, "mvbw", env);
   CheckSimilarity(mvClipF, "mvfw", env);

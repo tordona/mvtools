@@ -26,6 +26,7 @@
 #include <cassert>
 #if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
 #include <arm_neon.h>
+#include <emmintrin.h>
 #elif defined(INTEL_INTRINSICS)
 #include <emmintrin.h>
 #include <smmintrin.h>
@@ -448,7 +449,7 @@ static void Merge4PlanesToBig_c(
   }
 }
 
-#ifdef INTEL_INTRINSICS
+#if defined(INTEL_INTRINSICS) || defined(NEON_INTRINSICS)
 template<typename pixel_t>
 static void Merge4PlanesToBig_sse2(
   uint8_t *pel2Plane, int pel2Pitch, const uint8_t *pPlane0, const uint8_t *pPlane1,
@@ -505,7 +506,7 @@ static void Merge4PlanesToBig_sse2(
     pPlane3 += pitch;
   }
 }
-#endif // INTEL_INTRINSICS
+#endif // INTEL_INTRINSICS or NEON_INTRINSICS
 
 void Merge4PlanesToBig(
   uint8_t *pel2Plane, int pel2Pitch, const uint8_t *pPlane0, const uint8_t *pPlane1,
@@ -515,7 +516,7 @@ void Merge4PlanesToBig(
   // P =  p0 p1 p0 p1 p0 p1 p0 p1...
   //      p2 p3 p2 p3 p2 p3 p2 p3
   // 
-#ifdef INTEL_INTRINSICS
+#if defined(INTEL_INTRINSICS) || defined(NEON_INTRINSICS)
   if (!!(cpuFlags & CPUF_SSE2) && pixelsize != 4)
   {
     if (pixelsize == 1)
@@ -524,7 +525,7 @@ void Merge4PlanesToBig(
       Merge4PlanesToBig_sse2<uint16_t>(pel2Plane, pel2Pitch, pPlane0, pPlane1, pPlane2, pPlane3, width, height, pitch, pixelsize);
     return;
   }
-#endif // INTEL_INTRINSICS
+#endif
   if(pixelsize==1)
     Merge4PlanesToBig_c<uint8_t>(pel2Plane, pel2Pitch, pPlane0, pPlane1, pPlane2, pPlane3, width, height, pitch, pixelsize);
   else if(pixelsize==2)

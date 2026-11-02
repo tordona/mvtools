@@ -27,6 +27,9 @@
 #ifdef INTEL_INTRINSICS
 #include <emmintrin.h>
 #endif
+#if defined(NEON_INTRINSICS) || defined(__ARM_NEON) || defined(_M_ARM64)
+#include <arm_neon.h>
+#endif
 
 MV_FORCEINLINE void ByteOccMask(uint8_t *occMask, int occlusion, double occnorm, double fGamma)
 {
@@ -118,14 +121,8 @@ MV_FORCEINLINE int Median3(int a, int b, int c)
 template<typename T>
 MV_FORCEINLINE T Median3r(T a, T b, T c)
 {
-  // reduced median - if it is known that a <= c (more fast)
-
-// b a c
-  if (b <= a) return a;
-  // a c b
-  else  if (c <= b) return c;
-  // a b c
-  else return b;
+  // reduced median - if it is known that a <= c: branchless clamp
+  return std::min(std::max(b, a), c);
 }
 
 template <typename pixel_t, int NPELL2>
@@ -199,6 +196,100 @@ static void FlowInterExtra_NPel(
   const pixel_t *prefF = reinterpret_cast<const pixel_t *>(prefF8);
 
   const float time256_f = time256 / 256.0f;
+
+#if defined(NEON_INTRINSICS) || defined(__ARM_NEON) || defined(_M_ARM64)
+  if constexpr (sizeof(pixel_t) == 1) {
+    const int tF = time256;
+    const int tB = 256 - time256;
+    const uint8x8_t v_255_u8 = vdup_n_u8(255);
+    const uint16x8_t v_255_u16 = vdupq_n_u16(255);
+
+    for (int h = 0; h < height; h++) {
+      int w = 0;
+      for (; w + 8 <= width; w += 8) {
+        uint8_t dstF_arr[8], dstFF_arr[8], dstB_arr[8], dstBB_arr[8];
+        for (int i = 0; i < 8; ++i) {
+          int wi = w + i;
+          int vxF = (VXFullF[wi] * tF) >> 8;
+          int vyF = (VYFullF[wi] * tF) >> 8;
+          dstF_arr[i] = prefF[vyF * ref_pitch + vxF + (wi << NPELL2)];
+
+          int vxFF = (VXFullFF[wi] * tF) >> 8;
+          int vyFF = (VYFullFF[wi] * tF) >> 8;
+          dstFF_arr[i] = prefF[vyFF * ref_pitch + vxFF + (wi << NPELL2)];
+
+          int vxB = (VXFullB[wi] * tB) >> 8;
+          int vyB = (VYFullB[wi] * tB) >> 8;
+          dstB_arr[i] = prefB[vyB * ref_pitch + vxB + (wi << NPELL2)];
+
+          int vxBB = (VXFullBB[wi] * tB) >> 8;
+          int vyBB = (VYFullBB[wi] * tB) >> 8;
+          dstBB_arr[i] = prefB[vyBB * ref_pitch + vxBB + (wi << NPELL2)];
+        }
+
+        uint8x8_t v_dstF  = vld1_u8(dstF_arr);
+        uint8x8_t v_dstFF = vld1_u8(dstFF_arr);
+        uint8x8_t v_dstB  = vld1_u8(dstB_arr);
+        uint8x8_t v_dstBB = vld1_u8(dstBB_arr);
+        uint8x8_t v_maskB = vld1_u8(&MaskB[w]);
+        uint8x8_t v_maskF = vld1_u8(&MaskF[w]);
+
+        uint8x8_t v_minfb = vmin_u8(v_dstF, v_dstB);
+        uint8x8_t v_maxfb = vmax_u8(v_dstF, v_dstB);
+        uint8x8_t v_medBB = vmin_u8(vmax_u8(v_dstBB, v_minfb), v_maxfb);
+        uint8x8_t v_medFF = vmin_u8(vmax_u8(v_dstFF, v_minfb), v_maxfb);
+
+        uint8x8_t v_invMaskF = vsub_u8(v_255_u8, v_maskF);
+        uint8x8_t v_invMaskB = vsub_u8(v_255_u8, v_maskB);
+
+        uint16x8_t v_prodF = vmlal_u8(vmull_u8(v_medBB, v_maskF), v_dstF, v_invMaskF);
+        uint8x8_t v_partF  = vshrn_n_u16(vaddq_u16(v_prodF, v_255_u16), 8);
+
+        uint16x8_t v_prodB = vmlal_u8(vmull_u8(v_medFF, v_maskB), v_dstB, v_invMaskB);
+        uint8x8_t v_partB  = vshrn_n_u16(vaddq_u16(v_prodB, v_255_u16), 8);
+
+        uint16x8_t v_final = vaddq_u16(vmulq_n_u16(vmovl_u8(v_partF), tB), vmulq_n_u16(vmovl_u8(v_partB), tF));
+        uint8x8_t v_dst    = vshrn_n_u16(v_final, 8);
+
+        vst1_u8(&pdst[w], v_dst);
+      }
+
+      for (; w < width; w++) {
+        int vxF = (VXFullF[w] * tF) >> 8;
+        int vyF = (VYFullF[w] * tF) >> 8;
+        uint8_t dstF = prefF[vyF * ref_pitch + vxF + (w << NPELL2)];
+        int vxFF = (VXFullFF[w] * tF) >> 8;
+        int vyFF = (VYFullFF[w] * tF) >> 8;
+        uint8_t dstFF = prefF[vyFF * ref_pitch + vxFF + (w << NPELL2)];
+        int vxB = (VXFullB[w] * tB) >> 8;
+        int vyB = (VYFullB[w] * tB) >> 8;
+        uint8_t dstB = prefB[vyB * ref_pitch + vxB + (w << NPELL2)];
+        int vxBB = (VXFullBB[w] * tB) >> 8;
+        int vyBB = (VYFullBB[w] * tB) >> 8;
+        uint8_t dstBB = prefB[vyBB * ref_pitch + vxBB + (w << NPELL2)];
+        uint8_t minfb = std::min(dstF, dstB);
+        uint8_t maxfb = std::max(dstF, dstB);
+        uint8_t medBB = std::min(std::max(dstBB, minfb), maxfb);
+        uint8_t medFF = std::min(std::max(dstFF, minfb), maxfb);
+
+        pdst[w] = (
+          ((medBB * MaskF[w] + dstF * (255 - MaskF[w]) + 255) >> 8) * tB +
+          ((medFF * MaskB[w] + dstB * (255 - MaskB[w]) + 255) >> 8) * tF
+        ) >> 8;
+      }
+
+      pdst += dst_pitch;
+      prefB += ref_pitch << NPELL2;
+      prefF += ref_pitch << NPELL2;
+      VXFullB += VPitch; VYFullB += VPitch;
+      VXFullF += VPitch; VYFullF += VPitch;
+      MaskB += VPitch; MaskF += VPitch;
+      VXFullBB += VPitch; VYFullBB += VPitch;
+      VXFullFF += VPitch; VYFullFF += VPitch;
+    }
+    return;
+  }
+#endif
 
   for (int h = 0; h < height; h++)
   {

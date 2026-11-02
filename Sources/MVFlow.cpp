@@ -1,3 +1,4 @@
+#include "cpu.h"
 // Pixels flow motion function
 // Copyright(c)2005 A.G.Balakhnin aka Fizick
 
@@ -38,7 +39,7 @@ MVFlow::MVFlow(PClip _child, PClip super, PClip _mvec, int _time256, int _mode, 
   time256 = _time256;
   mode = _mode;
 
-  cpuFlags = _isse ? env->GetCPUFlags() : 0;
+  cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
   fields = _fields;
 
   SuperParams64Bits params;
