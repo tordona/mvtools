@@ -80,6 +80,7 @@ public:
   MV_FORCEINLINE int GetExtendedHeight() const { return nExtendedHeight; }
   MV_FORCEINLINE int GetHPadding() const { return nHPadding; }
   MV_FORCEINLINE int GetVPadding() const { return nVPadding; }
+  MV_FORCEINLINE int GetPel() const { return nPel; }
   MV_FORCEINLINE void ResetState() { isRefined = isFilled = isPadded = false; }
 
 private:

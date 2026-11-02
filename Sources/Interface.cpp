@@ -57,12 +57,29 @@
 
 #include "AvstpFallbackPool.h"
 
+#include "D3D12MotionSearch.h"
+#include "D3D12FlowSynthesis.h"
+
 #include <avisynth.h>
 #include <stdint.h>
 
 void __cdecl Shutdown_AvstpFallbackPool(void* user_data, IScriptEnvironment* env)
 {
   AvstpFallbackPool::shutdown();
+}
+
+AVSValue __cdecl Create_MIsD3D12Available(AVSValue args, void*, IScriptEnvironment* env)
+{
+  return D3D12MotionSearch::GetInstance().IsAvailable() && D3D12FlowSynthesis::GetInstance().IsAvailable();
+}
+
+AVSValue __cdecl Create_MEnableD3D12(AVSValue args, void*, IScriptEnvironment* env)
+{
+  bool prev = D3D12MotionSearch::GetInstance().IsEnabled();
+  bool enable = args[0].AsBool(true);
+  D3D12MotionSearch::GetInstance().SetEnabled(enable);
+  D3D12FlowSynthesis::GetInstance().SetEnabled(enable);
+  return prev;
 }
 
 
@@ -754,6 +771,9 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   env->AddFunction("MRestoreVect", "c[index]i", Create_MRestoreVect, 0);
   env->AddFunction("MScaleVect", "c[scale]f[scaleV]f[mode]i[flip]b[adjustSubPel]b[bits]i", Create_MScaleVect, 0);
   //	env->AddFunction("MVFinest",     "c[isse]b", Create_MVFinest, 0);
+
+  env->AddFunction("MIsD3D12Available", "", Create_MIsD3D12Available, 0);
+  env->AddFunction("MEnableD3D12", "[enable]b", Create_MEnableD3D12, 0);
 
   // Joins the fallback worker threads before the host unloads the DLL
   env->AtExit(Shutdown_AvstpFallbackPool, 0);

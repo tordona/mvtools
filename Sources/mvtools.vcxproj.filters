@@ -140,6 +140,12 @@
     <ClCompile Include="SADFunctions_avx2.cpp" />
     <ClCompile Include="MVDegrain3_avx2.cpp" />
     <ClCompile Include="PlaneOfBlocks_avx2.cpp" />
+    <ClCompile Include="D3D12MotionSearch.cpp">
+      <Filter>Filters</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D12FlowSynthesis.cpp">
+      <Filter>Filters</Filter>
+    </ClCompile>
     <ClCompile Include="Interpolation_avx2.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -348,6 +354,36 @@
       <Filter>threading\conc</Filter>
     </ClInclude>
     <ClInclude Include="AllocAlign.h" />
+    <ClInclude Include="D3D12MotionSearch.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="D3D12FlowSynthesis.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\motion_search_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <None Include="shaders\motion_search_cs.hlsl">
+      <Filter>Filters</Filter>
+    </None>
+    <ClInclude Include="shaders\flow_warp_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_unpack_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_blend_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_warp_chroma_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\flow_blend_chroma_cso.h">
+      <Filter>Filters</Filter>
+    </ClInclude>
+    <None Include="shaders\flow_warp.hlsl">
+      <Filter>Filters</Filter>
+    </None>
     <ClInclude Include="AllocAlign.hpp" />
     <ClInclude Include="AnaFlags.h" />
     <ClInclude Include="ClipFnc.h" />

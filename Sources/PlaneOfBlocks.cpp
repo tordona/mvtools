@@ -32,6 +32,7 @@
 #include "PlaneOfBlocks.h"
 #include "Padding.h"
 #include "profile.h"
+#include "D3D12MotionSearch.h"
 
 #ifdef INTEL_INTRINSICS
 #include <emmintrin.h> // SSE2
@@ -373,6 +374,29 @@ void PlaneOfBlocks::SearchMVs(
   penaltyNew = _pnew; // penalty for new vector
   LSAD = _lsad;    // SAD limit for lambda using
 
+  // Offload block SAD and motion vector search to Adreno GPU via Direct3D 12 DirectCompute
+  if (nPel <= 2 && bits_per_pixel == 8 && !chroma && D3D12MotionSearch::GetInstance().IsAvailable())
+  {
+    if (D3D12MotionSearch::GetInstance().SearchMVs(
+        pSrcFrame, pRefFrame,
+        nBlkX, nBlkY, nBlkSizeX, nBlkSizeY,
+        nOverlapX, nOverlapY, nPel, nLogScale,
+        searchType, nSearchParam, _lambda_level, _lsad,
+        _pnew, penaltyZero, pglobal, fieldShift,
+        _glob_mv_pred_def.x, _glob_mv_pred_def.y,
+        (uint32_t)verybigSAD,
+        temporal, _vecPrev,
+        (nLogScale > 0), &vectors[0],
+        _out, _outfilebuf, &vectors[0]))
+    {
+      if (smallestPlane)
+      {
+        *pmeanLumaChange = 0;
+      }
+      return;
+    }
+  }
+
   Slicer			slicer(_mt_flag); // fixme: mt bug
   if(bits_per_pixel == 8)
     slicer.start(nBlkY, *this, &PlaneOfBlocks::search_mv_slice<uint8_t>, 4);
@@ -479,6 +503,39 @@ void PlaneOfBlocks::RecalculateMVs(
   _mv_clip_ptr = &mvClip;
   _smooth = smooth;
   _thSAD = thSAD;
+
+  penaltyNew = _pnew; // penalty for new vector
+  LSAD = _lsad;       // SAD limit for lambda using
+  tryMany = false;
+
+  // Offload to Adreno GPU via Direct3D 12 DirectCompute
+  if (nPel <= 2 && bits_per_pixel == 8 && !chroma && D3D12MotionSearch::GetInstance().IsAvailable())
+  {
+    const FakePlaneOfBlocks &plane = mvClip.GetPlane(0);
+    int nBlkXold = plane.GetReducedWidth();
+    int nBlkYold = plane.GetReducedHeight();
+    int nStepXold = plane.GetBlockSizeX() - plane.GetOverlapX();
+    int nStepYold = plane.GetBlockSizeY() - plane.GetOverlapY();
+
+    if (nStepXold > 0 && nStepYold > 0 && nBlkXold > 0 && nBlkYold > 0)
+    {
+      if (D3D12MotionSearch::GetInstance().SearchMVs(
+          pSrcFrame, pRefFrame,
+          nBlkX, nBlkY, nBlkSizeX, nBlkSizeY,
+          nOverlapX, nOverlapY, nPel, nLogScale,
+          st, stp, _lambda_level, lsad,
+          pnew, 0, 0, fieldShift,
+          0, fieldShift,
+          (uint32_t)verybigSAD,
+          false, nullptr,
+          true, nullptr,
+          out, outfilebuf, &vectors[0],
+          &plane, smooth))
+      {
+        return;
+      }
+    }
+  }
 
   // -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
   // fixme: consider disabling internal mt, it's giving inconsistent results when used

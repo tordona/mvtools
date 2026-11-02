@@ -30,6 +30,7 @@
 #include "profile.h"
 #include "SuperParams64Bits.h"
 #include "Time256ProviderCst.h"
+#include "D3D12FlowSynthesis.h"
 
 //#include <intrin.h>
 #include "math.h"
@@ -1408,6 +1409,46 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
 
       pDst[p] = dst->GetWritePtr(plane);
       nDstPitches[p] = dst->GetPitch(plane);
+    }
+
+    // Direct3D 12 GPU Gather-Based Frame Synthesis Offload
+    if (pixelsize_super == 1 && D3D12FlowSynthesis::GetInstance().IsAvailable())
+    {
+      const uint8_t* pGpuSrc[3] = {
+        pSrc[0] + nSuperHPad + nSrcPitches[0] * nSuperVPad,
+        pSrc[1] + (nSuperHPad >> nLogxRatioUVs[1]) + nSrcPitches[1] * (nSuperVPad >> nLogyRatioUVs[1]),
+        pSrc[2] + (nSuperHPad >> nLogxRatioUVs[1]) + nSrcPitches[2] * (nSuperVPad >> nLogyRatioUVs[1])
+      };
+      const uint8_t* pGpuRef[3] = {
+        pRef[0] + nSuperHPad + nRefPitches[0] * nSuperVPad,
+        pRef[1] + (nSuperHPad >> nLogxRatioUVs[1]) + nRefPitches[1] * (nSuperVPad >> nLogyRatioUVs[1]),
+        pRef[2] + (nSuperHPad >> nLogxRatioUVs[1]) + nRefPitches[2] * (nSuperVPad >> nLogyRatioUVs[1])
+      };
+      uint8_t* pGpuDst[3] = { pDst[0], pDst[1], pDst[2] };
+
+      int widthUV = nWidth >> nLogxRatioUVs[1];
+      int heightUV = nHeight >> nLogyRatioUVs[1];
+
+      bool gpuSuccess = D3D12FlowSynthesis::GetInstance().SynthesizeFrame(
+        pGpuSrc, nSrcPitches,
+        pGpuRef, nRefPitches,
+        pGpuDst, nDstPitches,
+        nWidth, nHeight,
+        widthUV, heightUV,
+        planecount,
+        time256,
+        nPel,
+        nBlkX, nBlkY,
+        mvClipB, mvClipF,
+        mode,
+        nBlkSizeX, nBlkSizeY,
+        0 // flowMode = 0 (MBlockFps block-based dynamic median)
+      );
+
+      if (gpuSuccess)
+      {
+        return dst;
+      }
     }
 
     BYTE *pDstSave[3];

@@ -1566,9 +1566,21 @@
     </ClCompile>
     <ClCompile Include="SimpleResize.cpp" />
     <ClCompile Include="Variance.cpp" />
+    <ClCompile Include="D3D12MotionSearch.cpp" />
+    <ClCompile Include="D3D12FlowSynthesis.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AllocAlign.h" />
+    <ClInclude Include="D3D12MotionSearch.h" />
+    <ClInclude Include="D3D12FlowSynthesis.h" />
+    <ClInclude Include="shaders\motion_search_cso.h" />
+    <None Include="shaders\motion_search_cs.hlsl" />
+    <ClInclude Include="shaders\flow_warp_cso.h" />
+    <ClInclude Include="shaders\flow_unpack_cso.h" />
+    <ClInclude Include="shaders\flow_blend_cso.h" />
+    <ClInclude Include="shaders\flow_warp_chroma_cso.h" />
+    <ClInclude Include="shaders\flow_blend_chroma_cso.h" />
+    <None Include="shaders\flow_warp.hlsl" />
     <ClInclude Include="AllocAlign.hpp" />
     <ClInclude Include="AnaFlags.h" />
     <ClInclude Include="avstp.h" />

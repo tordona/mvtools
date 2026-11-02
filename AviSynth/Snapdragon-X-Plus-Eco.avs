@@ -1,0 +1,62 @@
+# ==============================================================================
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 1: Eco / Lowest CPU)
+# Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
+# Target: Minimal CPU utilization, zero dropped frames, low power consumption
+# Revision: 2.1.0 (2026-10-28)
+# Changelog: Oryon architecture, levels=1, single MSuper, threads=2/4, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# User Configuration: Toggle Direct3D 12 Compute Offload
+# Set to true for Direct3D 12 Adreno GPU offload (via MEnableD3D12 in mvtools2.dll)
+# Set to false for original ARM64 CPU NEON baseline (mvtools2.dll)
+# ------------------------------------------------------------------------------
+USE_D3D12 = false
+
+# Dynamic parameters adapted to USE_D3D12
+threads     = USE_D3D12 ? 2 : 4     # GPU: 2 worker threads (double-buffered); CPU: 4 Oryon cores
+mem_limit   = USE_D3D12 ? 1536 : 2048
+
+# Memory allocation and multi-threading filter mode
+SetMemoryMax(mem_limit)
+SetFilterMTMode("DEFAULT_MT_MODE", 2)
+
+# PotPlayer video source stream
+potplayer_source()
+
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 64x64 blocks maintain the exact 2,040 block count of 1080p 32x32,
+# keeping CPU and GPU memory traffic within low-power battery envelopes.
+is_4k  = (Width() > 2048)
+blk_sz = is_4k ? 64 : 32
+
+# Load Native ARM64 MVTools2 plugin
+LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
+
+# 1. Base Motion Super Clip (Integer Pixel Precision)
+# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# pel=1: Full-pixel precision only (skips subpixel math, cutting memory bandwidth by ~75%)
+# hpad=0, vpad=0: No padding overhead
+# sharp=0: Fast bilinear interpolation for minimal ALU load
+super = MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
+
+# 2. Ultra-Lightweight Coarse Motion Analysis
+# 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
+# search=2: Hexagonal search pattern (extremely fast and stable)
+# searchparam=1: Minimal search radius to limit vector comparisons
+# chroma=false: Evaluates luminance only, saving 50% vector math
+# levels=1: Strictly searches base Level 0 without multi-level pyramid overhead
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+
+# 3. Direct Block-Based 60 fps Synthesis
+# mode=0: Fast block projection (least computationally intensive mode)
+# blend=false: Avoids calculating blend masks on fast motion
+# thSCD1=400, thSCD2=130: Robust scene-change detection to avoid artifacts on cuts
+MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
+
+# 4. Multi-Threading (adapted dynamically to USE_D3D12)
+Prefetch(threads)
+
