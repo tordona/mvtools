@@ -1,8 +1,8 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define FILEVERSION_VAL 2,7,47,220
-#define FILEVERSION_BASE_STR "2.7.47.220"
+#define FILEVERSION_VAL 2,7,47,230
+#define FILEVERSION_BASE_STR "2.7.47.230"
 
 #if defined(_M_ARM64) || defined(_ARM64_) || defined(__aarch64__) || defined(__arm64__)
     #define ARCH_SUFFIX "-arm64"

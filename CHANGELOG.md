@@ -9,6 +9,8 @@ Change log
     - Updated 21 hybrid CPU profiles across Intel Alder Lake (Core-i3-1215U), AMD Krackan Point (Ryzen AI 5 340), and Qualcomm Snapdragon (8cx Gen 1/2/3, 850, 7c Gen 2) to dynamically chain PinWorkerThreads() before Prefetch().
     - Enhanced Install-MvToolsPotPlayer.ps1 to automatically deploy AvsAffinity.dll alongside mvtools2.dll, discover local build artifacts, verify PE machine architecture, and report active affinity status.
     - Synchronized technical documentation and guides across Documentation/guides/ and docs/guides/.
+  - Build Version & Packaging:
+    - Bumped base build version to 2.7.47.230 in version.h, mvtools.rc, AI_PORT_NOTICE.md, and technical documentation.
 - 2.7.47.220-arm64 (20261101)
   - Multi-Threading Fallback & Thread Pool Infrastructure:
     - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).
