@@ -6,7 +6,7 @@ This test suite rigorously measures, validates, and compares motion estimation a
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
+> Direct3D 12 GPU offload (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
 
 ---
 

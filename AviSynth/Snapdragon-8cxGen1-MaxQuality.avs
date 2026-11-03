@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
@@ -18,11 +18,11 @@ threads     = USE_D3D12 ? 3 : 4     # GPU: 3 threads keeps queue full; CPU: 4 Go
 mem_limit   = USE_D3D12 ? 1536 : 2048
 
 # Dynamic parameter adaptation:
-# GPU DirectCompute: pel=1, single-pass dense 16x16 with search=3, searchparam=2 (5x5 exhaustive grid in 2 dispatches prevents 7 W thermal throttling)
+# GPU DirectCompute: pel=1, single-pass dense 16x16 with search=2, searchparam=2 (Diamond search in 2 dispatches prevents 7 W thermal throttling)
 # CPU NEON: pel=2 half-pixel precision (sharp=1 bicubic), dual-pass 16x16 -> 8x8 micro-blocks, blend=true (sustained 60 fps on 4 Gold cores)
 pel_val     = USE_D3D12 ? 1 : 2
 sharp_mode  = USE_D3D12 ? 0 : 1
-search_alg  = USE_D3D12 ? 3 : 2
+search_alg  = 2
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -53,7 +53,7 @@ MEnableD3D12(USE_D3D12)
 super = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Dense Motion Vector Field Analysis
-# GPU: Evaluates in a single pass of dense blocks (16x16 at 1080p, 32x32 at 4K: 8,160 blocks) using 5x5 exhaustive 2D grid search
+# GPU: Evaluates in a single pass of dense blocks (16x16 at 1080p, 32x32 at 4K: 8,160 blocks) using Diamond search (~12 points)
 # CPU: Radius-2 hexagonal coarse pass before micro-block refinement
 # levels=1: Strictly searches base Level 0
 backward_dense = MAnalyse(super, isb=true,  blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))

@@ -90,12 +90,12 @@ The Adreno X1 Video Processing Unit (VPU) includes dedicated hardware decoders f
 6. Click **Apply** → **OK**.
 
 > [!TIP]
-> **Direct3D 12 GPU Acceleration (`mvtools2.dll` - Experimental Preview)**  
+> **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
 > On Snapdragon X Plus / Elite platforms, the 8–12 Oryon CPU cores easily sustain the Balanced and Eco tiers with native NEON SIMD (`mvtools2.dll`), serving as the production reference engine.  
-> Direct3D 12 GPU offload via `mvtools2.dll` is engaged by setting `USE_D3D12 = true` at the top of the profile scripts. When enabled, the profile dynamically adapts:
+> Setting `USE_D3D12 = true` at the top of the profile engages the Adreno X1-85 GPU compute engine (`MEnableD3D12(true)`) to offload block SAD motion estimation and frame synthesis:
 > - **MaxQuality (`USE_D3D12 = true`):** Executes diamond motion search (`search=2, searchparam=2`, ~12 coarse candidate points) and fine diamond refinement (`fine_rad=2`) entirely in Adreno X1 compute shaders (`motion_search_cs.hlsl`). Coupled with hardware bilinear texture warping (`pel=1`), host CPU load is reduced from 10.6% down to **6.0%** (a 43.4% CPU overhead reduction).
 > - **Balanced (`USE_D3D12 = true`):** Reduces host CPU load to **6.3%** and working set RAM to **335.9 MB** while sustaining **55.53 fps 1% Low** pacing and zero dropped frames.  
-> *(Note: GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis).*
+> *(Note: Direct3D 12 GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis, with native ARM64 CPU NEON remaining the production reference).*
 
 > [!NOTE]
 > **Homogeneous Architecture & `AvsAffinity.dll`**  

@@ -92,13 +92,13 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 > The Snapdragon 8cx Gen 2 features 4 out-of-order Kryo 495 Gold cores and 4 in-order Kryo 495 Silver cores. All provided 8cx Gen 2 scripts strictly cap `Prefetch` to **3 or 4 threads** and dynamically chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`. The bundled companion plugin `AvsAffinity.dll` programmatically pins worker threads to the 4 Gold performance cores (`0xF0`). This prevents the OS scheduler from scheduling MVTools worker threads on the low-IPC Silver cores, eliminating pipeline stalls and video stutter.
 
 > [!TIP]
-> **Direct3D 12 GPU Offload (`USE_D3D12 = true` - Experimental Preview)**  
+> **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
 > All 8cx Gen 2 profiles default to pure CPU execution (`USE_D3D12 = false`), which serves as the production reference and delivers continuous, deterministic 60 fps with zero dropped frames.  
 > Setting `USE_D3D12 = true` at the top of the scripts engages the **experimental Direct3D 12 preview engine** (`MEnableD3D12(true)`) to offload motion search to the Adreno 680 GPU:
 > - **Balanced (`USE_D3D12 = true`):** Sustains 60 fps with CPU load dropping to just **8.2%** (peak 10.5%) and GPU load at **58.3%–60.9%**, maintaining low package temperatures and high thermal margin.
 > - **MaxQuality (`USE_D3D12 = true`):** Automatically adapts to 32×32 → 16×16 (`pel=1`) with full radius-2 hexagonal search (`searchparam=2`) and Dynamic Median blending (`blend=true`), reducing CPU load from 15.3% down to **8.2%** (a 46.4% CPU overhead reduction).
 >
-> *(Note: GPU offload is provided as an experimental preview; rendering fidelity and performance are provided on a best-effort basis).*
+> *(Note: Direct3D 12 GPU offload is provided as an experimental preview; rendering fidelity and real-time performance are provided on a best-effort basis, with native ARM64 CPU NEON remaining the production reference).*
 
 ---
 

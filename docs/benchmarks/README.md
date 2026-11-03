@@ -6,7 +6,7 @@ This test suite rigorously measures, validates, and compares motion estimation a
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
-> Direct3D 12 GPU acceleration (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
+> Direct3D 12 GPU offload (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Visual output, frame pacing, and stability may vary across GPU generations, display driver versions, and concurrent desktop swapchain loads. The native **ARM64 CPU NEON / x64 CPU SIMD engine (`mvtools2.dll`)** serves as the production reference.
 
 ---
 
@@ -47,43 +47,43 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/MvToolsBenchmark-Start.ps1) | `v2.5.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
-| [`MvToolsBenchmarks-Compare.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/MvToolsBenchmarks-Compare.ps1) | `v2.5.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
-| [`MvToolsBenchmark-Headless.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
-| [`Benchmark-BigBuckBunny-Fidelity.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
-| [`Measure-SearchModesFidelity.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Measure-SearchModesFidelity.ps1) | `v1.0.0` | Frame-accurate objective fidelity test (PSNR & SSIM) comparing motion search algorithms (Exhaustive vs Hex vs Diamond) against decimated ground truth. | Console table / PSNR & SSIM metrics |
-| [`Generate-SearchModesVectorField.ps1`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Generate-SearchModesVectorField.ps1) | `v1.0.0` | Generates side-by-side motion vector field visualization video using `MShow` to inspect spatial vector coherence and boundary stability. | Vector field MP4 video |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.5.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.5.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
+| [`MvToolsBenchmark-Headless.ps1`](MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
+| [`Benchmark-BigBuckBunny-Fidelity.ps1`](Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
+| [`Measure-SearchModesFidelity.ps1`](Measure-SearchModesFidelity.ps1) | `v1.0.0` | Frame-accurate objective fidelity test (PSNR & SSIM) comparing motion search algorithms (Exhaustive vs Hex vs Diamond) against decimated ground truth. | Console table / PSNR & SSIM metrics |
+| [`Generate-SearchModesVectorField.ps1`](Generate-SearchModesVectorField.ps1) | `v1.0.0` | Generates side-by-side motion vector field visualization video using `MShow` to inspect spatial vector coherence and boundary stability. | Vector field MP4 video |
 
 ---
 
 ## Reference Baseline Matrices (`Baseline/`)
 
-Verified baseline benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/):
+Verified baseline benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](Baseline/):
 
 | Platform / SoC | Baseline Report | Tested Chassis / Target Hardware |
 | :--- | :--- | :--- |
-| **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
-| **AMD Ryzen AI 5 340** | [**`BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) | AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c @ 15 W TDP, Radeon 840M RDNA 3.5) |
-| **Intel Core i7-11850H** | [**`BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) | Intel Core i7-11850H (8C/16T @ 45 W TDP, Intel UHD 32EU, 24 MB L3) |
-| **Intel Core i5-8259U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) | Intel Core i5-8259U (4C/8T @ 28 W TDP, Iris Plus 655, 128 MB eDRAM) |
-| **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12 W TDP, Iris Xe 80EU, 16 GB Dual-Channel) |
-| **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15 W TDP, Intel UHD 64EU, 16 GB Dual-Channel) |
-| **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD 24EU, 16 GB Single-Channel) |
-| **Intel Core i5-7Y54** | [**`BenchmarkMatrix_Comparison_Core-i5-7Y54.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Core-i5-7Y54.md) | Intel Core i5-7Y54 (2C/4T @ 10 W TDP, Intel HD 615, 8 GB LPDDR3-1866) |
-| **Intel Pentium Silver N5030** | [**`BenchmarkMatrix_Comparison_Generic-x64.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Generic-x64.md) | Intel Pentium Silver N5030 @ 1.10 GHz, Intel UHD Graphics 605, 8 GB RAM |
-| **Snapdragon X Plus** | [**`BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) | Surface Pro 11th Edition (Qualcomm Oryon, Adreno X1-85) |
-| **Snapdragon 8cx Gen 3** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md) | Lenovo ThinkPad X13s (4x Cortex-X1 + 4x A78, Adreno 690) |
-| **Snapdragon 8cx Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md) | Microsoft Surface Pro X SQ2 (Kryo 495, Adreno 680) |
-| **Snapdragon 8cx Gen 1** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md) | Microsoft Surface Pro X SQ1 (Kryo 495, Adreno 675) |
-| **Snapdragon 850** | [**`BenchmarkMatrix_Comparison_Snapdragon-850.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-850.md) | Samsung Galaxy Book2 (Kryo 385, Adreno 630, 5 W Fanless) |
-| **Snapdragon 7c Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md`**](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/Baseline/BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md) | Samsung Galaxy Book Go (Kryo 468, Adreno 618, 4 GB Fanless) |
+| **Combined Overview** | [**`BenchmarkMatrix_Comparison_Combined.md`**](Baseline/BenchmarkMatrix_Comparison_Combined.md) | Multi-platform comparative executive summary |
+| **AMD Ryzen AI 5 340** | [**`BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md`**](Baseline/BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md) | AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c @ 15 W TDP, Radeon 840M RDNA 3.5) |
+| **Intel Core i7-11850H** | [**`BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md) | Intel Core i7-11850H (8C/16T @ 45 W TDP, Intel UHD 32EU, 24 MB L3) |
+| **Intel Core i5-8259U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md) | Intel Core i5-8259U (4C/8T @ 28 W TDP, Iris Plus 655, 128 MB eDRAM) |
+| **Intel Core i5-1135G7** | [**`BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md) | Intel Core i5-1135G7 (4C/8T @ 12 W TDP, Iris Xe 80EU, 16 GB Dual-Channel) |
+| **Intel Core i3-1215U** | [**`BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md) | Intel Core i3-1215U (2P+4E/8T @ 15 W TDP, Intel UHD 64EU, 16 GB Dual-Channel) |
+| **Intel Processor N100** | [**`BenchmarkMatrix_Comparison_Intel-Processor-N100.md`**](Baseline/BenchmarkMatrix_Comparison_Intel-Processor-N100.md) | Intel Processor N100 (4C/4T Gracemont @ 6 W TDP, Intel UHD 24EU, 16 GB Single-Channel) |
+| **Intel Core i5-7Y54** | [**`BenchmarkMatrix_Comparison_Core-i5-7Y54.md`**](Baseline/BenchmarkMatrix_Comparison_Core-i5-7Y54.md) | Intel Core i5-7Y54 (2C/4T @ 10 W TDP, Intel HD 615, 8 GB LPDDR3-1866) |
+| **Intel Pentium Silver N5030** | [**`BenchmarkMatrix_Comparison_Generic-x64.md`**](Baseline/BenchmarkMatrix_Comparison_Generic-x64.md) | Intel Pentium Silver N5030 @ 1.10 GHz, Intel UHD Graphics 605, 8 GB RAM |
+| **Snapdragon X Plus** | [**`BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md) | Surface Pro 11th Edition (Qualcomm Oryon, Adreno X1-85) |
+| **Snapdragon 8cx Gen 3** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md) | Lenovo ThinkPad X13s (4x Cortex-X1 + 4x A78, Adreno 690) |
+| **Snapdragon 8cx Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md) | Microsoft Surface Pro X SQ2 (Kryo 495, Adreno 680) |
+| **Snapdragon 8cx Gen 1** | [**`BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md) | Microsoft Surface Pro X SQ1 (Kryo 495, Adreno 675) |
+| **Snapdragon 850** | [**`BenchmarkMatrix_Comparison_Snapdragon-850.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-850.md) | Samsung Galaxy Book2 (Kryo 385, Adreno 630, 5 W Fanless) |
+| **Snapdragon 7c Gen 2** | [**`BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md`**](Baseline/BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md) | Samsung Galaxy Book Go (Kryo 468, Adreno 618, 4 GB Fanless) |
 
 ---
 
 ## AI Agent Profile Generation & Tuning Guide
 
 When bringing MVTools2 to a new hardware platform or validating new profile sets, refer to the comprehensive companion guide:  
-👉 [**AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles**](../guides/AIAgentProfileGuide.md)
+👉 [**AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles**](../Documentation/guides/AIAgentProfileGuide.md)
 
 This companion guide provides:
 - **Mode A: Autonomous IDE Agent Workflow:** Zero-copy-paste loop for AI coding assistants (Google Antigravity, Cursor, Windsurf, Copilot) to auto-detect hardware, generate `.avs` profiles, run the benchmark harness, audit PresentMon telemetry, and self-tune parameters in a closed loop.
@@ -314,5 +314,5 @@ When analyzing the comparison matrix, focus on the following key performance ind
    - **Open Source:** Intel PresentMon is open-source software licensed under the **MIT License**.
    - **Copyright:** Copyright (C) 2017-2024 Intel Corporation.
    - **Official Project Repository:** [GameTechDev/PresentMon](https://github.com/GameTechDev/PresentMon)
-   - **License File:** The complete MIT license text is preserved in [`Benchmarks/PresentMon-LICENSE.txt`](https://github.com/tordona/mvtools/blob/mvtools-d3d12/Benchmarks/PresentMon-LICENSE.txt).
+   - **License File:** The complete MIT license text is preserved in [`Benchmarks/PresentMon-LICENSE.txt`](PresentMon-LICENSE.txt).
    - **Redistribution Rights:** Unlike proprietary software, the MIT License explicitly permits redistribution and inclusion of the binary and associated documentation provided that the copyright and permission notices are retained.
