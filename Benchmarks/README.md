@@ -16,27 +16,43 @@ The test suite consists of two complementary PowerShell scripts located in the `
 
 ```text
 Benchmarks/
-├── MvToolsBenchmark-Start.ps1      # Automated, reproducible benchmark execution harness
-├── MvToolsBenchmarks-Compare.ps1   # Comparative matrix analysis and report generator
-├── Baseline/                       # Reference benchmark comparison matrices across platforms
+├── MvToolsBenchmark-Start.ps1            # Automated, reproducible benchmark execution harness (PotPlayer + PresentMon)
+├── MvToolsBenchmarks-Compare.ps1         # Comparative matrix analysis and report generator
+├── MvToolsBenchmark-Headless.ps1         # Unconstrained throughput benchmark (FPS, active cores, CPU load)
+├── Benchmark-BigBuckBunny-Fidelity.ps1   # 5-scene objective fidelity test (PSNR, SSIM, throughput)
+├── BigBuckBunny_StressTestGuide.md       # Reference stress test scenes & motion artifact guide
+├── Measure-SearchModesFidelity.ps1       # Frame-accurate search mode fidelity evaluation (Exhaustive vs Hex vs Diamond)
+├── Generate-SearchModesVectorField.ps1   # Side-by-side vector field visual verification (MShow)
+├── Baseline/                             # Reference benchmark comparison matrices across platforms
 │   ├── BenchmarkMatrix_Comparison_Combined.md
+│   ├── BenchmarkMatrix_Comparison_AMD-Ryzen-AI-5-340.md
+│   ├── BenchmarkMatrix_Comparison_Core-i5-7Y54.md
 │   ├── BenchmarkMatrix_Comparison_Generic-x64.md
-│   ├── BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md
-│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md
-│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md
-│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md
+│   ├── BenchmarkMatrix_Comparison_Intel-Core-i3-1215U.md
+│   ├── BenchmarkMatrix_Comparison_Intel-Core-i5-1135G7.md
+│   ├── BenchmarkMatrix_Comparison_Intel-Core-i5-8259U.md
+│   ├── BenchmarkMatrix_Comparison_Intel-Core-i7-11850H.md
+│   ├── BenchmarkMatrix_Comparison_Intel-Processor-N100.md
+│   ├── BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md
 │   ├── BenchmarkMatrix_Comparison_Snapdragon-850.md
-│   └── BenchmarkMatrix_Comparison_Snapdragon-7cGen2.md
-├── PresentMon-arm64.exe            # Intel PresentMon for ARM64 (DXGI/ETW sub-millisecond frame capture)
-├── PresentMon-x64.exe              # Intel PresentMon for x64 (DXGI/ETW sub-millisecond frame capture)
-├── PresentMon-LICENSE.txt          # MIT License for Intel PresentMon
-└── BenchmarkResults/               # Working directory for local run outputs and raw CSVs
+│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen1.md
+│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen2.md
+│   ├── BenchmarkMatrix_Comparison_Snapdragon-8cxGen3.md
+│   └── BenchmarkMatrix_Comparison_Snapdragon-X-Plus.md
+├── PresentMon-arm64.exe                  # Intel PresentMon for ARM64 (DXGI/ETW sub-millisecond frame capture)
+├── PresentMon-x64.exe                    # Intel PresentMon for x64 (DXGI/ETW sub-millisecond frame capture)
+├── PresentMon-LICENSE.txt                # MIT License for Intel PresentMon
+└── BenchmarkResults/                     # Working directory for local run outputs and raw CSVs
 ```
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
 | [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.5.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
 | [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.5.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
+| [`MvToolsBenchmark-Headless.ps1`](MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
+| [`Benchmark-BigBuckBunny-Fidelity.ps1`](Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
+| [`Measure-SearchModesFidelity.ps1`](Measure-SearchModesFidelity.ps1) | `v1.0.0` | Frame-accurate objective fidelity test (PSNR & SSIM) comparing motion search algorithms (Exhaustive vs Hex vs Diamond) against decimated ground truth. | Console table / PSNR & SSIM metrics |
+| [`Generate-SearchModesVectorField.ps1`](Generate-SearchModesVectorField.ps1) | `v1.0.0` | Generates side-by-side motion vector field visualization video using `MShow` to inspect spatial vector coherence and boundary stability. | Vector field MP4 video |
 
 ---
 
