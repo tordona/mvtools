@@ -221,6 +221,45 @@ OverlapWindows::~OverlapWindows()
 // Here originally there was no rounding at all
 // So instead of: Sum((overlapped + 256)>>6) >> 5
 // So we do: (Sum((overlapped + 32) >> 6) + 16) >> 5
+#if defined(_M_ARM64) || defined(__aarch64__)
+#include <arm_neon.h>
+
+void Short2Bytes_neon(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
+{
+  const int wMod16 = (nWidth / 16) * 16;
+  const int wMod8 = (nWidth / 8) * 8;
+  for (int y = 0; y < nHeight; y++)
+  {
+    int x = 0;
+    for (; x < wMod16; x += 16) {
+      uint16x8_t src07 = vld1q_u16(pDstShort + x);
+      uint16x8_t src8f = vld1q_u16(pDstShort + x + 8);
+      uint8x8_t res07 = vqmovn_u16(vrshrq_n_u16(src07, 5));
+      uint8x8_t res8f = vqmovn_u16(vrshrq_n_u16(src8f, 5));
+      uint8x16_t res = vcombine_u8(res07, res8f);
+      vst1q_u8(pDst + x, res);
+    }
+    if (wMod8 != wMod16) {
+      uint16x8_t src07 = vld1q_u16(pDstShort + wMod16);
+      uint8x8_t res07 = vqmovn_u16(vrshrq_n_u16(src07, 5));
+      vst1_u8(pDst + wMod16, res07);
+      x = wMod8;
+    }
+    for (; x < nWidth; x++) {
+      int a = (pDstShort[x] + (1 << 4)) >> 5;
+      pDst[x] = static_cast<unsigned char>(min(255, a));
+    }
+    pDst += nDstPitch;
+    pDstShort += dstShortPitch;
+  }
+}
+
+void Short2Bytes_sse2(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
+{
+  Short2Bytes_neon(pDst, nDstPitch, pDstShort, dstShortPitch, nWidth, nHeight);
+}
+#endif
+
 #ifdef INTEL_INTRINSICS
 void Short2Bytes_sse2(unsigned char *pDst, int nDstPitch, uint16_t *pDstShort, int dstShortPitch, int nWidth, int nHeight)
 {

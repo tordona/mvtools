@@ -142,6 +142,7 @@ private:
   int            effective_chromaSADscale;   // PF experimental 2.7.18.22 allow e.g. YV24 chroma to have the same magnitude as for YV12
 
   SADFunction *  SAD;              /* function which computes the sad */
+  SADx4Function * SAD_x4;          /* function which computes 4 luma sads in parallel */
   LUMAFunction * LUMA;             /* function which computes the mean luma */
   //VARFunction *  VAR;              /* function which computes the variance */
   COPYFunction * BLITLUMA;
@@ -267,6 +268,13 @@ private:
 
     int pixelsize;
     int bits_per_pixel;
+
+    int predChromaVx;
+    int predChromaVy;
+    sad_t predChromaSAD;
+    int lastChromaVx;
+    int lastChromaVy;
+    sad_t lastChromaSAD;
 
     // Data set once
     TmpDataArray dctSrc;
@@ -407,11 +415,21 @@ private:
   // U/V share the same chroma vector, convert it once.
   MV_FORCEINLINE sad_t ChromaSAD(WorkingArea& workarea, int vx, int vy)
   {
+    if (!chroma) return 0;
     const int cvx = MvToChromaX(vx);
     const int cvy = MvToChromaY(vy);
-    return ScaleSadChroma(
+    if (cvx == workarea.lastChromaVx && cvy == workarea.lastChromaVy)
+      return workarea.lastChromaSAD;
+    if (cvx == workarea.predChromaVx && cvy == workarea.predChromaVy)
+      return workarea.predChromaSAD;
+    const sad_t saduv = ScaleSadChroma(
       SADCHROMA(workarea.pSrc[1], nSrcPitch[1], GetRefBlockU(workarea, cvx, cvy), nRefPitch[1])
-      + SADCHROMA(workarea.pSrc[2], nSrcPitch[2], GetRefBlockV(workarea, cvx, cvy), nRefPitch[2]), effective_chromaSADscale);
+      + SADCHROMA(workarea.pSrc[2], nSrcPitch[2], GetRefBlockV(workarea, cvx, cvy), nRefPitch[2]),
+      effective_chromaSADscale);
+    workarea.lastChromaVx = cvx;
+    workarea.lastChromaVy = cvy;
+    workarea.lastChromaSAD = saduv;
+    return saduv;
   }
 
   MV_FORCEINLINE const uint8_t* GetSrcBlock(int nX, int nY)
@@ -427,11 +445,15 @@ private:
   template<typename pixel_t>
   MV_FORCEINLINE void CheckMV0(WorkingArea &workarea, int vx, int vy);
   template<typename pixel_t>
+  MV_FORCEINLINE void CheckMV0_x4(WorkingArea &workarea, int vx0, int vy0, int vx1, int vy1, int vx2, int vy2, int vx3, int vy3);
+  template<typename pixel_t>
   MV_FORCEINLINE void CheckMV(WorkingArea &workarea, int vx, int vy);
   template<typename pixel_t>
   MV_FORCEINLINE void CheckMV2(WorkingArea &workarea, int vx, int vy, int *dir, int val);
   template<typename pixel_t>
   MV_FORCEINLINE void CheckMVdir(WorkingArea &workarea, int vx, int vy, int *dir, int val);
+  template<typename pixel_t>
+  MV_FORCEINLINE void CheckMVdir_x3(WorkingArea &workarea, int vx0, int vy0, int val0, int vx1, int vy1, int val1, int vx2, int vy2, int val2, int *dir);
   MV_FORCEINLINE int ClipMVx(WorkingArea &workarea, int vx);
   MV_FORCEINLINE int ClipMVy(WorkingArea &workarea, int vy);
   MV_FORCEINLINE VECTOR ClipMV(WorkingArea &workarea, VECTOR v);

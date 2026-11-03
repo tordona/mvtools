@@ -87,6 +87,7 @@ PlaneOfBlocks::PlaneOfBlocks(int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSi
   , _mt_flag(mt_flag)
   , chromaSADscale(_chromaSADscale)
   , SAD(0)
+  , SAD_x4(0)
   , LUMA(0)
 //  , VAR(0)
   , BLITLUMA(0)
@@ -164,7 +165,9 @@ PlaneOfBlocks::PlaneOfBlocks(int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSi
                      // in M(V)DegrainX: DenoiseXFunction
   arch_t arch;
 #ifdef NEON_INTRINSICS
-  if (isse && (nFlags & CPU_NEON))
+  if (isse && (nFlags & CPU_SSE4))
+    arch = USE_SSE41;
+  else if (isse && (nFlags & (CPU_NEON | CPU_SSE2)))
     arch = USE_NEON;
   else
 #endif
@@ -180,6 +183,7 @@ PlaneOfBlocks::PlaneOfBlocks(int _nBlkX, int _nBlkY, int _nBlkSizeX, int _nBlkSi
     arch = NO_SIMD;
 
   SAD = get_sad_function(nBlkSizeX, nBlkSizeY, bits_per_pixel, arch);
+  SAD_x4 = get_sad_x4_function(nBlkSizeX, nBlkSizeY, bits_per_pixel, arch);
   SADCHROMA = get_sad_function(nBlkSizeX / xRatioUV, nBlkSizeY / yRatioUV, bits_per_pixel, arch);
   BLITLUMA = get_copy_function(nBlkSizeX, nBlkSizeY, pixelsize, arch);
   BLITCHROMA = get_copy_function(nBlkSizeX / xRatioUV, nBlkSizeY / yRatioUV, pixelsize, arch);
@@ -948,16 +952,30 @@ void PlaneOfBlocks::PseudoEPZSearch(WorkingArea& workarea)
   }
 #endif	// ALLOW_DCT
 
+  // Initialize per-block chroma cache
+  workarea.predChromaVx = 0x7fffffff;
+  workarea.predChromaVy = 0x7fffffff;
+  workarea.lastChromaVx = 0x7fffffff;
+  workarea.lastChromaVy = 0x7fffffff;
+
   // We treat zero alone
   // Do we bias zero with not taking into account distorsion ?
   workarea.bestMV.x = zeroMVfieldShifted.x;
   workarea.bestMV.y = zeroMVfieldShifted.y;
-  saduv = chroma ?
-    ChromaSAD(workarea, 0, 0) : 0;
+  saduv = ChromaSAD(workarea, 0, 0);
+  if (chroma)
+  {
+    workarea.predChromaVx = 0;
+    workarea.predChromaVy = 0;
+    workarea.predChromaSAD = saduv;
+  }
   sad = LumaSAD<pixel_t>(workarea, GetRefBlock(workarea, 0, zeroMVfieldShifted.y));
   sad += saduv;
   workarea.bestMV.sad = sad;
   workarea.nMinCost = sad + ((penaltyZero*(safe_sad_t)sad) >> 8); // v.1.11.0.2
+
+  const sad_t zeroSad = sad;
+  sad_t globalSad = -1;
 
   VECTOR bestMVMany[8];
   int nMinCostMany[8];
@@ -973,10 +991,40 @@ void PlaneOfBlocks::PseudoEPZSearch(WorkingArea& workarea)
   // Global MV predictor  - added by Fizick
   workarea.globalMVPredictor = ClipMV(workarea, workarea.globalMVPredictor);
 
-  //	if ( workarea.IsVectorOK(workarea.globalMVPredictor.x, workarea.globalMVPredictor.y ) )
+  if (!tryMany)
   {
-    saduv = (chroma) ? 
-      ChromaSAD(workarea, workarea.globalMVPredictor.x, workarea.globalMVPredictor.y) : 0;
+    if (workarea.globalMVPredictor.x == 0 && workarea.globalMVPredictor.y == 0 && zeroMVfieldShifted.y == 0)
+    {
+      sad = zeroSad;
+      if (sad < workarea.nMinCost)
+      {
+        workarea.bestMV.x = 0;
+        workarea.bestMV.y = 0;
+        workarea.bestMV.sad = sad;
+        workarea.nMinCost = sad;
+      }
+    }
+    else
+    {
+      sad = LumaSAD<pixel_t>(workarea, GetRefBlock(workarea, workarea.globalMVPredictor.x, workarea.globalMVPredictor.y));
+      if (sad < workarea.nMinCost)
+      {
+        saduv = ChromaSAD(workarea, workarea.globalMVPredictor.x, workarea.globalMVPredictor.y);
+        sad += saduv;
+        if (sad < workarea.nMinCost)
+        {
+          workarea.bestMV.x = workarea.globalMVPredictor.x;
+          workarea.bestMV.y = workarea.globalMVPredictor.y;
+          workarea.bestMV.sad = sad;
+          workarea.nMinCost = sad;
+        }
+      }
+    }
+    globalSad = sad;
+  }
+  else
+  {
+    saduv = ChromaSAD(workarea, workarea.globalMVPredictor.x, workarea.globalMVPredictor.y);
     sad = LumaSAD<pixel_t>(workarea, GetRefBlock(workarea, workarea.globalMVPredictor.x, workarea.globalMVPredictor.y));
     sad += saduv;
     sad_t cost = sad + ((pglobal*(safe_sad_t)sad) >> 8);
@@ -995,16 +1043,62 @@ void PlaneOfBlocks::PseudoEPZSearch(WorkingArea& workarea)
       bestMVMany[1] = workarea.bestMV;    // save bestMV
       nMinCostMany[1] = workarea.nMinCost;
     }
-    //	}
-    //	Then, the predictor :
-    //	if (   (( workarea.predictor.x != zeroMVfieldShifted.x ) || ( workarea.predictor.y != zeroMVfieldShifted.y ))
-    //	    && (( workarea.predictor.x != workarea.globalMVPredictor.x ) || ( workarea.predictor.y != workarea.globalMVPredictor.y )))
-    //	{
-    saduv = chroma ?
-      ChromaSAD(workarea, workarea.predictor.x, workarea.predictor.y) : 0;
+  }
+
+  // Then, the predictor :
+  if (!tryMany)
+  {
+    if (workarea.predictor.x == 0 && workarea.predictor.y == 0 && zeroMVfieldShifted.y == 0)
+    {
+      sad = zeroSad;
+      if (sad < workarea.nMinCost)
+      {
+        workarea.bestMV.x = 0;
+        workarea.bestMV.y = 0;
+        workarea.bestMV.sad = sad;
+        workarea.nMinCost = sad;
+      }
+    }
+    else if (globalSad >= 0 && workarea.predictor.x == workarea.globalMVPredictor.x && workarea.predictor.y == workarea.globalMVPredictor.y)
+    {
+      sad = globalSad;
+      if (sad < workarea.nMinCost)
+      {
+        workarea.bestMV.x = workarea.predictor.x;
+        workarea.bestMV.y = workarea.predictor.y;
+        workarea.bestMV.sad = sad;
+        workarea.nMinCost = sad;
+      }
+    }
+    else
+    {
+      sad = LumaSAD<pixel_t>(workarea, GetRefBlock(workarea, workarea.predictor.x, workarea.predictor.y));
+      if (sad < workarea.nMinCost)
+      {
+        saduv = ChromaSAD(workarea, workarea.predictor.x, workarea.predictor.y);
+        if (chroma)
+        {
+          workarea.predChromaVx = MvToChromaX(workarea.predictor.x);
+          workarea.predChromaVy = MvToChromaY(workarea.predictor.y);
+          workarea.predChromaSAD = saduv;
+        }
+        sad += saduv;
+        if (sad < workarea.nMinCost)
+        {
+          workarea.bestMV.x = workarea.predictor.x;
+          workarea.bestMV.y = workarea.predictor.y;
+          workarea.bestMV.sad = sad;
+          workarea.nMinCost = sad;
+        }
+      }
+    }
+  }
+  else
+  {
+    saduv = ChromaSAD(workarea, workarea.predictor.x, workarea.predictor.y);
     sad = LumaSAD<pixel_t>(workarea, GetRefBlock(workarea, workarea.predictor.x, workarea.predictor.y));
     sad += saduv;
-    cost = sad;
+    sad_t cost = sad;
 
     if (cost < workarea.nMinCost || tryMany)
     {
@@ -1026,21 +1120,94 @@ void PlaneOfBlocks::PseudoEPZSearch(WorkingArea& workarea)
   // then all the other predictors
   int npred = (temporal) ? 5 : 4;
 
-  for (int i = 0; i < npred; i++)
+  if (tryMany)
   {
-    if (tryMany)
+    for (int i = 0; i < npred; i++)
     {
       workarea.nMinCost = verybigSAD + 1;
-    }
-    CheckMV0<pixel_t>(workarea, workarea.predictors[i].x, workarea.predictors[i].y);
-    if (tryMany)
-    {
+      CheckMV0<pixel_t>(workarea, workarea.predictors[i].x, workarea.predictors[i].y);
       // refine around predictor
       Refine<pixel_t>(workarea);    // reset bestMV
       bestMVMany[i + 3] = workarea.bestMV;    // save bestMV
       nMinCostMany[i + 3] = workarea.nMinCost;
     }
-  }	// for i
+  }
+  else
+  {
+    int candX[5];
+    int candY[5];
+    int candCount = 0;
+
+    for (int i = 0; i < npred; i++)
+    {
+      const int vx = workarea.predictors[i].x;
+      const int vy = workarea.predictors[i].y;
+      if (vx == workarea.predictor.x && vy == workarea.predictor.y)
+        continue;
+      bool dup = false;
+      for (int j = 0; j < i; j++)
+      {
+        if (vx == workarea.predictors[j].x && vy == workarea.predictors[j].y)
+        {
+          dup = true;
+          break;
+        }
+      }
+      if (dup)
+        continue;
+
+      if (vx == 0 && vy == 0 && zeroMVfieldShifted.y == 0)
+      {
+        if (workarea.IsVectorOK(0, 0))
+        {
+          sad_t cost = workarea.MotionDistorsion<pixel_t>(0, 0) + zeroSad;
+          if (cost < workarea.nMinCost)
+          {
+            workarea.bestMV.x = 0;
+            workarea.bestMV.y = 0;
+            workarea.nMinCost = cost;
+            workarea.bestMV.sad = zeroSad;
+          }
+        }
+      }
+      else if (globalSad >= 0 && vx == workarea.globalMVPredictor.x && vy == workarea.globalMVPredictor.y)
+      {
+        if (workarea.IsVectorOK(vx, vy))
+        {
+          sad_t cost = workarea.MotionDistorsion<pixel_t>(vx, vy) + globalSad;
+          if (cost < workarea.nMinCost)
+          {
+            workarea.bestMV.x = vx;
+            workarea.bestMV.y = vy;
+            workarea.nMinCost = cost;
+            workarea.bestMV.sad = globalSad;
+          }
+        }
+      }
+      else
+      {
+        candX[candCount] = vx;
+        candY[candCount] = vy;
+        candCount++;
+      }
+    }
+
+    if (candCount >= 4)
+    {
+      CheckMV0_x4<pixel_t>(workarea, candX[0], candY[0], candX[1], candY[1], candX[2], candY[2], candX[3], candY[3]);
+      if (candCount == 5)
+      {
+        CheckMV0<pixel_t>(workarea, candX[4], candY[4]);
+      }
+    }
+    else if (candCount > 0)
+    {
+      for (int c = 0; c < candCount; c++)
+      {
+        CheckMV0<pixel_t>(workarea, candX[c], candY[c]);
+      }
+    }
+  }
 
   if (tryMany)
   {
@@ -1190,10 +1357,30 @@ void PlaneOfBlocks::DiamondSearch(WorkingArea &workarea, int length)
     // First, we look the directions that were hinted by the previous step
     // of the algorithm. If we find one, we add it to the set of directions
     // we'll test next
-    if (lastDirection & 1) CheckMV2<pixel_t>(workarea, dx + length, dy, &direction, 1);
-    if (lastDirection & 2) CheckMV2<pixel_t>(workarea, dx - length, dy, &direction, 2);
-    if (lastDirection & 4) CheckMV2<pixel_t>(workarea, dx, dy + length, &direction, 4);
-    if (lastDirection & 8) CheckMV2<pixel_t>(workarea, dx, dy - length, &direction, 8);
+    if ((lastDirection & 15) == 15)
+    {
+      int dir = -2;
+      CheckMVdir_x3<pixel_t>(workarea, dx + length, dy, 1, dx - length, dy, 2, dx, dy + length, 4, &dir);
+      CheckMVdir<pixel_t>(workarea, dx, dy - length, &dir, 8);
+      if (dir != -2)
+      {
+        direction = dir;
+        switch (dir)
+        {
+        case 1: workarea.bestMV.x = dx + length; workarea.bestMV.y = dy; break;
+        case 2: workarea.bestMV.x = dx - length; workarea.bestMV.y = dy; break;
+        case 4: workarea.bestMV.x = dx; workarea.bestMV.y = dy + length; break;
+        case 8: workarea.bestMV.x = dx; workarea.bestMV.y = dy - length; break;
+        }
+      }
+    }
+    else
+    {
+      if (lastDirection & 1) CheckMV2<pixel_t>(workarea, dx + length, dy, &direction, 1);
+      if (lastDirection & 2) CheckMV2<pixel_t>(workarea, dx - length, dy, &direction, 2);
+      if (lastDirection & 4) CheckMV2<pixel_t>(workarea, dx, dy + length, &direction, 4);
+      if (lastDirection & 8) CheckMV2<pixel_t>(workarea, dx, dy - length, &direction, 8);
+    }
 
     // If one of the directions improves the SAD, we make further tests
     // on the diagonals
@@ -1435,12 +1622,8 @@ void PlaneOfBlocks::Hex2Search(WorkingArea &workarea, int i_me_range)
 //		COPY2_IF_LT( bcost, costs[3], dir, 3 );
 //		COPY2_IF_LT( bcost, costs[4], dir, 4 );
 //		COPY2_IF_LT( bcost, costs[5], dir, 5 );
-    CheckMVdir<pixel_t>(workarea, bmx - 2, bmy, &dir, 0);
-    CheckMVdir<pixel_t>(workarea, bmx - 1, bmy + 2, &dir, 1);
-    CheckMVdir<pixel_t>(workarea, bmx + 1, bmy + 2, &dir, 2);
-    CheckMVdir<pixel_t>(workarea, bmx + 2, bmy, &dir, 3);
-    CheckMVdir<pixel_t>(workarea, bmx + 1, bmy - 2, &dir, 4);
-    CheckMVdir<pixel_t>(workarea, bmx - 1, bmy - 2, &dir, 5);
+    CheckMVdir_x3<pixel_t>(workarea, bmx - 2, bmy, 0, bmx - 1, bmy + 2, 1, bmx + 1, bmy + 2, 2, &dir);
+    CheckMVdir_x3<pixel_t>(workarea, bmx + 2, bmy, 3, bmx + 1, bmy - 2, 4, bmx - 1, bmy - 2, 5, &dir);
 
 
     if (dir != -2)
@@ -1451,19 +1634,12 @@ void PlaneOfBlocks::Hex2Search(WorkingArea &workarea, int i_me_range)
       for (int i = 1; i < i_me_range / 2 && workarea.IsVectorOK(bmx, bmy); i++)
       {
         const int odir = mod6m1[dir + 1];
-        //				COST_MV_X3_DIR (hex2[odir+0][0], hex2[odir+0][1],
-        //				                hex2[odir+1][0], hex2[odir+1][1],
-        //				                hex2[odir+2][0], hex2[odir+2][1],
-        //				                costs);
-
         dir = -2;
-        //				COPY2_IF_LT( bcost, costs[0], dir, odir-1 );
-        //				COPY2_IF_LT( bcost, costs[1], dir, odir   );
-        //				COPY2_IF_LT( bcost, costs[2], dir, odir+1 );
-
-        CheckMVdir<pixel_t>(workarea, bmx + hex2[odir + 0][0], bmy + hex2[odir + 0][1], &dir, odir - 1);
-        CheckMVdir<pixel_t>(workarea, bmx + hex2[odir + 1][0], bmy + hex2[odir + 1][1], &dir, odir);
-        CheckMVdir<pixel_t>(workarea, bmx + hex2[odir + 2][0], bmy + hex2[odir + 2][1], &dir, odir + 1);
+        CheckMVdir_x3<pixel_t>(workarea,
+          bmx + hex2[odir + 0][0], bmy + hex2[odir + 0][1], odir - 1,
+          bmx + hex2[odir + 1][0], bmy + hex2[odir + 1][1], odir,
+          bmx + hex2[odir + 2][0], bmy + hex2[odir + 2][1], odir + 1,
+          &dir);
         if (dir == -2)
         {
           break;
@@ -2700,6 +2876,120 @@ MV_FORCEINLINE void	PlaneOfBlocks::CheckMV0(WorkingArea &workarea, int vx, int v
   }
 }
 
+
+template<typename pixel_t>
+MV_FORCEINLINE void PlaneOfBlocks::CheckMV0_x4(WorkingArea &workarea, int vx0, int vy0, int vx1, int vy1, int vx2, int vy2, int vx3, int vy3)
+{
+  if (dctmode != 0 || SAD_x4 == nullptr)
+  {
+    CheckMV0<pixel_t>(workarea, vx0, vy0);
+    CheckMV0<pixel_t>(workarea, vx1, vy1);
+    CheckMV0<pixel_t>(workarea, vx2, vy2);
+    CheckMV0<pixel_t>(workarea, vx3, vy3);
+    return;
+  }
+
+  const int vx[4] = { vx0, vx1, vx2, vx3 };
+  const int vy[4] = { vy0, vy1, vy2, vy3 };
+  sad_t dist[4];
+  bool valid[4];
+  const uint8_t *pRef[4];
+  const uint8_t *validRef = nullptr;
+  int validCount = 0;
+  int singleIdx = -1;
+
+  for (int k = 0; k < 4; ++k)
+  {
+    const int cx = vx[k];
+    const int cy = vy[k];
+    if (
+#ifdef ONLY_CHECK_NONDEFAULT_MV
+      ((cx != 0) || (cy != zeroMVfieldShifted.y)) &&
+      ((cx != workarea.predictor.x) || (cy != workarea.predictor.y)) &&
+      ((cx != workarea.globalMVPredictor.x) || (cy != workarea.globalMVPredictor.y)) &&
+#endif
+      workarea.IsVectorOK(cx, cy))
+    {
+      sad_t d = workarea.MotionDistorsion<pixel_t>(cx, cy);
+      if (d < workarea.nMinCost)
+      {
+        dist[k] = d;
+        valid[k] = true;
+        pRef[k] = GetRefBlock(workarea, cx, cy);
+        if (validRef == nullptr)
+          validRef = pRef[k];
+        singleIdx = k;
+        ++validCount;
+        continue;
+      }
+    }
+    valid[k] = false;
+  }
+
+  if (validCount == 0)
+    return;
+
+  if (validCount == 1)
+  {
+    const int k = singleIdx;
+    sad_t cost = dist[k];
+#ifdef MOTION_DEBUG
+    workarea.iter++;
+#endif
+    sad_t sad = SAD(workarea.pSrc[0], nSrcPitch[0], pRef[k], nRefPitch[0]);
+    cost += sad;
+    if (cost >= workarea.nMinCost)
+      return;
+
+    sad_t saduv = ChromaSAD(workarea, vx[k], vy[k]);
+    cost += saduv;
+    if (cost >= workarea.nMinCost)
+      return;
+
+    workarea.bestMV.x = vx[k];
+    workarea.bestMV.y = vy[k];
+    workarea.nMinCost = cost;
+    workarea.bestMV.sad = sad + saduv;
+    return;
+  }
+
+  for (int k = 0; k < 4; ++k)
+  {
+    if (!valid[k])
+      pRef[k] = validRef;
+  }
+
+  sad_t sads[4];
+  SAD_x4(workarea.pSrc[0], nSrcPitch[0], pRef[0], pRef[1], pRef[2], pRef[3], nRefPitch[0], sads);
+
+  for (int k = 0; k < 4; ++k)
+  {
+    if (!valid[k])
+      continue;
+    sad_t cost = dist[k];
+    if (cost >= workarea.nMinCost)
+      continue;
+
+#ifdef MOTION_DEBUG
+    workarea.iter++;
+#endif
+    sad_t sad = sads[k];
+    cost += sad;
+    if (cost >= workarea.nMinCost)
+      continue;
+
+    sad_t saduv = ChromaSAD(workarea, vx[k], vy[k]);
+    cost += saduv;
+    if (cost >= workarea.nMinCost)
+      continue;
+
+    workarea.bestMV.x = vx[k];
+    workarea.bestMV.y = vy[k];
+    workarea.nMinCost = cost;
+    workarea.bestMV.sad = sad + saduv;
+  }
+}
+
 /* check if the vector (vx, vy) is better than the best vector found so far */
 template<typename pixel_t>
 MV_FORCEINLINE void	PlaneOfBlocks::CheckMV(WorkingArea &workarea, int vx, int vy)
@@ -2848,6 +3138,123 @@ MV_FORCEINLINE void	PlaneOfBlocks::CheckMVdir(WorkingArea &workarea, int vx, int
     workarea.bestMV.sad = sad + saduv;
     *dir = val;
 #endif
+  }
+}
+
+
+template<typename pixel_t>
+MV_FORCEINLINE void PlaneOfBlocks::CheckMVdir_x3(WorkingArea &workarea, int vx0, int vy0, int val0, int vx1, int vy1, int val1, int vx2, int vy2, int val2, int *dir)
+{
+  if (dctmode != 0 || SAD_x4 == nullptr)
+  {
+    CheckMVdir<pixel_t>(workarea, vx0, vy0, dir, val0);
+    CheckMVdir<pixel_t>(workarea, vx1, vy1, dir, val1);
+    CheckMVdir<pixel_t>(workarea, vx2, vy2, dir, val2);
+    return;
+  }
+
+  const int vx[3] = { vx0, vx1, vx2 };
+  const int vy[3] = { vy0, vy1, vy2 };
+  const int val[3] = { val0, val1, val2 };
+  sad_t dist[3];
+  bool valid[3];
+  const uint8_t *pRef[3];
+  const uint8_t *validRef = nullptr;
+  int validCount = 0;
+  int singleIdx = -1;
+
+  for (int k = 0; k < 3; ++k)
+  {
+    const int cx = vx[k];
+    const int cy = vy[k];
+    if (
+#ifdef ONLY_CHECK_NONDEFAULT_MV
+      ((cx != 0) || (cy != zeroMVfieldShifted.y)) &&
+      ((cx != workarea.predictor.x) || (cy != workarea.predictor.y)) &&
+      ((cx != workarea.globalMVPredictor.x) || (cy != workarea.globalMVPredictor.y)) &&
+#else
+      ((cx != workarea.predictor.x) || (cy != workarea.predictor.y) || tryMany) &&
+#endif
+      workarea.IsVectorOK(cx, cy))
+    {
+      sad_t d = workarea.MotionDistorsion<pixel_t>(cx, cy);
+      if (d < workarea.nMinCost)
+      {
+        dist[k] = d;
+        valid[k] = true;
+        pRef[k] = GetRefBlock(workarea, cx, cy);
+        if (validRef == nullptr)
+          validRef = pRef[k];
+        singleIdx = k;
+        ++validCount;
+        continue;
+      }
+    }
+    valid[k] = false;
+  }
+
+  if (validCount == 0)
+    return;
+
+  typedef typename std::conditional < sizeof(pixel_t) == 1, sad_t, bigsad_t >::type safe_sad_t;
+
+  if (validCount == 1)
+  {
+    const int k = singleIdx;
+    sad_t cost = dist[k];
+#ifdef MOTION_DEBUG
+    workarea.iter++;
+#endif
+    sad_t sad = SAD(workarea.pSrc[0], nSrcPitch[0], pRef[k], nRefPitch[0]);
+    cost += sad + ((penaltyNew * (safe_sad_t)sad) >> 8);
+    if (cost >= workarea.nMinCost)
+      return;
+
+    sad_t saduv = ChromaSAD(workarea, vx[k], vy[k]);
+    cost += saduv + ((penaltyNew * (safe_sad_t)saduv) >> 8);
+    if (cost >= workarea.nMinCost)
+      return;
+
+    workarea.nMinCost = cost;
+    workarea.bestMV.sad = sad + saduv;
+    *dir = val[k];
+    return;
+  }
+
+  const uint8_t *pRef4[4] = {
+    valid[0] ? pRef[0] : validRef,
+    valid[1] ? pRef[1] : validRef,
+    valid[2] ? pRef[2] : validRef,
+    validRef
+  };
+
+  sad_t sads[4];
+  SAD_x4(workarea.pSrc[0], nSrcPitch[0], pRef4[0], pRef4[1], pRef4[2], pRef4[3], nRefPitch[0], sads);
+
+  for (int k = 0; k < 3; ++k)
+  {
+    if (!valid[k])
+      continue;
+    sad_t cost = dist[k];
+    if (cost >= workarea.nMinCost)
+      continue;
+
+#ifdef MOTION_DEBUG
+    workarea.iter++;
+#endif
+    sad_t sad = sads[k];
+    cost += sad + ((penaltyNew * (safe_sad_t)sad) >> 8);
+    if (cost >= workarea.nMinCost)
+      continue;
+
+    sad_t saduv = ChromaSAD(workarea, vx[k], vy[k]);
+    cost += saduv + ((penaltyNew * (safe_sad_t)saduv) >> 8);
+    if (cost >= workarea.nMinCost)
+      continue;
+
+    workarea.nMinCost = cost;
+    workarea.bestMV.sad = sad + saduv;
+    *dir = val[k];
   }
 }
 

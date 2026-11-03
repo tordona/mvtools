@@ -78,7 +78,7 @@ public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
-    return cachehints == CACHE_GET_MTMODE ? MT_MULTI_INSTANCE : 0;
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
   }
 
   void DrawMVs(unsigned char *pDst, int nDstPitch, const unsigned char *pSrc,
