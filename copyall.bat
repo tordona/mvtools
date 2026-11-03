@@ -2,7 +2,7 @@
 rem Collects the release DLLs (MvTools2, DePan, DePanEstimate) into out\<platform>\<toolset>\
 rem
 rem Before running: batch build these configurations from the IDE (Build / Batch Build):
-rem   Visual Studio 2026, mvtools.slnx:  Release, Rel_Clang (Win32, x64), IntelCpp (x64)
+rem   Visual Studio 2026, mvtools.slnx:  Release, Rel_Clang (Win32, x64), IntelCpp (x64), Release (ARM64)
 rem   Visual Studio 2022, mvtools.sln:   Release_v141_xp (Win32, x64) - VS 2026 has no v141_xp toolset
 rem Windows on ARM64: build_arm64_mingw.bat writes out\ARM64\llvm-mingw itself;
 rem   "copyall.bat arm64" runs it at the end (needs llvm-mingw and Ninja, see the batch file).
@@ -21,8 +21,13 @@ for %%P in (Sources\mvtools2 DePan\DePan DePanEstimate\DePanEstimate) do (
     call :copy %%a Win32 Release %%b Win32\MSVC
     call :copy %%a Win32 Release_v141_xp %%b Win32\MSVC_XP
     call :copy %%a Win32 Rel_Clang %%b Win32\ClangCL
+    call :copy %%a ARM64 Release %%b ARM64
   )
 )
+
+rem AvsAffinity companion plugin
+if exist "x64\Release\AvsAffinity.dll" call :copy_file "x64\Release\AvsAffinity.dll" "x64\MSVC"
+if exist "ARM64\Release\AvsAffinity.dll" call :copy_file "ARM64\Release\AvsAffinity.dll" "ARM64"
 
 if /i "%~1"=="arm64" (
   echo.
@@ -45,4 +50,17 @@ if not exist "%SRC%" (
 if not exist "out\%~5" mkdir "out\%~5"
 copy /y "%SRC%" "out\%~5\" >nul || (set /a MISSING+=1 & goto :eof)
 for %%F in ("%SRC%") do echo   %%~tF  %SRC% -^> out\%~5
+goto :eof
+
+rem :copy_file <source file path> <out subdir>
+:copy_file
+set "SRC=%~1"
+if not exist "%SRC%" (
+  echo   MISSING  %SRC%
+  set /a MISSING+=1
+  goto :eof
+)
+if not exist "out\%~2" mkdir "out\%~2"
+copy /y "%SRC%" "out\%~2\" >nul || (set /a MISSING+=1 & goto :eof)
+for %%F in ("%SRC%") do echo   %%~tF  %SRC% -^> out\%~2
 goto :eof

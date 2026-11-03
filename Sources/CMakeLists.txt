@@ -18,10 +18,19 @@ Include("Files.cmake")
 
 add_library(${PluginName} SHARED ${MvTools2_Sources})
 
-set_target_properties(${PluginName} PROPERTIES "OUTPUT_NAME" "${PluginName}")
+set_target_properties(${PluginName} PROPERTIES "OUTPUT_NAME" "mvtools2")
 if (MINGW)
   set_target_properties(${PluginName} PROPERTIES PREFIX "")
   set_target_properties(${PluginName} PROPERTIES IMPORT_PREFIX "")
+endif()
+
+# Architecture target definition for version resources and headers
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+  target_compile_definitions(${PluginName} PRIVATE _M_ARM64)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  target_compile_definitions(${PluginName} PRIVATE _M_AMD64)
+else()
+  target_compile_definitions(${PluginName} PRIVATE _M_IX86)
 endif()
 
 # version resource

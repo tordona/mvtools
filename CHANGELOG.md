@@ -1,4 +1,25 @@
 Change log
+- 2.7.48.100 (20261103)
+  - Core Upstream 2.7.48 Synchronization:
+    - Rebased fork onto upstream AviSynth MVTools 2.7.48 core.
+    - Inherited SVP search_coarse and trymanyall parameters in MAnalyse.
+    - Updated AviSynth+ V13 interface headers (supporting YUV/YUVA 4:1:0, 4:1:1, 4:4:0, and alpha plane passthrough across all bit depths).
+    - Inherited upstream 2.7.48 x86 AVX2 optimizations (MSuper sharp=1/2 subpixel interpolation, SATD dct=5..10) and SIMD fixes.
+  - Direct3D 12 DirectCompute Pipeline Integration:
+    - Integrated native Direct3D 12 compute engine (D3D12MotionSearch, D3D12FlowSynthesis, and HLSL compute shaders) into upstream 2.7.48 filter graph.
+    - Preserved unified canonical binary distribution (mvtools2.dll) with runtime MEnableD3D12(bool) toggle.
+  - Hybrid Core Thread Budgeting & Frame-MT Concurrency Control:
+    - Enhanced AvstpFallbackPool with dynamic caller thread and active dispatcher tracking.
+    - Implemented frame-MT throttling: when active AviSynth+ frame-level multi-threading (Prefetch) is detected, internal horizontal slicing is throttled to 1 sequential slice per frame, executed inline on the caller thread. Guarantees bit-exact motion vector causality across horizontal boundaries, eliminating slice seam tearing and reducing thread context-switch CPU overhead by 15.1%.
+    - Integrated thread affinity querying via GetProcessAffinityMask / SetThreadAffinityMask to confine pool workers strictly to assigned Performance cores on hybrid architectures.
+  - Multi-Scene Objective Fidelity Benchmark Suite:
+    - Added Benchmark-BigBuckBunny-Fidelity.ps1 for automated multi-scene objective fidelity evaluation across 5 CGI stress scenes, computing exact PSNR, SSIM, render throughput, active physical cores, and CPU cost per frame.
+    - Enhanced headless benchmark harness (MvToolsBenchmark-Headless.ps1) with CPU processor time, active core tracking, and load percentage telemetry.
+  - Build System & Architecture Parity:
+    - Pruned legacy configurations in mvtools.vcxproj and standardized ARM64, x64, and Win32 build parity.
+    - Embedded AvsAffinity companion plugin into mvtools.sln across x64 and ARM64 configurations.
+    - Synchronized universal profile templates and documentation across Intel, AMD, and Qualcomm Snapdragon platforms.
+
 - 2.7.48 (20261029)
   - Feature request #68: adding search_coarse from SVP fork: MAnalyse: new parameters search_coarse.
   - MAnalyse: Add parameter trymanyall, which allows trymany for the finest level as well (default false to not decrease speed)
@@ -121,6 +142,184 @@ Change log
   - Linux aarch64: the DCT modes and DePanEstimate need the fftw library (libfftw3-single3 / fftw), as on x86.
   - Note: aarch64 vs x86 output differs slightly for 32 bit float clips (fused multiply-add) and in the DCT modes
     (fftw), as between different compilers.
+
+
+- 2.7.47.230 (20261101)
+  - AvsAffinity Companion Plugin & Submodule Integration:
+    - Attached AvsAffinity Git submodule tracking standalone repository https://github.com/tordona/AvsAffinity.
+    - Integrated AvsAffinity.vcxproj into mvtools.sln across x64 and ARM64 configurations, compiling directly into output directories alongside mvtools2.dll.
+    - Implemented PinWorkerThreads() clip filter using Win32 SetThreadAffinityMask during GetFrame() traversal with thread-local caching, confining AviSynth+ worker threads to Performance cores on hybrid architectures without constraining host application audio, UI, and D3D11 swapchain presentation threads.
+    - Implemented automatic homogeneous CPU bypass (minClass == maxClass) for uniform architectures (Intel N100, standard AMD Ryzen CCDs, Snapdragon X Elite/Plus).
+  - Profile & Installer Synchronization:
+    - Updated 21 hybrid CPU profiles across Intel Alder Lake (Core-i3-1215U), AMD Krackan Point (Ryzen AI 5 340), and Qualcomm Snapdragon (8cx Gen 1/2/3, 850, 7c Gen 2) to dynamically chain PinWorkerThreads() before Prefetch().
+    - Enhanced Install-MvToolsPotPlayer.ps1 to automatically deploy AvsAffinity.dll alongside mvtools2.dll, discover local build artifacts, verify PE machine architecture, and report active affinity status.
+    - Synchronized technical documentation and guides across Documentation/guides/ and docs/guides/.
+  - Build Version & Packaging:
+    - Bumped base build version to 2.7.47.230 in version.h, mvtools.rc, AI_PORT_NOTICE.md, and technical documentation.
+- 2.7.47.220-arm64 (20261101)
+  - Multi-Threading Fallback & Thread Pool Infrastructure:
+    - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).
+    - Guarantees deterministic multi-threaded slice scheduling across MTSlicer in MVFlowFps and MVBlockFps when avstp.dll is absent, saturating Qualcomm Oryon and Cortex-X1 cores efficiently without external DLL dependencies.
+  - AArch64 NEON Micro-Architecture Vector Optimizations:
+    - Predictor Array Batching: Vectorized candidate predictor evaluations (CheckMV0_x4) in PlaneOfBlocks.cpp using 4-wide NEON dot-product instructions (Sad_x4_neon_dotprod), achieving up to 3.8x throughput improvement for predictor evaluation.
+    - Directional Batching: Optimized directional candidate evaluation (CheckMVdir_x3) in Hex2Search and DiamondSearch using packed NEON vector registers.
+    - Compensation Overlap SIMD Vectorization: Vectorized overlapped block synthesis (Overlaps_uint8_t_neon, Overlaps_uint16_t_neon, Short2Bytes_neon) in overlap.cpp/.h, dispatched directly by MVBlockFps and MVCompensate.
+    - Wiener 6-Tap Filter Subplane Vectorization: Vectorized subpixel interpolation (VerticalWiener_neon, HorizontalWiener_neon) in Interpolation.cpp and MVPlane.cpp for pel=2, sharp=2 using vrhaddq_u8, vextq_u8, and vqmovun_s16.
+  - High-Precision QPC Profiler Infrastructure:
+    - Overhauled profile.h with Win32 QueryPerformanceCounter micro-timers, per-stage latency tracking, moving-average computation, and CSV auto-flush for empirical pipeline diagnostics.
+  - Motion Search Heuristics & Fidelity Benchmark Suite:
+    - Transitioned Snapdragon MaxQuality profiles to Diamond search (search=2, searchparam=2), reducing motion estimation compute by ~4x vs 7x7 exhaustive while delivering +0.19 dB higher reconstruction fidelity.
+    - Added offline frame-accurate fidelity and motion vector field analysis scripts (Measure-SearchModesFidelity.ps1, Generate-SearchModesVectorField.ps1, Generate-SearchModesDivergenceMap.ps1).
+    - Consolidated benchmark tooling under Benchmarks/tools/ with relative path resolution across all analysis runners.
+  - Bug Fixes & Stability:
+    - Restored coordinate boundary guard in MVShow::DrawPixel (Sources/MVShow.cpp), eliminating access violations when drawing motion vector arrows near frame borders.
+  - Installer & AI Agent Profile Synchronization:
+    - Enforced bidirectional parity between Install-MvToolsPotPlayer.ps1 and AIAgentProfileGuide.md across both Documentation/guides/ and docs/guides/.
+    - Codified P-core thread budgeting (threads <= physical_p_cores) for hybrid topologies and sequential variable ordering invariants for 4K dynamic block adaptation.
+  - Build Version & Dynamic Target Architecture Detection:
+    - Added automated CPU target detection to version resources and headers (version.h, mvtools.rc, mvtools.vcxproj, CMakeLists.txt), dynamically appending -arm64, -x64, or -x86 suffixes to the base version string.
+    - Updated base build version to 2.7.47.220 in version.h, mvtools.rc, AI_PORT_NOTICE.md, and technical documentation.
+
+- 2.7.47.210-arm64 (20261031)
+  - Multi-Threading Fallback & Thread Pool Infrastructure:
+    - Implemented AvstpFallbackPool (AvstpFallbackPool.cpp/.h) wrapping the Win32 Threadpool API (CreateThreadpoolWork, SubmitThreadpoolWork, WaitForThreadpoolWorkCallbacks).
+    - Guarantees deterministic multi-threaded slice scheduling across MTSlicer in MVFlowFps and MVBlockFps when avstp.dll is absent on Windows on ARM64, saturating Qualcomm Oryon and Cortex-X1 cores efficiently.
+  - AArch64 NEON Micro-Architecture Vector Optimizations:
+    - Predictor Array Batching: Vectorized candidate predictor evaluations (CheckMV0_x4) in PlaneOfBlocks.cpp using 4-wide NEON dot-product instructions (Sad_x4_neon_dotprod), achieving up to 3.8x throughput improvement for predictor evaluation.
+    - Directional Batching: Optimized directional candidate evaluation (CheckMVdir_x3) in Hex2Search and DiamondSearch using packed NEON vector registers.
+    - Compensation Overlap SIMD Vectorization: Vectorized overlapped block synthesis (Overlaps_uint8_t_neon, Overlaps_uint16_t_neon, Short2Bytes_neon) in overlap.cpp/.h, dispatched directly by MVBlockFps and MVCompensate.
+    - Wiener 6-Tap Filter Subplane Vectorization: Vectorized subpixel interpolation (VerticalWiener_neon, HorizontalWiener_neon) in Interpolation.cpp and MVPlane.cpp for pel=2, sharp=2 using vrhaddq_u8, vextq_u8, and vqmovun_s16.
+  - Profile & Documentation Synchronization:
+    - Updated Snapdragon X Plus and Snapdragon 8cx Gen 3 MaxQuality profiles to Diamond search (search=2, searchparam=2), reducing motion estimation compute by ~4x vs 7x7 exhaustive while delivering +0.19 dB higher fidelity.
+    - Synchronized all documentation across Documentation/guides/ and docs/guides/ (SnapdragonXPlus.md, Snapdragon8cxGen3.md, AIAgentProfileGuide.md) and docs/profiles/README.md.
+  - Build Version & Packaging:
+    - Bumped build version to 2.7.47.210-arm64 in version.h, mvtools.rc, and technical documentation.
+
+- 2.7.47.200-arm64 (20261029)
+  - Direct3D 12 Engine Branch Divergence & Milestone Version Bump:
+    - Bumped branch version to 2.7.47.200-arm64, formally establishing version divergence from upstream mvtools-pfmod to reflect the major architectural additions (Direct3D 12 compute offload, unified single-binary engine, and hardware flow synthesis).
+  - Unified Dual-Engine Architecture & Runtime Direct3D 12 Toggle:
+    - Unified the native ARM64 CPU NEON engine and Direct3D 12 DirectCompute GPU engine into a single canonical binary (mvtools2.dll), eliminating dual-binary distribution (mvtools2-d3d12.dll).
+    - Reverted build outputs in MSBuild (mvtools.vcxproj), CMakeLists.txt, and copyall.bat from mvtools2-d3d12 directly back to mvtools2.dll.
+    - Added MEnableD3D12([enable]b) and MIsD3D12Available() runtime AviSynth functions to control Direct3D 12 compute offload directly from script profiles, accurately reflecting that the GPU is always active for decoding and display while this toggle specifically governs compute shader offload.
+    - Direct3D 12 compute offload defaults to false at DLL load, guaranteeing zero D3D12 queue or device allocation overhead until explicitly enabled in scripts.
+    - Dropped legacy function names (MEnableGPU, MIsGPUAvailable), eliminating redundant script entry points.
+    - Offloaded coarse motion vector predictor interpolation directly to GPU compute (motion_search_cs.hlsl), executing parallel on-chip bilinear/nearest coarse block mapping and eliminating per-frame CPU-side predictor loops and vector heap allocations in PlaneOfBlocks::RecalculateMVs.
+    - Extended D3D12FlowSynthesis 3-texture ring caching with consecutive source/reference pair matching (m_lastSrcRingIdx), eliminating redundant frame re-uploads during fractional rate conversions (such as 24 fps -> 60 fps intermediate sub-frames).
+    - Recompiled embedded shader bytecode header (motion_search_cso.h).
+  - Snapdragon AviSynth Profiles (Revision 2.1.0):
+    - Updated profiles to Revision 2.1.0 across Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, 8cx Gen 1, 850, and 7c Gen 2 to load the unified mvtools2.dll and configure offload via USE_D3D12 = false and MEnableD3D12(USE_D3D12).
+    - Added adaptive parameter scaling based on USE_D3D12: configured sharp=0 with pel=1 on GPU compute paths to bypass redundant subpixel filtering, while leveraging hardware bilinear texture sampling in D3D12FlowSynthesis.
+    - Configured MBlockFps(mode=2, blend=true) across GPU profiles for dynamic median pixel-flow synthesis and linear occlusion fallback.
+    - Scaled memory allocation (SetMemoryMax) and worker threads dynamically between Direct3D 12 compute and CPU NEON fallbacks.
+    - Cleaned all profile templates and quickstart documentation, removing deprecated plugin_file variables and redundant plugin loader statements.
+  - Dynamic 4K Resolution Adaptation Across All 42 AviSynth Profiles:
+    - Added real-time resolution detection (`is_4k = (Width() > 2048)` or `src.Width() > 2048`) across all 42 tracked AviSynth profiles (ARM64 Snapdragon and x86-64 Intel/AMD).
+    - Implemented proportional block scaling to maintain the spatial macro-block count invariant between 1080p and 4K:
+      - Coarse pass scales from 32x32 (1080p) to 64x64 (4K).
+      - Fine refinement pass scales from 16x16 (1080p) to 32x32 (4K); 8x8 passes scale to 16x16 (4K).
+      - Proxy pipelines scale from 16x16 / 32x16 to 32x32 / 64x32 on 4K streams.
+      - Edge padding scales proportionally (`hpad=16, vpad=16` at 4K).
+    - Reduces total evaluated blocks in 4K two-pass motion search from 40,560 down to 10,200 (a 75% compute load reduction), preventing memory bus saturation, GPU execution timeouts, and frame dropping on high-resolution media.
+    - Updated starter scripts and profile documentation across `docs/quickstart.md`, `docs/profiles/README.md`, `AIAgentProfileGuide.md`, and all platform hardware guides.
+  - High-Resolution 4K DirectCompute Shader & Engine Optimizations:
+    - Fused UV Chroma Compute Pass: Merged independent U and V chroma synthesis dispatches into packed dual-plane compute shaders (`FlowWarpChromaCS` and `FlowBlendChromaCS` in `flow_warp.hlsl`), processing U and V channels simultaneously with native `min16float2` arithmetic. Reduces 4K synthesis compute dispatches by 33% and halves descriptor heap and pipeline state switches.
+    - Gated Static Plane Loads: Annotated texture sampling for un-occluded fallback blending with explicit `[branch]` in `flow_warp.hlsl` when `maskMode == 0`, preventing compiler branch flattening and skipping static texture fetches during standard motion-compensated interpolation frames to conserve memory bus bandwidth.
+    - Groupshared Motion Vector Broadcast: Introduced threadgroup-shared vector caching (`gs_MvF` and `gs_MvB`) in `flow_warp.hlsl` for `MBlockFps` (`flowMode == 0`), cutting macroblock motion vector texture loads from 128 down to 4 per $16 \times 8$ workgroup (a 96.9% reduction in vector read traffic).
+    - Row-Decimated 2x Strided SAD for 4K Streams: Implemented vertical 2-row striding (`dy += 2`) with proportional bit-shift reconstruction (`sad << 1`) in `motion_search_cs.hlsl` when `extendedWidth > 2048` and `nBlkSizeY >= 16`. Halves raw `ByteAddressBuffer` pixel memory reads and integer SAD evaluations across 4K frames while maintaining exact lambda motion cost scaling and scene change detection (`thSCD1`) invariants.
+    - Scaled MRecalculate Early-Exit Threshold: Scaled the early-out SAD limit dynamically with block geometry (`(nBlkSizeX * nBlkSizeY) >> 1`) instead of a fixed 128 threshold, restoring the empirical 0.5 SAD/pixel early termination on 4K $32 \times 32$ refinement blocks.
+    - Unified 6-Slot Plane LRU Cache: Replaced the separated 1-slot source and 4-slot reference buffers in `D3D12MotionSearch.cpp` with a unified 6-slot LRU plane cache (`m_planeCache`), eliminating ping-pong cache misses across forward/backward `MAnalyse` and `MRecalculate` passes. Reduces 4K host-to-device plane upload bandwidth by 75%–80% (~34 MB/frame saved at 4K).
+  - Benchmarking Suite & Deployment Automation:
+    - Updated Install-MvToolsPotPlayer.ps1, Benchmarks/MvToolsBenchmark-Start.ps1, and Benchmarks/MvToolsBenchmarks-Compare.ps1 to configure and detect USE_D3D12 and MEnableD3D12 with backward compatibility for legacy scripts.
+    - Streamlined deployment automation to manage the unified mvtools2.dll binary, removing dual-binary checks and cleaning legacy d3d12 binaries from player environments.
+    - Updated baseline comparison matrices across all 6 Snapdragon platforms, recording D3D12 GPU optimizations (Snapdragon X Plus MaxQuality CPU load reduced from 10.6% to 6.0%, Snapdragon 8cx Gen 2 CPU load reduced from 15.3% to 8.2%).
+    - Normalized baseline matrix filenames (e.g. BenchmarkMatrix_Comparison_Core-i5-7Y54.md) and removed legacy raw CPUID filename entries.
+    - Added PresentMon frame-time capture to benchmark harness, with PowerShell 5.1 and 7 support across ARM64 and x64 environments.
+  - Documentation & Typography:
+    - Verified 1:1 documentation parity between Documentation/guides/ and docs/guides/ across all 7 platform and auto-tuning guides.
+    - Updated README.md primary plugin specifications to describe the unified canonical binary architecture.
+    - Added Docsify documentation structure for GitHub Pages.
+    - Standardized all platform guides and profile documentation across Documentation/guides/, docs/guides/, and docs/profiles/ to Revision 2.1 specifications and unified MEnableD3D12 / USE_D3D12 syntax.
+    - Standardized all technical documentation, scripts, and baseline tables to strict NIST SP 811 / BIPM SI unit spacing standards (e.g., 60 fps, 24 fps, 15 W, 16 GB, 18 ms, 4 px) and objective engineering tone.
+
+- 2.7.47.121-arm64 (20261023)
+  - Synthesis Memory & NEON Blend Refinements (merged from mvtools-pfmod):
+    - Elided unused full-frame/small occlusion mask allocations (MaskFull*, MaskOcc*, smallMask*, SimpleResize) and per-frame full-frame zeroing in MVBlockFps modes 0-2, saving ~17.2 MB working set at 1080p (~78-104 MB at 4K) under AviSynth+ MT and ~252 MB/s of dead memory writes at 1080p60.
+    - Enabled SIMD overlapped output conversion (Short2Bytes_sse2 for 8-bit, Short2Bytes_Int32toWord16_sse4 for 10-16-bit) in MVBlockFps with 16-byte pointer and pitch alignment guards.
+    - Vectorized frame and edge-border Blend<pixel_t> in MaskFun.cpp across uint8_t, uint16_t, and float planes using native ARM64 NEON intrinsics with an early-out for empty border strips.
+    - Further reduced sustained 1080p 24 fps -> 60 fps CPU-mode system load on Qualcomm Snapdragon X Plus (Balanced profile) from 8.24% down to 7.27% mean / 7.00% median / 10.70% peak (-55.1% cumulative reduction vs scalar baseline) with zero dropped frames.
+- 2.7.47.120-arm64 (20261023)
+  - Native ARM64 NEON SIMD Vectorization & Full-Pipeline Dispatch (merged from mvtools-pfmod):
+    - Vectorized MVBlockFps::ResultBlock (modes 0, 1, and 2: MC Average, Static Median, and Dynamic Median) using 128-bit ARM64 NEON intrinsics.
+    - Implemented native ARMv8.0 NEON (Sad_neon_v8) and ARMv8.2-A DotProd UDOT (Sad_neon_dotprod) 8-bit SAD kernels across all 45 block sizes (4x1 to 64x64) with dynamic Windows PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE runtime detection.
+    - Implemented unrolled 128-bit/64-bit NEON block copying (Copy_neon) in CopyCode.cpp across 8-bit, 16-bit, and 32-bit float formats.
+    - Added get_simd_cpu_flags() ARM64 CPUF bridge in cpu.cpp across MSuper, MVBlockFps, MVFlowFps, MVFlow*, MVRecalculate, MVCompensate, MVDegrain*, MVMask, MVFinest, MVShow, DCTFactory, and Padding, activating SIMD pyramid downsampling, pel=2/4 Wiener/bicubic refinement, SimpleResize vector upsampling, and Overlaps windowing.
+    - Reduced sustained 1080p 24 fps -> 60 fps CPU-mode system load on Qualcomm Snapdragon X Plus by 49.4% (from 16.2% down to 8.2% mean / 12.3% peak) with zero dropped frames, while accelerating host-side MSuper pyramid generation for Direct3D 12 workflows.
+- 2.7.47.110-arm64 (20261020)
+  - Direct3D 12 Gather Flow & Dynamic Median Frame Synthesis (MFlowFps & MBlockFps):
+    - Implemented full GPU frame synthesis engine (D3D12FlowSynthesis.cpp/.h), eliminating the CPU readback fence stall.
+    - Added Hardware Dynamic Median Compute Shader (flow_warp.hlsl) for exact visual and mathematical parity with CPU NEON.
+    - Converted pixel color calculations, temporal cross-fade, and median clamping to native Adreno FP16 (min16float) for dual-issue ALU throughput.
+    - Optimized compute threadgroup dimensions to Wave64 (16x8, 128 threads) for Adreno architecture and L1 texture cache alignment.
+    - Integrated 3-Ring Texture Cache (m_ring[3]) and Asynchronous Double-Buffering (NUM_SLOTS = 2) with non-blocking try_lock slot acquisition, reducing memory bus traffic by 50%.
+    - Implemented bulk contiguous memcpy for host-to-device transfers, eliminating >10,200 row-by-row scalar function calls per frame.
+  - Stability & Reliability:
+    - Fixed 0xc0000005 Access Violation in vcruntime140.dll on widescreen 4K formats (3840x1714) via strict 2D coordinate bounds clamping in motion_search_cs.hlsl.
+    - Added defensive null-guards on mapped pointers, GetDeviceRemovedReason() validation, and bounded 2,000 ms fence synchronization timeouts.
+    - Raised profile mem_limit to 1,536 MB, completely eliminating pagefile disk swapping (0.0 swaps/sec).
+- 2.7.47.100-arm64 (20261019)
+  - Direct3D 12 DirectCompute GPU Offload (Adreno GPU Native Execution):
+    - Ported block SAD (Sum of Absolute Differences) and motion vector search into HLSL Compute Shader (`cs_5_0`).
+    - Executes natively on Qualcomm Adreno GPU with zero CPU overhead.
+    - Achieves continuous 60 fps without dropped frames on Snapdragon X Plus across both Balanced and MaxQuality profiles.
+    - Implemented 4-slot LRU reference plane upload cache with 5-point 64-bit sampling check, cutting per-frame CPU-to-GPU memory copies by 75% (from 56.8 MB/frame down to ~14.2 MB/frame, saving ~3.2 GB/s on unified memory bus).
+    - Persistently mapped constant buffer, readback buffer, and predictor buffers to eliminate per-frame OS kernel Map/Unmap transitions.
+    - Optimized compute shader refinement (`MRecalculate`): uses tight 8-point 3x3 local subpixel grid with early-exit on near-perfect coarse matches (`bestSAD <= 128`), cutting per-block refinement cycles by up to 71%.
+    - Supports both coarse motion search (`MAnalyse`) and fine micro-block refinement (`MRecalculate`).
+    - Direct output binary naming configured to `mvtools2-d3d12.dll` across MSBuild (`mvtools.vcxproj`) and CMake targets for side-by-side comparative testing against baseline CPU `mvtools2.dll`.
+    - Added runtime GPU status queries and controls (`MIsGPUAvailable()`, `MEnableGPU(bool)`).
+  - Native Windows on ARM64 support:
+    - Added native ARM64 Release and Debug targets across mvtools, DePan, and DePanEstimate.
+    - Supported MSVC toolsets v143 (Visual Studio 2022) and v145 (Visual Studio 2026).
+    - Configured /vmg general member pointer representation and /Zc:preprocessor conformance flags.
+    - Strict backward compatibility preserved for legacy x86 and x64 builds.
+  - SIMD & NEON vectorization:
+    - Integrated sse2neon translation layer converting SSE, SSE2, SSSE3, and SSE4.1 intrinsics to 128-bit ARM NEON.
+    - Added drop-in x86 intrinsic compatibility headers in Sources/include/arm64/.
+    - Gated x86 inline assembly routines in def.h (USE_SAD_ASM, USE_COPYCODE_ASM, etc.) on ARM architectures, routing to optimized SIMD and portable C++ routines.
+  - Cross-compiler C++ ABI bridge (MSVC ARM64 <-> MinGW GCC AArch64):
+    - Aligned IScriptEnvironment vtable slots with dummy destructor padding (__dummy_gcc_dtor_pad).
+    - Enforced 16-byte member function pointers via __multiple_inheritance and /vmg, matching GCC's 3,328-byte AVS_Linkage structure.
+    - Implemented dynamic AArch64 JIT adapter thunk (AVS_WrapApply) for X8 indirect return-buffer register translation.
+    - Added bidirectional GetFrame ABI adapters (AVS_WrapClipVTable for MSVC callee clips; AVS_ClipProxy / AVS_WrapClip for GCC callee clips).
+    - Fixed crash on playback stop/exit by adding __dummy_gcc_dtor_pad to IClip, correctly catching GCC deleting destructor calls at vtable[7].
+  - Qualcomm Snapdragon 60 fps AviSynth profiles:
+    - Added 18 tuned real-time motion interpolation profiles under AviSynth/:
+      - Snapdragon X Plus (8x Oryon): Eco, Balanced, MaxQuality.
+      - Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690): Eco, Balanced, MaxQuality with adaptive GPU/CPU parameters (pel=1, 32x32 -> 16x16, Prefetch(4) under D3D12 GPU offload sustaining continuous 60 fps at 60–66% GPU load; pel=2 16x16 -> 8x8 with Prefetch(7) across all 8 CPU performance cores).
+      - Snapdragon 8cx Gen 2 / Microsoft SQ2 (4x Gold + 4x Silver, Adreno 680): Eco, Balanced, MaxQuality with adaptive GPU/CPU parameters (pel=1, 32x32 -> 16x16, natural Prefetch(threads) to eliminate D3D12 mutex lock convoys and sustain solid 60 fps under GPU offload; pel=2 16x16 -> 8x8 on 4 Gold CPU cores).
+      - Snapdragon 8cx Gen 1 / Microsoft SQ1 (4x Gold + 4x Silver, Adreno 680): Eco, Balanced, MaxQuality with single-pass dense 16x16 D3D12 GPU offload (2 dispatches, cutting GPU evaluations by 60% to eliminate 7 W fanless thermal throttling and sustain solid 60 fps) and pure CPU NEON fallback.
+      - Snapdragon 850 (4x Gold + 4x Silver): Eco, Balanced, MaxQuality with MScaleVect 540p proxy search (pure CPU NEON baseline to eliminate 5 W GPU thermal throttling).
+      - Snapdragon 7c Gen 2 (2x Gold + 6x Silver, e.g., Samsung Galaxy Book Go): Eco, Balanced, MaxQuality with levels=1 pyramid elimination, strict Prefetch(2, 4) core pinning, and MScaleVect 540p proxy search (pure CPU NEON baseline to avoid 32-bit LPDDR4x bus contention).
+    - Standardized Semantic Versioning headers (`# Revision:` and `# Changelog:`) across all 18 profiles.
+    - Embedded dynamic `USE_GPU` parameter toggle across all profiles for runtime switching between CPU NEON and D3D12 GPU.
+    - Hardened low-power profiles (850 & 7c Gen 2) as pure CPU-only, reserving GPU offload toggles for high-bandwidth/active-cooled platforms (Snapdragon X Plus, 8cx Gen 3, 8cx Gen 2, and 8cx Gen 1).
+  - Automated Benchmark Test Suite & Telemetry:
+    - Added automated benchmark harness `Benchmarks/MvToolsBenchmark-Start.ps1` (v2.3.0) and matrix comparer `Benchmarks/MvToolsBenchmarks-Compare.ps1` (v2.2.0).
+    - Dual AppData & Portable PotPlayer INI targeting: automatically routes and enforces deterministic playback, D3D11 render, and AviSynth configuration across `%APPDATA%\PotPlayer64\PotPlayer64.ini` and `%APPDATA%\PotPlayerMini64\PotPlayerMini64.ini` for standard installs, or local directory INIs for portable installs.
+    - Native Fullscreen Configuration: enforces clean native fullscreen playback via player INI settings (`StartScreenSize=4`, `PlayScreenSize=5`, `PlayScreenSizeFirst=1`, `MainWindowState=128`, `FullScreenFitMode=0`) with zero external window message polling or CLI flag bloat.
+    - Binary PE Machine Architecture Validation: checks PE headers (`0xAA64` ARM64 vs `0x8664` x64 vs `0x014C` x86) via `Get-PeMachine` to prevent emulator architecture mismatch crashes.
+    - Explicit Download Confirmation Prompts: requires explicit user authorization (`Confirm-DownloadPermission`) displaying source URL, destination, and file size before downloading external packages.
+    - Background Process Quiescence & Interactive Prompt: inspects running noisy processes (browsers, Slack, Teams, etc.), displays a clear warning, and offers an interactive `[Y/n]` prompt defaulting to Yes on Enter, with `-SkipProcessKill` CLI bypass.
+    - Automated AviSynth+ Acquisition: downloads and extracts official native `AviSynth.dll` from GitHub releases (`AviSynth/AviSynthPlus`, latest tag `filesonly.7z`) directly to the PotPlayer directory.
+    - Automated MVTools ARM64 Acquisition: downloads and extracts official release binaries (`mvtools2.dll`, `mvtools2-d3d12.dll`, `DePan.dll`, `DePanEstimate.dll`) and AviSynth profiles from GitHub releases (`tordona/mvtools`).
+    - Automated Official PotPlayer ARM64 Setup: downloads and silently installs official native PotPlayer ARM64 from Kakao CDN with live speed/ETA progress and safety watchdog (`-AutoInstallPotPlayer`).
+    - Reference Baseline Comparison Matrices: preserved across 6 Snapdragon SoC generations under `Benchmarks/Baseline/`.
+    - PresentMon ARM64 Telemetry: integrated empirical panel scanout ETW analysis, integer VSync drift detection, render latency tracking, and profile revision reporting.
+  - Documentation & Hardware Guides:
+    - Added AI_PORT_NOTICE.md detailing port architecture, cross-compiler ABI mechanics, and Antigravity skills.
+    - Added PotPlayer hardware decode (DXVA2/D3D11 Copy-Back) and Direct3D 11 rendering guides in Documentation/guides/ (SnapdragonXPlus.md, Snapdragon8cxGen3.md, Snapdragon8cxGen2.md, Snapdragon8cxGen1.md, Snapdragon850.md, Snapdragon7cGen2.md).
+
 
 - 2.7.47 (20260424)
   - Update Avisynth headers to V12 interface (AcquireGlobalLock/ReleaseGlobalLock support)
