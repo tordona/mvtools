@@ -46,8 +46,11 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 * [**Benchmark & Telemetry Suite**](benchmarks/README.md)  
   Learn how to run `MvToolsBenchmark-Start.ps1`, measure PresentMon ETW 1% Low frame pacing, detect swapchain frame duplication, and compare baseline results.
 
-* [**AI Agent Profiling Guide**](guides/AIAgentProfileGuide.md)  
-  Use Google Antigravity, Gemini, Cursor, or Claude to auto-detect hardware and tune custom profiles in an autonomous closed loop.
+* [**Custom Profiles Quickstart**](guides/GenerateCustomProfiles.md)  
+  Generate custom 60 fps AviSynth profiles for use in PotPlayer in seconds with an AI assistant (no Git or cloning required).
+
+* [**AI Agent Profile Tuning & Specification Guide**](guides/AIAgentProfileGuide.md)  
+  Full architectural specification and closed-loop PresentMon benchmark tuning instructions for AI agents and performance engineers.
 
 ---
 

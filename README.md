@@ -31,7 +31,7 @@ This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **exper
 | **Experimental Direct3D 12 GPU Offload** | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                             |
 | **18 Tuned Snapdragon Profiles**         | Empirically verified `.avs` scripts for **Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen 2**.                           | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
 | **Sub-Millisecond Benchmark Harness**    | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                       |
-| **AI Agent Automated Profiling**         | Standardized prompt guide ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)) for closed-loop self-tuning. | Autonomous hardware autodetection and iterative tuning in Google Antigravity, Cursor, Gemini, or Claude.               |
+| **Custom AviSynth Profile Generation**    | 1-click quickstart ([`GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)) & technical spec ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)). | Instant tailored AviSynth profile generation for PotPlayer (zero clone needed) and autonomous closed-loop PresentMon tuning. |
 
 ---
 
@@ -70,7 +70,8 @@ An automated benchmark harness and comparative matrix suite for reproducible fra
 - **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware platform autodetection (ARM64 Snapdragon & x64 PC), and deterministic configuration enforcement.
 - **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**.
 - **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Verified baseline performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
-- **[`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)**: AI Agent Guide & Standardized Prompt for generating and autonomously tuning custom 3-tier profiles (`Eco`, `Balanced`, `MaxQuality`) on new hardware platforms using IDE agents or web assistants.
+- **[`Documentation/guides/GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)**: Custom AviSynth Profiles Quickstart — instant 1-click generation of tailored 3-tier profiles (`Eco`, `Balanced`, `MaxQuality`) for use in PotPlayer with zero cloning or tools required.
+- **[`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)**: AI Agent Technical Specification & Tuning Guide for closed-loop benchmark validation and telemetry diagnosis.
 
 See the [**Benchmark Test Suite Documentation**](Benchmarks/README.md) for complete parameter references, usage guides, and verified baseline metrics.
 

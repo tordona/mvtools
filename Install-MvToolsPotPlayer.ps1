@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.0 (2026-11-03)
+# Revision: 2.3.2 (2026-11-04)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,12 +41,16 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.0
+    2.3.2
 .DATE
-    2026-11-03
+    2026-11-04
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.2 (2026-11-04): Added quantitative subpixel precision rules (pel=1 vs pel=2,
+                           sharp=1 vs sharp=2) to prevent compute saturation on entry-tier/ultrabook platforms.
+    - v2.3.1 (2026-11-04): Separated AI Profile Quickstart (GenerateCustomProfiles.md) from in-depth
+                           Technical Specification & Benchmark Tuning Guide (AIAgentProfileGuide.md).
     - v2.3.0 (2026-11-03): Added AvsAffinity.dll companion deployment, unified mvtools2.dll
                            architecture verification (CPU SIMD + D3D12 GPU engine), and
                            synchronized AI agent profile guide generation prompt rules.
@@ -63,7 +67,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.0"
+$Script:InstallerVersion = "2.3.2"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2253,14 +2257,15 @@ My Target Hardware Specifications:
 - Platform Architecture: $archDesc
 
 Specification & Reference Guide:
-- Specification (Direct Raw Markdown for AI ingestion): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+- Quickstart Guide: https://tordona.github.io/mvtools/#/guides/GenerateCustomProfiles
+- Technical Specification (Direct Raw Markdown for AI ingestion): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 - Web Mirror (GitHub UI View): https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
 Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).
 $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
-4. Single-Level Geometry: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced; ``sharp=1`` or ``sharp=2`` Wiener filter for MaxQuality).
+4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1``.
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
 6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
 7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``.
@@ -2270,7 +2275,7 @@ $pluginRule
 Please generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, blend=false``), lowest CPU wattage.
 - Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, blend=false``), daily driver.
-- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, sharp=1, blend=true``; use ``sharp=2`` Wiener filter on high-performance cores), maximum edge fidelity.
+- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, blend=true``; evaluate quantitative pel rules for pel=1 vs pel=2 and sharp=1 vs sharp=2), maximum edge fidelity.
 "@
 
     try {
@@ -2479,7 +2484,7 @@ if ($selectedMatch.IsGeneric) {
             "2" {
                 Copy-AiAgentHardwarePrompt -HardwareInfo $hw -TargetArch $targetArch
                 try {
-                    Start-Process "https://tordona.github.io/mvtools/#/guides/AIAgentProfileGuide"
+                    Start-Process "https://tordona.github.io/mvtools/#/guides/GenerateCustomProfiles"
                 } catch {}
             }
             "3" {
@@ -2492,7 +2497,8 @@ if ($selectedMatch.IsGeneric) {
             }
         }
     } else {
-        Write-Host "  -> AI Agent Guide: https://tordona.github.io/mvtools/#/guides/AIAgentProfileGuide" -ForegroundColor Gray
+        Write-Host "  -> Custom Profiles Quickstart: https://tordona.github.io/mvtools/#/guides/GenerateCustomProfiles" -ForegroundColor Gray
+        Write-Host "  -> Technical Specification: https://tordona.github.io/mvtools/#/guides/AIAgentProfileGuide" -ForegroundColor Gray
     }
 }
 

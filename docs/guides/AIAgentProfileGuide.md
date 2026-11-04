@@ -1,33 +1,62 @@
-# AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
+# AI Agent Profile Tuning & Specification Guide
 
 This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
+
+> [!TIP]
+> **Looking for the Quick Setup?**  
+> If you want to generate custom profiles in 1 click without running benchmarks or configuring developer environments, see the **[Custom Profiles Quickstart](GenerateCustomProfiles.md)**.
 
 ---
 
 ## 1. User Workflows: How to Use This Guide
 
-Depending on your environment, you can use this guide in two ways:
-* **[Mode A: Autonomous IDE Agent (Google Antigravity, Cursor, Windsurf, Claude Code)](#mode-a-autonomous-ide-agent-zero-copy-paste-recommended)**: Recommended for developers running within an agentic IDE with terminal and workspace tools. Zero copy-pasting; the agent executes the entire end-to-end loop autonomously.
-* **[Mode B: Conversational Web Assistant (Gemini Web, ChatGPT, Claude Web)](#mode-b-conversational-web-assistant-manual-workflow)**: Recommended for quick profile drafting in a browser session. Copy the standardized prompt, paste your hardware specs, deploy the files manually, and paste back benchmark audit reports if tuning is needed.
+Depending on your environment and whether you need immediate profile generation or empirical benchmark validation, you can use this guide in two ways:
+* **[Mode A: Autonomous IDE Agent (Google Antigravity, Cursor, Windsurf, Claude Code)](#mode-a-autonomous-ide-agent-google-antigravity-cursor-windsurf-claude-code)**: Recommended for developers running within an agentic IDE with terminal and workspace tools.
+* **[Mode B: Conversational Web Assistant (Gemini Web, ChatGPT, Claude Web)](#mode-b-conversational-web-assistant-manual-workflow)**: Recommended for quick profile drafting in a web browser session.
+
+> [!TIP]
+> **Do I Need to Clone the Repository or Download a Release Archive?**  
+> * **No cloning or downloads required** if you simply want to generate custom profiles and use them in PotPlayer. Both Mode A and Mode B can generate tailored profiles anywhere with zero local setup.  
+> * **Cloning the repository or extracting a release package is only required** if you want to run the automated benchmark harness (`Benchmarks/MvToolsBenchmark-Start.ps1`, PresentMon ETW logging, and baseline media) for empirical validation and closed-loop self-tuning.
 
 ---
 
-### Mode A: Autonomous IDE Agent (Zero Copy-Paste, Recommended)
+### Mode A: Autonomous IDE Agent (Google Antigravity, Cursor, Windsurf, Claude Code)
 
-Tool-enabled IDE agents have direct access to your local workspace, terminal shell, and file system. Instead of manually copying prompts or telemetry reports, you can instruct your agent with a single instruction:
+Tool-enabled IDE agents have direct access to your local workspace, terminal shell, and file system. Workflows are split into two tiers depending on whether you simply want profiles generated, or require full benchmark validation:
 
-#### The 1-Step Prompt:
+#### Option 1: Instant Profile Generation (Zero Clone Required — Recommended Default)
+No repository checkout or download is required. The agent reads the raw specification from GitHub, inspects your local hardware, and generates the tailored `.avs` scripts directly into your current directory or PotPlayer folder:
+
+**The 1-Step Generation Prompt:**
 ```text
-Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md). Auto-detect this machine's CPU/GPU hardware, generate the 3-tier AviSynth profile set in AviSynth/, run the benchmark harness on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
 ```
 
-#### What the IDE Agent Does Autonomously:
-1. **Hardware Autodetection:** Queries Windows CIM/WMI (`Get-CimInstance Win32_Processor`, `Win32_VideoController`, `Win32_PhysicalMemory`) to detect physical core counts, P/E core topology, L3 cache, DRAM channels, and TDP limits.
-2. **Deterministic Script Writing:** Synthesizes `<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, and `<Platform>-MaxQuality.avs` directly into `AviSynth/` following the Step 1 & Step 2 architectural constraints.
-3. **Automated Benchmark Execution:** Executes `.\Benchmarks\MvToolsBenchmark-Start.ps1` with `-AutoInstallPotPlayer` and `-AutoInstallVcRedist` in the background.
-4. **Telemetry & Log Auditing:** Reads the resulting `Benchmarks/BenchmarkResults/report_*.txt` and PresentMon frame logs directly from disk.
-5. **Closed-Loop Self-Tuning:** If dropped frames, thread capacity saturation (≥ 88%), or thermal throttling are detected, the agent references the [Step 4 Telemetry Diagnosis Matrix](#step-4-telemetry-diagnosis--tuning-matrix-when-performance-fails-60-fps), modifies the `.avs` scripts in-place, and re-tests until 60.00 fps / 0 drops is empirically achieved.
-6. **Git Version Control:** Verifies syntax, formats line endings, GPG-signs, and commits the validated profile set.
+**What the IDE Agent Does Autonomously:**
+1. **Hardware Autodetection:** Queries Windows CIM/WMI (`Get-CimInstance Win32_Processor`, `Win32_VideoController`, `Win32_PhysicalMemory`) to detect physical core counts, P/E core topology, L3 cache, DRAM bandwidth, and TDP limits.
+2. **Deterministic Script Writing:** Synthesizes `<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, and `<Platform>-MaxQuality.avs` with architecture-specific block sizes, thread counts, memory limits, and core pinning.
+3. **Deployment (Optional):** Places the files in your current folder or copies them directly to `C:\Program Files\DAUM\PotPlayer\AviSynth\`.
+
+---
+
+#### Option 2: Closed-Loop Benchmarking & Tuning (Optional — Requires Cloned Repo or Extracted Release)
+If you want empirical verification (measuring PresentMon 1% low frame pacing and 0 dropped frames) or need to diagnose and iteratively tune edge-case hardware bottlenecks:
+
+> [!NOTE]
+> **Why the Repository or Release Package is Needed for Benchmarking:**  
+> The automated test harness (`Benchmarks/MvToolsBenchmark-Start.ps1`), test media clips, and PresentMon telemetry capture reside inside the cloned repository or extracted release package.
+
+**The Closed-Loop Benchmark & Tuning Prompt:**
+```text
+Verify the current workspace contains .\Benchmarks\MvToolsBenchmark-Start.ps1 (if not, clone https://github.com/tordona/mvtools.git branch mvtools-d3d12). Auto-detect hardware, generate the 3-tier AviSynth profiles in AviSynth/, run .\Benchmarks\MvToolsBenchmark-Start.ps1 on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+```
+
+**What the IDE Agent Does Autonomously in Option 2:**
+1. **Automated Benchmark Execution:** Executes `.\Benchmarks\MvToolsBenchmark-Start.ps1` with `-AutoInstallPotPlayer` and `-AutoInstallVcRedist` in the background.
+2. **Telemetry & Log Auditing:** Reads `Benchmarks/BenchmarkResults/report_*.txt` and PresentMon frame logs directly from disk.
+3. **Closed-Loop Self-Tuning:** If dropped frames, thread capacity saturation (≥ 88%), or thermal throttling are detected, modifies parameters per the [Step 4 Telemetry Diagnosis Matrix](#step-4-telemetry-diagnosis--tuning-matrix-when-performance-fails-60-fps) and re-tests until 60.00 fps / 0 drops is empirically achieved.
+4. **Git Version Control:** Commits the validated, tuned profile set.
 
 ---
 
@@ -36,8 +65,8 @@ Read docs/guides/AIAgentProfileGuide.md (or https://github.com/tordona/mvtools/b
 When using a web-based AI assistant (e.g. `gemini.google.com`, ChatGPT, or Claude Web):
 
 #### Step 1: Collect Your Hardware Details
-Gather three basic pieces of information about your machine:
-1. **CPU Model, Core Layout & TDP:**
+Only your **CPU model** is strictly required — the AI assistant can automatically determine core counts, cache sizes, and integrated graphics. Specifying RAM or GPU details is optional:
+1. **CPU Model (Required):**
    * Example: *Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W TDP, 24 MB L3)*.
    * Example: *AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c cores @ 15 W – 28 W TDP, 16 MB L3)*.
    * Example: *Intel Core i5-8259U (4 Coffee Lake cores / 8 threads @ 28 W TDP, 128 MB eDRAM L4)*.
@@ -45,10 +74,10 @@ Gather three basic pieces of information about your machine:
    * Example: *Intel Core i3-1215U (2 Performance cores, 4 Efficient cores @ 15 W TDP)*.
    * Example: *Intel Processor N100 (4 Gracemont E-cores @ 6 W TDP)*.
    * Example: *Qualcomm Snapdragon X Plus (8 Oryon cores @ 12 W – 28 W TDP, Adreno X1-85)*.
-2. **Integrated / Dedicated GPU Model:**
-   * Example: *Intel Iris Xe / Intel UHD Graphics*, *Radeon 840M / 780M*, or *Adreno X1*.
-3. **System Memory (RAM):**
+2. **System Memory (RAM) (Optional):**
    * Example: *16 GB Dual-Channel DDR4-3200*, *16 GB Single-Channel DDR4*, or *32 GB LPDDR5x-7500*.
+3. **Integrated / Dedicated GPU Model (Optional):**
+   * Example: *Intel Iris Xe / Intel UHD Graphics*, *Radeon 840M / 780M*, or *Adreno X1*.
 
 #### Step 2: Copy and Customize the Prompt
 Copy the text in the prompt block in [Section 2: The AI Agent Prompt](#2-the-ai-agent-prompt). Replace the bracketed placeholder:
@@ -57,29 +86,41 @@ Copy the text in the prompt block in [Section 2: The AI Agent Prompt](#2-the-ai-
 ```
 with your collected specifications.
 
-#### Step 3: Deploy the Generated Files
+#### Step 3: Deploy the Generated Files in PotPlayer
 Your AI assistant will generate three files:
 * `<Platform>-Eco.avs`
-* `<Platform>-Balanced.avs`
+* `<Platform>-Balanced.avs` *(Recommended daily driver)*
 * `<Platform>-MaxQuality.avs`
 
-Save these `.avs` files directly into the project's **`AviSynth/`** directory:
+**Option A: Load Directly into PotPlayer (No Clone Required — Recommended):**
+1. Save the generated `.avs` files to `C:\Program Files\DAUM\PotPlayer\AviSynth\` (or your personal documents folder).
+2. Open PotPlayer, press **`F5`** to open **Preferences**, and navigate to **Video** → **AviSynth**.
+3. Under **Load script**, click **Browse** and select your generated `<Platform>-Balanced.avs`.
+4. Play any 24 fps / 30 fps video, press **`Tab`** to toggle the On-Screen Display (OSD), and confirm the frame rate reads `XX.XX fps -> 60.00 fps`.
+
+**Option B: Save to Cloned Repository or Extracted Release Package:**
+If testing from a cloned repository checkout or extracted release package, save the `.avs` files into `AviSynth/`:
 ```text
 AviSynth/<Platform>-Eco.avs
 AviSynth/<Platform>-Balanced.avs
 AviSynth/<Platform>-MaxQuality.avs
 ```
 
-#### Step 4: Validate with the Automated Benchmark Harness
-Run the automated benchmark harness to verify real-time 60 fps stability and zero frame drops:
+#### Step 4: (Optional) Validate with the Automated Benchmark Harness (Requires Cloned Repo or Release Package)
+If you want empirical verification (measuring PresentMon 1% low frame pacing and 0 dropped frames) or need to diagnose stutter:
+
+> [!NOTE]
+> **Prerequisite:** Benchmarking requires the cloned repository or extracted release package (`git clone -b mvtools-d3d12 https://github.com/tordona/mvtools.git` or downloaded release archive) because the automated test harness (`Benchmarks/MvToolsBenchmark-Start.ps1`), test media, and PresentMon telemetry capture reside inside `Benchmarks/`.
+
+Run the automated benchmark harness in PowerShell from the repository root or extracted release folder:
 ```powershell
 Set-Location Benchmarks
-.\MvToolsBenchmark-Start.ps1 -Profile "<Platform>-Balanced.avs" -AutoInstallPotPlayer -AutoInstallVcRedist -TestDurationSeconds 90 -WarmupSeconds 10
+.\MvToolsBenchmark-Start.ps1 -Profile "..\AviSynth\<Platform>-Balanced.avs" -AutoInstallPotPlayer -AutoInstallVcRedist -TestDurationSeconds 90 -WarmupSeconds 10
 ```
 > [!TIP]
 > The `-AutoInstallVcRedist` switch automatically diagnoses, acquires, and silently installs official Microsoft Visual C++ 2015–2022 runtimes if missing, preventing the common PotPlayer error *"AviSynth.dll not found"* (Win32 126).
 
-#### Step 5: Tuning Loop (If Frame Drops or Stutter Occur)
+#### Step 5: (Optional) Tuning Loop (If Frame Drops or Stutter Occur)
 If the benchmark reports dropped frames or under 60 fps:
 1. Open the generated audit report: `Benchmarks/BenchmarkResults/report_<Profile>_<Timestamp>.txt`.
 2. Copy the **`FRAME RATE & PACING TELEMETRY`**, **`PERFORMANCE TELEMETRY SUMMARY`**, and **`MEMORY & PAGING INTEGRITY`** sections.
@@ -88,7 +129,6 @@ If the benchmark reports dropped frames or under 60 fps:
    The benchmark reported performance issues. Please analyze this telemetry audit report and tune the <Platform> profiles according to the Step 4 Telemetry Diagnosis & Tuning Matrix in your instructions:
    [PASTE TELEMETRY REPORT SECTIONS HERE]
    ```
-
 
 ---
 
@@ -208,6 +248,20 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **Definition Before Use:** `is_4k` **MUST ALWAYS** be defined before any expression that reads it (e.g. `blk_coarse`, `blk_fine`, `blk_sz`, `pad_val`, `overlap_val`). Referencing `is_4k` before its definition line aborts script evaluation immediately with `Script error: I don't know what "is_4k" means`.
      * **No Resolution Calculations in Header:** Never place `blk_coarse = ... (is_4k ? ...)` in the top hardware configuration section above `potplayer_source()`. Static engine parameters (`threads`, `mem_limit`, `pel_val`, `sharp_mode`) belong in the top block; all dynamic geometric scaling parameters belong immediately after `potplayer_source()`.
 
+7. **Quantitative Subpixel Precision Rules (`pel` & `sharp` in `MSuper`):**
+   In `MSuper()`, `pel` controls subpixel motion vector interpolation (1 = integer-pel with 1 subplane; 2 = half-pel with 4 subplanes). In the **MaxQuality** tier:
+   * **Mandatory `pel = 1` (Integer Precision Default) — Set `pel_val = 1` if ANY of these conditions are true:**
+     1. **Physical Core Ceiling:** `physical_cores < 8` on homogeneous processors (e.g. 4-core or 6-core AMD Ryzen 5 / Intel Core i5).
+     2. **Performance Core Ceiling:** `physical_p_cores < 6` on hybrid processors (e.g. Intel 2P+8E `Core Ultra 5 125U`, 4P+8E `Core i7-1260P`).
+     3. **Thermal / Package Envelope:** `sustained_tdp < 28 W` (ultrabook U-series, fanless SoCs, or entry-tier silicon like the 8-core Snapdragon X Plus `X1P-42-xxx`).
+     4. **Memory Bandwidth:** Single-channel memory (`memory_channels == 1` or bandwidth $< 60\text{ GB/s}$).
+     *Sharpening Filter:* Set `sharp_mode = 1` (standard bicubic).
+   * **Eligible for `pel = 2` (Half-Pixel Precision) — Set `pel_val = 2` ONLY when ALL of these conditions are met:**
+     1. **Core Topology:** `physical_p_cores >= 6` on hybrid CPUs (e.g. 6P+8E `Core i7-13700H`, `Ultra 7 155H`), OR `homogeneous_cores >= 8` with all-core clock $\ge 3.8\text{ GHz}$ (e.g. desktop AMD Ryzen 7/9, 12-core Snapdragon X Elite `X1E-80/84`).
+     2. **Thermal / Package Envelope:** `sustained_tdp >= 35 W` (H/HX-series, desktop socket, or active workstation cooling).
+     3. **Memory Bandwidth:** Dual-channel DDR5 or 128-bit LPDDR5x ($\ge 100\text{ GB/s}$ UMA memory bandwidth).
+     *Sharpening Filter:* Set `sharp_mode = 2` (Wiener 6-tap filter, vectorized via native AVX2 / ARM64 NEON).
+
 ---
 
 ### Step 2: Profile Tier Definitions & Tuning Parameters
@@ -230,7 +284,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
 * **Objective:** Highest visual fidelity, dense 4 px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
-* **MSuper:** `levels=1`, `pel=1` (or `pel=2` on high-throughput cores), `hpad=0, vpad=0`, `sharp=1` (bicubic) or `sharp=2` (Wiener 6-tap filter, accelerated via native NEON SIMD on ARM64).
+* **MSuper:** `levels=1`, `pel=1` (or `pel=2` strictly when meeting the quantitative conditions in Step 1.7), `hpad=0, vpad=0`, `sharp=1` (bicubic) or `sharp=2` (Wiener 6-tap filter, accelerated via native AVX2 / ARM64 NEON).
 * **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing, with block compensation blending accelerated via native 128-bit NEON SIMD.
 * **MBlockFps:** `mode=0`, `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
 * **Lookahead:** `Prefetch(threads, 6)` (or `8` on 8-core CPUs).
@@ -274,7 +328,7 @@ If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showin
 | :--- | :--- | :--- |
 | **"AviSynth.dll not found"** dialog in PotPlayer (Win32 Error 126 / `ERROR_MOD_NOT_FOUND`) | **Missing Visual C++ 2015–2022 CRT runtimes:** `vcruntime140.dll`, `msvcp140.dll`, or `vcruntime140_1.dll` missing in `System32`. | Instruct the user to run the benchmark with `-AutoInstallVcRedist`, which automatically downloads and silently installs the official Microsoft redistributable from `https://aka.ms/vc14/vc_redist.x64.exe` (or `arm64.exe`). |
 | **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
-| **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (> 85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. Increase block size (e.g. 16x16 → 32x32).<br>3. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>4. Ensure `blend=false` in `MBlockFps`. |
+| **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (> 85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. If `pel=2` is active, revert `pel=2` → `pel=1` and `sharp=2` → `sharp=1` in `MSuper` to eliminate 3 subpixel planes and cut memory bus traffic.<br>3. Increase block size (e.g. 16x16 → 32x32).<br>4. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>5. Ensure `blend=false` in `MBlockFps`. |
 | **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
 | **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` is active on hybrid P/E or ARM64 architectures.<br>2. Increase lookahead queue to `Prefetch(threads, 6)`.<br>3. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 1024 → 768, or 768 → 512).<br>2. Ensure single-level geometry `levels=1` is enabled. |

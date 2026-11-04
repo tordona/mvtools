@@ -17,8 +17,9 @@
 * **Benchmark Suite**
   * [PresentMon Harness & Baselines](benchmarks/README.md)
 
-* **AI Agent Auto-Tuning**
-  * [AI Agent Profiling Guide](guides/AIAgentProfileGuide.md)
+* **Custom Profiles via AI**
+  * [Custom Profiles Quickstart](guides/GenerateCustomProfiles.md)
+  * [AI Agent Tuning Specification](guides/AIAgentProfileGuide.md)
 
 * **Resources & Links**
   * [Latest GitHub Release ↗](https://github.com/tordona/mvtools/releases/latest)
