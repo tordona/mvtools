@@ -17,12 +17,15 @@
 .PARAMETER MvToolsRepo
     GitHub repository slug for downloading release packages, forwarded to matrix benchmark runs.
 .VERSION
-    2.4.1
+    2.6.0
 .DATE
-    2026-10-25
+    2026-11-03
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.0 (2026-11-03): Added Direct3D 12 GPU offload comparative analysis and execution modes.
+                           Supports comparative benchmarking of D3D12 DirectCompute vs CPU NEON/SIMD,
+                           profile revision auditing, and standardized presentation metric exports.
     - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication tracking.
                            Parses profile worker threads, thread compute ceilings, and saturation ratios.
                            Flags suspected swapchain frame duplication (saturation >= 88% while reporting ~60 fps)
@@ -104,7 +107,7 @@ param(
 )
 
 # Compare Suite Semantic Revision
-$Script:CompareVersion = "2.5.0"
+$Script:CompareVersion = "2.6.0"
 
 $ScriptDir = $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($ScriptDir)) {

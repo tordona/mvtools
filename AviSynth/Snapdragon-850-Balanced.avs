@@ -1,10 +1,10 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
 # Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
 # Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
-# Revision: 2.0.0 (2026-10-18)
-# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=3, Prefetch(3, 4), mem_limit=768
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=3, Prefetch(3, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 threads     = 3                   # 3 Kryo 385 Gold cores

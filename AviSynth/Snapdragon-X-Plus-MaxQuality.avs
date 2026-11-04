@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, diamond motion search, sustained 60 fps
-# Revision: 2.2.0 (2026-10-31)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

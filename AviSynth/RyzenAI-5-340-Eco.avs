@@ -4,7 +4,8 @@
 # Memory: 16 GB-32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-8 W Package Envelope, Silent / Cool Battery Playback, 0 Dropped Frames
-# Revision: 2.0.0 (2026-10-25)
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32, AvsAffinity hardware pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

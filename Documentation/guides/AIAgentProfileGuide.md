@@ -1,4 +1,4 @@
-﻿# AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
+# AI Agent Guide: Generating & Tuning Hardware-Tuned AviSynth+ Profiles
 
 This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
 
@@ -252,7 +252,8 @@ For the requested platform, output:
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.1.0 (<Date>)`
+   * `# Revision: 2.2.0 (<Date>)`
+   * `# Changelog: <Core Feature Summary>`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
    - [ ] `potplayer_source()` is invoked before calling `Width()`.

@@ -3,8 +3,8 @@
 # Hardware: Generic 64-bit x86 (Intel Core i5/i7/i9 / AMD Ryzen / Modern 25 W+ Quad+ Cores)
 # Architecture: Native 1080p x86-64 AVX2 / AVX-512 CPU Motion Estimation (mvtools2.dll)
 # Target: High-Fidelity 16x16 Vectors (8,160 Blocks), Subpixel Edge Contrast, 0 Drops
-# Revision: 3.0.0 (2026-10-25)
-# Changelog: Replaced compute-stalling pel=2 / MRecalculate with native 1080p 16x16 blocks
+# Revision: 3.1.0 (2026-11-03)
+# Changelog: Native 1080p 16x16 blocks with 4 px overlap, dynamic 4K adaptation
 #            (8,160 blocks) and sharp=1 bicubic subpixel interpolation. Single-level levels=1.
 # ==============================================================================
 

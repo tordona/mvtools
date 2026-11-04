@@ -1,9 +1,9 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Fluid 1080p 60 fps, Sharp Edge Tracking, Stable Thermal Ceiling
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Native 1080p, levels=1, single-pass 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, single-pass 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

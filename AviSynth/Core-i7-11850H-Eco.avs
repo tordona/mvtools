@@ -4,7 +4,8 @@
 # Memory: 16 GB-64 GB Dual-Channel DDR4-3200 (51.2 GB/s Bandwidth, 24 MB Shared L3 Cache)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-10 W Low-Acoustic Envelope, Low-Thermal Profile, 0 Dropped Frames
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 blocks, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

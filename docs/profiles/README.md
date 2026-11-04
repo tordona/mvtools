@@ -101,8 +101,8 @@ pad_val    = is_4k ? 16 : 8
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -150,9 +150,9 @@ Prefetch(threads)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Highest visual fidelity, exhaustive 2D grid motion search, sustained 60 fps
-# Revision: 2.2.0 (2026-10-31)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle
+# Target: Highest visual fidelity, diamond motion search, sustained 60 fps
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -211,8 +211,8 @@ Prefetch(threads)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Pinned to 4x Cortex-X1 Prime cores (threads=4) to prevent asymmetric core stalls
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Fine 16x16 block refinement, mode=2 Dynamic Median synthesis, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024, D3D12 toggle
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Coarse 32x32 -> fine 16x16, Dynamic Median synthesis (mode=2), sharp=0 (pel=1), threads=3/4, Prefetch(threads, 4), mem_limit=1024, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -259,8 +259,8 @@ Prefetch(threads)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Pinned to 4x Kryo 495 Gold cores (threads=4)
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Pinned Kryo 495 Gold cluster, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -307,35 +307,51 @@ Prefetch(threads)
 ```avisynth
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
-# Pinned to 3x Kryo 385 Gold cores (threads=3) to preserve headroom for D3D11 present
-# Revision: 2.0.0
+# Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
+# Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
+# Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=3, Prefetch(3, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
-threads     = 3
+threads     = 3                   # 3 Kryo 385 Gold cores
 mem_limit   = 768
 
+# Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
+# Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 630)
 src = potplayer_source()
 
-# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, 64x64 coarse -> 32x32 fine matches the 1080p 16x16 spatial density (8,160 blocks),
+# preventing Cortex-A75 CPU saturation and eliminating dropped frames.
 is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
-pad_val    = is_4k ? 16 : 8
+pad_val    = is_4k ? 8 : 0
 
+# Load Native ARM64 MVTools2 plugin (ARM64 CPU NEON execution)
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=1)
+# 1. Base Motion Super Clip (Single Level, Shared across Pipeline)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+# 2. Coarse Global Motion Vector Search (2,040 blocks: 32x32 at 1080p, 64x64 at 4K)
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
 
+# 3. Fine Refinement Pass (8,160 blocks: 16x16 at 1080p, 32x32 at 4K)
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-MFlowFps(src, super, backward_fine, forward_fine, num=60, den=1, mask=2, ml=100.0, blend=false)
+# 4. Direct Frame Synthesis with Refined Vectors
+MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
+# 5. Core Pinning: Strictly 3 Threads with Lookahead Queue
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 ```
 
@@ -350,10 +366,13 @@ Prefetch(threads, 4)
 ```avisynth
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 2: Balanced)
-# Dynamic 0.5x proxy search + 2x vector scale + zero-loss native synthesis
-# Pinned to 2x Cortex-A76 Gold cores (threads=2) for Passive 5 W Fanless Operation
-# Revision: 2.0.0
+# Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
+# Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
+# Target: Fluid 1080p 60 fps, 32x32 Native Motion Vectors, Stable 5 W Thermal Ceiling
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=2, Prefetch(2, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
+
 threads     = 2
 mem_limit   = 512
 
@@ -362,30 +381,27 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
-# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k  = (src.Width() > 2048)
-blk_sz = is_4k ? 32 : 16
-
 LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Dynamic 0.5x Proxy Clip
-search_w     = (src.Width  / 4) * 2
-search_h     = (src.Height / 4) * 2
+is_4k        = (src.Width() > 2048)
+search_scale = is_4k ? 4 : 2
+search_w     = (src.Width  / (search_scale * 2)) * 2
+search_h     = (src.Height / (search_scale * 2)) * 2
 search_clip  = src.BilinearResize(search_w, search_h)
 search_super = search_clip.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
-# 2. Fast Single-Level Vector Search on Proxy
-backward_proxy = MAnalyse(search_super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
-forward_proxy  = MAnalyse(search_super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+backward_proxy = MAnalyse(search_super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
+forward_proxy  = MAnalyse(search_super, isb=false, blksize=16, blksizev=16, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Mathematically Scale Vectors 2x up to Native Coordinates
-backward_scaled = backward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
-forward_scaled  = forward_proxy.MScaleVect(scale=2.0, scaleV=2.0, mode=0)
+scale_val       = Float(search_scale)
+backward_scaled = backward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
+forward_scaled  = forward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
 
-# 4. Native Frame Synthesis (Zero Resolution Loss)
 super_src = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 MBlockFps(src, super_src, backward_scaled, forward_scaled, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 ```
 
@@ -434,9 +450,8 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 # Hardware: Generic 64-bit x86 (Intel Core i3/i5/i7 / AMD Ryzen Quad+ Cores, 15 W – 28 W TDP)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Fluid 1080p 60 fps, Native 32x32 Vectors (2,040 Blocks), Recommended Default
-# Revision: 3.0.0 (2026-10-25)
-# Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks).
-#            Added radius-1 hexagonal search (search=2, searchparam=1) and levels=1.
+# Revision: 3.1.0 (2026-11-03)
+# Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks), dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

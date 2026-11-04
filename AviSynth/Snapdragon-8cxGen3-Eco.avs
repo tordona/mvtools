@@ -1,9 +1,9 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Ultra-Low Power, Maximum Battery Longevity, 0 Dropped Frames
-# Revision: 2.1.0 (2026-10-19)
-# Changelog: Single MSuper, levels=1, threads=3, Prefetch(3, 4), mem_limit=768/512, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Single MSuper, levels=1, threads=3, Prefetch(3, 4), mem_limit=768/512, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

@@ -1,9 +1,9 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Highest Achievable Quality, Wide-Radius Refinement, Sustained 60 fps
-# Revision: 2.3.0 (2026-10-31)
-# Changelog: Coarse 32x32 (search=2 Diamond) -> fine 16x16, Dynamic Median (mode=2, blend=true), threads=4, mem_limit=1536, D3D12 toggle
+# Revision: 2.4.0 (2026-11-03)
+# Changelog: Coarse 32x32 (search=2 Diamond) -> fine 16x16, Dynamic Median (mode=2, blend=true), threads=4, mem_limit=1536, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

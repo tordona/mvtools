@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Native 1080p, levels=1, 16x16 exhaustive 5x5 (GPU) / 16x16 -> 8x8 (CPU), blend=true, threads=3/4, mem_limit=1536/2048, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, 16x16 Diamond search (search=2, param=2), blend=true, threads=3/4, mem_limit=1536/2048, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

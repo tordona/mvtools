@@ -3,8 +3,8 @@
 # Hardware: Generic 64-bit x86 (Intel Pentium/Celeron / Atom / Core / AMD Quad+ Cores)
 # Architecture: Native 1080p x86-64 SSE4.2 / AVX2 CPU Motion Estimation (mvtools2.dll)
 # Target: Ultra-Low Compute Load, Fanless & Battery Safety, Guaranteed Real-Time 60 fps
-# Revision: 3.0.0 (2026-10-25)
-# Changelog: Native 1080p 64x32 blocks (~1,020 blocks) with search=0 (OneTime predictor).
+# Revision: 3.1.0 (2026-11-03)
+# Changelog: Native 1080p 64x32 blocks (~1,020 blocks) with search=0, dynamic 4K adaptation
 #            Eliminated 0.5x proxy downscaling blur. Single-level geometry (levels=1).
 # ==============================================================================
 

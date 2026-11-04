@@ -4,7 +4,8 @@
 # Memory: 16 GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-4 W Power Envelope, Fanless Operation, Single-Channel Bus Protection, 0 Drops
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 blocks, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

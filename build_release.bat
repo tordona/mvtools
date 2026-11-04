@@ -45,12 +45,15 @@ rem ============================================================
 rem  DETECTION
 rem ============================================================
 
-rem  Version: the line VALUE "FileVersion", "2.7.48" of mvtools.rc
+rem  Version: the line #define FILEVERSION_BASE_STR "2.7.48.100" of version.h (or FileVersion in mvtools.rc)
+if not defined VER (
+  for /f tokens^=2^ delims^=^" %%A in ('findstr "FILEVERSION_BASE_STR" "%SRC%\Sources\version.h"') do set "VER=%%A"
+)
 if not defined VER (
   for /f tokens^=4^ delims^=^" %%A in ('findstr /c:"FileVersion" "%SRC%\Sources\mvtools.rc"') do set "VER=%%A"
 )
 if not defined VER (
-  echo ERROR: no FileVersion found in Sources\mvtools.rc
+  echo ERROR: no FileVersion found in Sources\version.h or Sources\mvtools.rc
   goto :fatal_exit
 )
 if not defined BUILD_DATE (

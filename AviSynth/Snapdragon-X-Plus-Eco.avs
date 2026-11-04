@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 1: Eco / Lowest CPU)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Minimal CPU utilization, zero dropped frames, low power consumption
-# Revision: 2.1.0 (2026-10-28)
-# Changelog: Oryon architecture, levels=1, single MSuper, threads=2/4, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle
+# Revision: 2.2.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, single MSuper, threads=2/4, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------

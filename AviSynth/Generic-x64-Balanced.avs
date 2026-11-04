@@ -3,8 +3,8 @@
 # Hardware: Generic 64-bit x86 (Intel Core i3/i5/i7 / AMD Ryzen Quad+ Cores, 15 W – 28 W TDP)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Fluid 1080p 60 fps, Native 32x32 Vectors (2,040 Blocks), Recommended Default
-# Revision: 3.0.0 (2026-10-25)
-# Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks).
+# Revision: 3.1.0 (2026-11-03)
+# Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks), dynamic 4K adaptation
 #            Added radius-1 hexagonal search (search=2, searchparam=1) and levels=1.
 # ==============================================================================
 

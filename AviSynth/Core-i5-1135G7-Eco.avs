@@ -4,7 +4,8 @@
 # Memory: 16 GB Dual-Channel LPDDR4x/DDR4 (51.2-68.2 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-6 W Power Envelope, Minimal Fan Noise, Cool Passive/Battery Playback, 0 Drops
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 blocks, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

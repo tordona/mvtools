@@ -4,7 +4,8 @@
 # Memory: 16 GB-32 GB Dual-Channel DDR4/LPDDR3 (128 MB Embedded eDRAM L4 Cache)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Sub-10 W Power Envelope, Minimal Fan Noise, Cool Battery Playback, 0 Drops
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 blocks, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

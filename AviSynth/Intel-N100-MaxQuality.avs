@@ -4,7 +4,8 @@
 # Memory: 16 GB Single-Channel DDR4/DDR5 (Single 64-bit Bus ~25.6-38.4 GB/s)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: High-Fidelity 60 fps Presentation, Native 16x16 with 4 px Overlap (14,151 Blocks), 6 W Envelope
-# Revision: 1.0.0 (2026-10-25)
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, 16x16 with 4 px overlap, blend=true, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

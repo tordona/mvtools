@@ -4,8 +4,8 @@
 # Memory: 8 GB LPDDR3-1866 (Dual-Channel ~29.8 GB/s Bandwidth)
 # Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
 # Target: Native 1080p, Sub-6 W Power, Zero Downscaling, Cool Passive Operation, 0 Drops
-# Revision: 2.0.0 (2026-10-25)
-# Changelog: Removed 0.5x proxy downscaling; native 1080p 32x32 single-level vector search
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Removed 0.5x proxy downscaling; native 1080p 32x32 single-level search, dynamic 4K adaptation
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:

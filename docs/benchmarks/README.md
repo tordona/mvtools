@@ -47,8 +47,8 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.5.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
-| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.5.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.6.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.6.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 | [`MvToolsBenchmark-Headless.ps1`](MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
 | [`Benchmark-BigBuckBunny-Fidelity.ps1`](Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
 | [`Measure-SearchModesFidelity.ps1`](Measure-SearchModesFidelity.ps1) | `v1.0.0` | Frame-accurate objective fidelity test (PSNR & SSIM) comparing motion search algorithms (Exhaustive vs Hex vs Diamond) against decimated ground truth. | Console table / PSNR & SSIM metrics |
@@ -99,7 +99,7 @@ Both the benchmark test harness and all AviSynth interpolation profiles follow *
 - **AviSynth Profiles (`AviSynth/*.avs`):**
   Embedded in the standardized comment header:
   ```avisynth
-  # Revision: 2.1.0 (2026-10-19)
+  # Revision: 2.2.0 (2026-11-03)
   # Changelog: Coarse 32x32 -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1024, D3D12 toggle
   ```
   - `MAJOR`: Fundamental architectural paradigm shifts (e.g. moving from 0.5x proxy estimation to native 1080p `levels=1`).

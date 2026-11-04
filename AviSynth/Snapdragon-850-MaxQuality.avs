@@ -1,10 +1,10 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
 # Target: Highest Quality Motion Flow within 5 W Snapdragon 850 Thermal Budget
 # Architecture: Native 1080p Quad-Core Saturation (Zero Resizing Overhead)
-# Revision: 2.0.0 (2026-10-18)
-# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=3, Prefetch(3, 4), mem_limit=1024
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=3, Prefetch(3, 4), mem_limit=1024, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 threads     = 4                   # Saturates all 4 Kryo 385 Gold cores

@@ -34,12 +34,17 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.5.0
+    2.6.0
 .DATE
-    2026-10-25
+    2026-11-03
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.0 (2026-11-03): Added Direct3D 12 GPU offload support and companion plugin integration.
+                           Supports unified mvtools2.dll deployment (CPU NEON + D3D12 compute engine)
+                           and AvsAffinity.dll deployment across ARM64 and x64 targets. Added -GpuMode
+                           parameter (Auto, D3D12, CPU, NEON), dynamic USE_D3D12 injection, and experimental
+                           preview diagnostic warnings in benchmark telemetry and console reports.
     - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication Safeguard.
                            Detects when worker threads are compute-bound (saturation >= 88%) while PresentMon
                            records ~60 fps from PotPlayer D3D11 swapchain backbuffer duplication, preventing
@@ -164,7 +169,7 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.5.0"
+$Script:HarnessVersion = "2.6.0"
 $Script:AutoInstallVcRedist = $AutoInstallVcRedist
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)

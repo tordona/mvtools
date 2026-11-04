@@ -1,10 +1,10 @@
-﻿# ==============================================================================
+# ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
 # Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
 # Target: Highest Achievable Motion Precision at Sustained 60 fps (Zero Throttling)
-# Revision: 2.0.0 (2026-10-18)
-# Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=2, Prefetch(2, 4), mem_limit=768
+# Revision: 2.1.0 (2026-11-03)
+# Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=2, Prefetch(2, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 
 # Strictly 2 worker threads locks computation to the 2 Cortex-A76 Gold cores.
