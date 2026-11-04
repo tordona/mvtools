@@ -70,5 +70,5 @@ Save these files to your computer (e.g. into `C:\Program Files\DAUM\PotPlayer\Av
 ## Advanced Benchmarking & Profile Tuning
 
 If you experience dropped frames or want empirical verification with PresentMon ETW frame logging:
-* See the **[AI Agent Profile Tuning & Specification Guide](AIAgentProfileGuide.md)**.
+* See the **[AI Agent Profile Tuning & Specification Guide](guides/AIAgentProfileGuide.md)**.
 * Learn how to run `Benchmarks/MvToolsBenchmark-Start.ps1` from the repository or extracted release package, capture frame pacing data, and use the Telemetry Diagnosis Matrix for closed-loop tuning.

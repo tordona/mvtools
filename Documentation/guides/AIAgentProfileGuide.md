@@ -4,7 +4,7 @@ This guide provides the complete specification, standardized agent prompt, and a
 
 > [!TIP]
 > **Looking for the Quick Setup?**  
-> If you want to generate custom profiles in 1 click without running benchmarks or configuring developer environments, see the **[Custom Profiles Quickstart](GenerateCustomProfiles.md)**.
+> If you want to generate custom profiles in 1 click without running benchmarks or configuring developer environments, see the **[Custom Profiles Quickstart](guides/GenerateCustomProfiles.md)**.
 
 ---
 
