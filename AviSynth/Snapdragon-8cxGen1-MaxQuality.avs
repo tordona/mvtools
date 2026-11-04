@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
-# Revision: 2.2.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, 16x16 Diamond search (search=2, param=2), blend=true, threads=3/4, mem_limit=1536/2048, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, 16x16 Diamond search (search=2, param=2), blend=true, threads=3/4, mem_limit=1536/2048, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -29,13 +29,13 @@ SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, blocks scale by 2x (32x32 dense GPU, 32x32 -> 16x16 CPU refinement)
 # to maintain exact 1080p block counts and prevent thermal throttling.
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_dense  = is_4k ? 32 : 16
 blk_refine = is_4k ? 16 : 8
 pad_val    = is_4k ? 16 : 8
@@ -50,7 +50,7 @@ MEnableD3D12(USE_D3D12)
 # pel=pel_val: Dynamic based on USE_D3D12 (pel=1 on GPU; pel=2 on CPU)
 # pad_val boundary padding stabilizes edge vector calculation
 # sharp=sharp_mode: Bicubic filtering when pel=2 on CPU; unused when pel=1 on GPU
-super = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
+super = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Dense Motion Vector Field Analysis
 # GPU: Evaluates in a single pass of dense blocks (16x16 at 1080p, 32x32 at 4K: 8,160 blocks) using Diamond search (~12 points)

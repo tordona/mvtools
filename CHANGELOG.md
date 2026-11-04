@@ -214,7 +214,7 @@ Change log
     - Scaled memory allocation (SetMemoryMax) and worker threads dynamically between Direct3D 12 compute and CPU NEON fallbacks.
     - Cleaned all profile templates and quickstart documentation, removing deprecated plugin_file variables and redundant plugin loader statements.
   - Dynamic 4K Resolution Adaptation Across All 42 AviSynth Profiles:
-    - Added real-time resolution detection (`is_4k = (Width() > 2048)` or `src.Width() > 2048`) across all 42 tracked AviSynth profiles (ARM64 Snapdragon and x86-64 Intel/AMD).
+    - Added real-time resolution detection (`is_4k = (src.Width() > 2048)`) across all 42 tracked AviSynth profiles (ARM64 Snapdragon and x86-64 Intel/AMD).
     - Implemented proportional block scaling to maintain the spatial macro-block count invariant between 1080p and 4K:
       - Coarse pass scales from 32x32 (1080p) to 64x64 (4K).
       - Fine refinement pass scales from 16x16 (1080p) to 32x32 (4K); 8x8 passes scale to 16x16 (4K).

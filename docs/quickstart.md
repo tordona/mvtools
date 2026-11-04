@@ -63,7 +63,7 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 
 ### Step 1: Place MVTools2 Binaries (ARM64)
 1. Navigate to the [Latest MVTools2 Release](https://github.com/tordona/mvtools/releases/latest).
-2. Download **`mvtools2-arm64-v...zip`** under Assets.
+2. Download **`mvtools2-2.7....-win-arm64.7z`** under Assets.
 3. Extract **`mvtools2.dll`** and companion **`AvsAffinity.dll`** directly into:
    ```text
    C:\Program Files\DAUM\PotPlayer\
@@ -102,10 +102,10 @@ mem_limit   = USE_D3D12 ? 1536 : 2048
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -114,7 +114,7 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
@@ -150,7 +150,7 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ### Step 1: Place MVTools2 Binaries (x86-64)
 1. Navigate to the [Latest MVTools2 Release](https://github.com/tordona/mvtools/releases/latest).
-2. Download **`mvtools2-x64-v...zip`** under Assets.
+2. Download **`mvtools2-2.7....-win-x64.7z`** under Assets.
 3. Extract **`mvtools2.dll`** and companion **`AvsAffinity.dll`** directly into:
    ```text
    C:\Program Files\DAUM\PotPlayer\
@@ -179,10 +179,10 @@ mem_limit = 1024
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -190,7 +190,7 @@ pad_val    = is_4k ? 16 : 8
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))

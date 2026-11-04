@@ -53,7 +53,7 @@ A 4K (3840×2160) video stream contains 4× the pixel area of 1080p (1920×1080)
 **The Dynamic Resolution Scaling Rule:**
 All Rev 3.0.0 profiles incorporate real-time resolution detection:
 ```avisynth
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -67,26 +67,29 @@ pad_val    = is_4k ? 16 : 8
 
 ## Part I: Qualcomm Snapdragon (ARM64) Profiles
 
-| Platform / SoC | Profile Tier | Architecture | Block Size (1080p / 4K) | `pel` | Threads | `USE_D3D12` | Raw Download |
+| Platform / SoC | Profile Tier | Architecture | Block Size (1080p / 4K) | `pel` | Threads | Direct3D 12 GPU Offload | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 / 6 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
-| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Yes | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
-| **Snapdragon 850** | `Eco` | Single-level Coarse | 64×32 / 128×64 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
-| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
-| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
-| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 / 64×32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
-| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 / 32×32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
-| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 2 | No | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
+| **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
+| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
+| **Snapdragon 850** | `Eco` | Single-level Coarse | 64×32 / 128×64 | 1 | 3 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
+| | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
+| | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
+| **Snapdragon 7c Gen 2** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 32×16 / 64×32 | 1 | 2 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
+| | `Balanced` | Dynamic 0.5x Proxy Vector Warp | 16×16 / 32×32 | 1 | 2 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 2 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
+
+> [!NOTE]
+> All profiles default to pure CPU NEON execution (`USE_D3D12 = false`). Profiles marked **Opt-in (Preview)** provide an inline toggle allowing users to optionally test experimental Direct3D 12 GPU compute offload on supported Adreno hardware.
 
 ---
 
@@ -118,7 +121,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -151,8 +154,8 @@ Prefetch(threads)
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, diamond motion search, sustained 60 fps
-# Revision: 2.3.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation
+# Revision: 2.4.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -167,10 +170,10 @@ fine_rad    = USE_D3D12 ? 2 : 1
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k       = (Width() > 2048)
+is_4k       = (src.Width() > 2048)
 blk_scale   = is_4k ? 2 : 1
 pel_val     = USE_D3D12 ? 1 : 2
 sharp_mode  = USE_D3D12 ? 0 : 2
@@ -183,7 +186,7 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
-super = MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
+super = src.MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
 
 # 2. Diamond Coarse Motion Vector Field Analysis
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
@@ -225,7 +228,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -274,7 +277,7 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 potplayer_source()
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8

@@ -2,6 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
+# Revision: 2.3.0 (2026-11-03)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -38,6 +39,17 @@
 
 .PARAMETER Launch
     Automatically launches PotPlayer after setup completes.
+
+.VERSION
+    2.3.0
+.DATE
+    2026-11-03
+.NOTES
+    Format: SemVer (MAJOR.MINOR.PATCH)
+    Revision History:
+    - v2.3.0 (2026-11-03): Added AvsAffinity.dll companion deployment, unified mvtools2.dll
+                           architecture verification (CPU SIMD + D3D12 GPU engine), and
+                           synchronized AI agent profile guide generation prompt rules.
 #>
 
 [CmdletBinding()]
@@ -49,6 +61,9 @@ param(
     [string]$ForceProfile = "",
     [switch]$Launch
 )
+
+# Installer Semantic Revision
+$Script:InstallerVersion = "2.3.0"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP

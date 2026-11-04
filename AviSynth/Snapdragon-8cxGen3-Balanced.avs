@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 3 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690)
 # Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
-# Revision: 2.3.0 (2026-11-03)
-# Changelog: Coarse 32x32 -> fine 16x16, Dynamic Median synthesis (mode=2), sharp=0 (pel=1), threads=3/4, Prefetch(threads, 4), mem_limit=1024, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
+# Revision: 2.4.0 (2026-11-03)
+# Changelog: Coarse 32x32 -> fine 16x16, Dynamic Median synthesis (mode=2), sharp=0 (pel=1), threads=3/4, Prefetch(threads, 4), mem_limit=1024, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -24,13 +24,13 @@ SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream (Offloaded via Adreno 690 hardware decoder)
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
 # density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 8 : 4
@@ -45,7 +45,7 @@ MEnableD3D12(USE_D3D12)
 # pel=1: Whole-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes edge vector calculation without memory thrashing
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Motion Vector Search (2,040 blocks: 32x32 at 1080p, 64x64 at 4K)
 # search=2, searchparam=1: 3x3 local grid search across 2,040 blocks

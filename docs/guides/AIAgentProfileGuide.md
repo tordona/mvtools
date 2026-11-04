@@ -132,7 +132,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
    # 3. Dynamic Resolution Adaptation (MUST Immediately Follow Source Initialization)
    # CRITICAL: is_4k must be defined before any blk_* or pad_* expression reads it
-   is_4k      = (src.Width() > 2048)     # or is_4k = (Width() > 2048)
+   is_4k      = (src.Width() > 2048)
    blk_coarse = is_4k ? 64 : 32          # (or blk_sz = is_4k ? (<B> * 2) : <B>)
    blk_fine   = is_4k ? 32 : 16
    pad_val    = is_4k ? 16 : 8
@@ -188,7 +188,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    * Every profile must implement runtime resolution detection and proportional block scaling:
      * **Runtime Resolution Detection:**
        ```avisynth
-       is_4k = (src.Width() > 2048)   # or is_4k = (Width() > 2048)
+       is_4k = (src.Width() > 2048)
        ```
      * **Single-Pass Profiles (Eco / High-Throughput Balanced):**
        * If base is `32x32` at 1080p: `blk_sz = is_4k ? 64 : 32` (maintains invariant `2,040` blocks).
@@ -204,7 +204,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
        * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
    * **Mandatory Variable Ordering Invariant (No Forward References):**
      * AviSynth+ is a strictly sequential, top-to-bottom interpreted language without variable hoisting.
-     * **Source Clip First:** The video source clip (`src = potplayer_source()` or `potplayer_source()`) **MUST ALWAYS** be instantiated before `is_4k = (src.Width() > 2048)` or `is_4k = (Width() > 2048)` is called. Calling `Width()` before source acquisition raises a fatal error (`no implicit clip "last"` or `unknown function`).
+     * **Source Clip First:** The video source clip (`src = potplayer_source()`) **MUST ALWAYS** be instantiated before `is_4k = (src.Width() > 2048)` is called. Calling `Width()` before source acquisition raises a fatal error (`no implicit clip "last"` or `unknown function`).
      * **Definition Before Use:** `is_4k` **MUST ALWAYS** be defined before any expression that reads it (e.g. `blk_coarse`, `blk_fine`, `blk_sz`, `pad_val`, `overlap_val`). Referencing `is_4k` before its definition line aborts script evaluation immediately with `Script error: I don't know what "is_4k" means`.
      * **No Resolution Calculations in Header:** Never place `blk_coarse = ... (is_4k ? ...)` in the top hardware configuration section above `potplayer_source()`. Static engine parameters (`threads`, `mem_limit`, `pel_val`, `sharp_mode`) belong in the top block; all dynamic geometric scaling parameters belong immediately after `potplayer_source()`.
 
@@ -257,7 +257,7 @@ For the requested platform, output:
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
-   - [ ] `is_4k = (Width() > 2048)` or `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
+   - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
    - [ ] Zero resolution-dependent variable calculations exist in the top hardware configuration block.
    - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.
 4. **Clean Script Formatting:**

@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 1: Eco)
 # Hardware: Qualcomm Snapdragon 8cx Gen 2 / Microsoft SQ2 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
 # Target: 7 W Fanless Thermal Envelope, Maximum Battery Life, 0 Dropped Frames
-# Revision: 2.2.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, single MSuper, threads=3, Prefetch(3, 4), mem_limit=768/512, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Native 1080p, levels=1, single MSuper, threads=3, Prefetch(3, 4), mem_limit=768/512, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -22,13 +22,13 @@ SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, 64x64 blocks maintain the exact 2,040 block count of 1080p 32x32,
 # keeping CPU and GPU memory traffic within low-power battery envelopes.
-is_4k  = (Width() > 2048)
+is_4k  = (src.Width() > 2048)
 blk_sz = is_4k ? 64 : 32
 
 # Load Native ARM64 MVTools2 plugin
@@ -41,7 +41,7 @@ MEnableD3D12(USE_D3D12)
 # pel=1: Full-pixel precision only (avoids heavy subpixel math on Cortex-A76 cores)
 # hpad=0, vpad=0: No padding overhead to minimize cache pressure
 # sharp=0: Fast bilinear interpolation for minimal ALU load
-super = MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Ultra-Lightweight Coarse Motion Analysis
 # 2,040 blocks (32x32 at 1080p, 64x64 at 4K)

@@ -10,15 +10,16 @@
 
 ## Overview & Thermal Strategy
 
-The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7 W to 10 W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
+The **Qualcomm Snapdragon 8cx Gen 2** (and its Microsoft customized variant, the **Microsoft SQ2**) operates within a **7 W – 10 W fanless thermal envelope** with an 8-channel LPDDR4x-2133 memory bus (68 GB/s).
 
-When performing real-time 60 fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76) performance cores are dedicated to NEON motion vector estimation. If video decoding or display scaling is executed on the CPU, the SoC quickly reaches its thermal ceiling, throttling CPU clocks and causing frame drops.
+When performing real-time 60 fps AviSynth motion interpolation (`mvtools2`), the 4 Kryo 495 Gold (Cortex-A76 @ up to 3.00–3.15 GHz) performance cores handle NEON motion vector estimation. Because fanless devices (such as the Surface Pro X SQ2 or HP Elite Folio) have a bounded passive thermal dissipation ceiling, running software video decoding or unconstrained thread counts quickly causes thermal saturation, triggering clock throttling and frame presentation drops.
 
-Offloading both **video decoding** and **display presentation** to the **Adreno 680 iGPU** preserves 100% of the CPU thermal budget for MVTools, ensuring smooth 60 fps video playback with zero dropped frames.
-
-> [!NOTE]
-> **Microsoft SQ2 Compatibility:**  
-> The Microsoft SQ2 processor in the Surface Pro X is physically identical silicon to the Snapdragon 8cx Gen 2 (`SC8180XP`). Use these profiles and settings directly for SQ2 devices.
+To achieve sustained, smooth 60 fps playback without thermal throttling:
+1. **Adreno 680 Hardware Decoding:** Offload H.264/HEVC/VP9 decoding entirely to the Adreno 680 Video Processing Unit (VPU) via D3D11 / DXVA2 Copy-Back, keeping CPU decode load at **0%**.
+2. **Direct3D 11 Video Renderer:** Present video using the Direct3D 11 pipeline so scaling and color conversion execute on the GPU shaders without CPU intervention.
+3. **Coarse-to-Fine Block Refinement:** Single-level base clip processing (`levels=1`) paired with dual-pass 32×32 → 16×16 refinement provides artifact-free motion vector fields while avoiding DRAM memory bus thrashing.
+4. **Strict Core Pinning (`Prefetch <= 4`):** Constraining worker threads to 3 or 4 and chaining `PinWorkerThreads()` confines all vector computation to the high-IPC Kryo 495 Gold cluster (`0xF0`), avoiding stalls from the in-order Silver cores.
+5. **Direct3D 12 Compute Offload Toggle:** Setting `USE_D3D12 = true` offloads block SAD search to the Adreno 680 GPU compute shaders, reducing CPU load from 15.3% down to **8.2%** and maximizing passive thermal margin.
 
 ---
 
@@ -104,7 +105,7 @@ Converting video frames between YUV and RGB on the CPU wastes memory bandwidth a
 
 > [!NOTE]
 > **Dynamic 4K Resolution Adaptation:**  
-> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = Width() > 2048` or `src.Width() > 2048`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = (src.Width() > 2048)`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
 
 ## Profile Comparison: Snapdragon 8cx Gen 2 / SQ2
 

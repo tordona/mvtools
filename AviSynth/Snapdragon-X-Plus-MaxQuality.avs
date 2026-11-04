@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, diamond motion search, sustained 60 fps
-# Revision: 2.3.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation
+# Revision: 2.4.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -34,13 +34,13 @@ SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, block sizes scale by 2x to match 1080p spatial grid density (2,040 coarse / 8,160 fine),
 # eliminating the 40,560 block explosion while preserving maximal visual detail.
-is_4k       = (Width() > 2048)
+is_4k       = (src.Width() > 2048)
 blk_coarse  = USE_D3D12 ? (is_4k ? 64 : 32) : (is_4k ? 32 : 16)
 blk_fine    = USE_D3D12 ? (is_4k ? 32 : 16) : (is_4k ? 16 : 8)
 
@@ -54,7 +54,7 @@ MEnableD3D12(USE_D3D12)
 # hpad, vpad: Boundary padding (8 px on GPU, 16 px on CPU)
 # sharp=sharp_mode: 6-tap Wiener interpolation when pel=2 on CPU; unused when pel=1 on GPU
 pad_val = is_4k ? (pad_size * 2) : pad_size
-super   = MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
+super   = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Diamond Coarse Motion Vector Field Analysis
 # blksize=blk_coarse: 32x32 on GPU (2,040 blocks), 16x16 on CPU (8,160 blocks)

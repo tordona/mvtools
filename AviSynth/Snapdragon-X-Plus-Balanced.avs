@@ -2,8 +2,8 @@
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-# Revision: 2.2.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation
+# Revision: 2.3.0 (2026-11-03)
+# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -22,13 +22,13 @@ SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream
-potplayer_source()
+src = potplayer_source()
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
 # density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
-is_4k      = (Width() > 2048)
+is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -42,7 +42,7 @@ MEnableD3D12(USE_D3D12)
 # pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes motion vectors near frame borders
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
 # 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
