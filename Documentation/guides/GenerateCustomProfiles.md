@@ -15,7 +15,7 @@ If you use an agentic IDE (Google Antigravity, Cursor, Windsurf, Claude Code, or
 Paste this single instruction into your IDE agent:
 
 ```text
-Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
+Read https://raw.githack.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
 ```
 
 ### What the IDE Agent Does Autonomously:
@@ -37,8 +37,8 @@ If you use a web chatbot in your browser (ChatGPT, Claude, Gemini, or Microsoft 
 Copy the prompt below, enter your CPU model, and paste it into your AI assistant:
 
 ```text
-Please generate a 3-tier AviSynth+ profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) for real-time 1080p 24 fps -> 60 fps video interpolation in Daum PotPlayer following the exact architectural specifications at:
-https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+Please generate a 3-tier AviSynth+ profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications at:
+https://raw.githack.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
 Target Hardware:
 - CPU (Required): [e.g. AMD Ryzen 7 7840U / Intel Core i7-12700H / Snapdragon X Plus]
@@ -49,8 +49,8 @@ Target Hardware:
 ### Step 2: Save the Generated Profile Files
 Your AI assistant will generate three scripts:
 * `<Platform>-Eco.avs` (Low power, lowest battery drain)
-* `<Platform>-Balanced.avs` (Recommended daily driver, native 1080p vector density)
-* `<Platform>-MaxQuality.avs` (Overlapping blocks for maximum edge fidelity)
+* `<Platform>-Balanced.avs` (Recommended daily driver, fine-grained vector density)
+* `<Platform>-MaxQuality.avs` (Highest fidelity coarse-to-fine refinement)
 
 Save these files to your computer (e.g. into `C:\Program Files\DAUM\PotPlayer\AviSynth\` or your Documents folder).
 

@@ -30,7 +30,7 @@ No repository checkout or download is required. The agent reads the raw specific
 
 **The 1-Step Generation Prompt:**
 ```text
-Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
+Read https://raw.githack.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md. Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
 ```
 
 **What the IDE Agent Does Autonomously:**
@@ -137,7 +137,7 @@ If the benchmark reports dropped frames or under 60 fps:
 Copy the text inside the block below and paste it into your AI assistant:
 
 ````markdown
-You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (1080p 24 fps -> 60 fps real-time playback in PotPlayer).
+You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (real-time 24 fps -> 60 fps playback in PotPlayer).
 
 Your task is to generate and iteratively tune a complete, production-grade 3-tier AviSynth profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) for the following target hardware platform:
 [INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c, Radeon 840M, 16 GB LPDDR5x) or Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W, Intel UHD 32EU, 24 MB L3)]
@@ -176,7 +176,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
         * **MaxQuality Tier (`Profile 3: MaxQuality`):** Set `synth_mode = USE_D3D12 ? 2 : 0`. Mode 2 engages GPU Dynamic Median with occlusion masking on compute shaders, while cleanly reverting to fast projection (mode=0) on CPU fallback.
      6. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
      7. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
-     8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, `pad_size`, and `synth_mode` so profiles cleanly fall back to full CPU core utilization if `USE_D3D12 = false` is selected.
+     8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, and `pad_size`. In MaxQuality, also declare `synth_mode = USE_D3D12 ? 2 : 0` and `overlap_size = USE_D3D12 ? 0 : 4`. (In Eco and Balanced, `synth_mode` must be hardcoded to `0`).
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
@@ -192,8 +192,13 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    pel_val    = USE_D3D12 ? 1 : <P_CPU>
    sharp_mode = USE_D3D12 ? 0 : <S_CPU>
    pad_size   = USE_D3D12 ? 8 : 0
-   # Frame synthesis mode: mode=0 (fast projection) for Eco and Balanced; mode=2 strictly for MaxQuality on GPU
-   synth_mode = (tier == "MaxQuality" && USE_D3D12) ? 2 : 0
+
+   # SYNTHESIS MODE & OVERLAP RULES BY TIER:
+   # For Profile 1 (Eco) & Profile 2 (Balanced): synth_mode MUST BE 0 across both GPU and CPU:
+   synth_mode = 0
+   # For Profile 3 (MaxQuality) ONLY:
+   # synth_mode   = USE_D3D12 ? 2 : 0
+   # overlap_size = USE_D3D12 ? 0 : 4          # OVERLAP MUST BE 0 ON GPU OFFLOAD
    SetMemoryMax(mem_limit)
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
@@ -343,10 +348,10 @@ For the requested platform, output:
    * `# PotPlayer AviSynth 60 fps Interpolation: <Platform> (Profile N: <Tier>)`
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
-   * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
+   * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.1 (2026-11-05)`
-   * `# Changelog: Direct3D 12 GPU offload invariants (mode=0 for Eco/Balanced, zero-overlap requirement for GPU, coarse-to-fine MRecalculate for MaxQuality)`
+   * `# Revision: 2.3.2 (2026-11-05)`
+   * `# Changelog: Prescriptive per-tier synthesis mode and zero-overlap declarations, raw.githack.com cache bypass URL, resolution neutrality`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
