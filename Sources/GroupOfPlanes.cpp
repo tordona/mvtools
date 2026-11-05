@@ -23,6 +23,7 @@
 #include "MVGroupOfFrames.h"
 #include "profile.h"
 #include "avisynth.h"
+#include <algorithm>
 
 
 
@@ -149,7 +150,7 @@ void	GroupOfPlanes::SearchMVs(
   // Search the motion vectors, for the low details interpolations first
   const bool needCoarseSearch = !(nLevelCount == 1 || searchType == HSEARCH || searchType == VSEARCH);
   SearchType searchTypeSmallest = needCoarseSearch ? searchTypeCoarse : searchType; // default coarse was EXHAUSTIVE: full search for smallest coarse plane
-  int nSearchParamSmallest = (nLevelCount == 1) ? nPelSearch : nSearchParam; // searchparam is the coarse levels' radius
+  int nSearchParamSmallest = (nLevelCount == 1) ? std::max(nPelSearch, nSearchParam) : nSearchParam; // preserve user searchparam when nLevelCount == 1
   DebugPrintf("SearchType %i", searchType);
   bool tryManyLevel = (tryMany && nLevelCount > 1);
   planes[nLevelCount - 1]->SearchMVs(
