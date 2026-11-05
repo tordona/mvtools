@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.7 (2026-11-05)
+# Revision: 2.3.10 (2026-11-05)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,17 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.7
+    2.3.10
 .DATE
     2026-11-05
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
-    - v2.3.7 (2026-11-05): Enforced mandatory MEnableD3D12(USE_D3D12) activation call in prompt generator.
-    - v2.3.6 (2026-11-05): Added dynamic Unix timestamp query parameter (?t=<epoch>) to AI prompt
-                           generator to guarantee un-cached origin specification retrieval.
-    - v2.3.5 (2026-11-05): Updated live specification URL for zero-cache AI crawler fetching,
-                           made prompt resolution-neutral, and clarified per-tier synth_mode.
+    - v2.3.10 (2026-11-05): Added AI provenance headers (# Generator, # Specification) to prompt generator.
+    - v2.3.9 (2026-11-05): Mandated conservative USE_D3D12 = false default across all generated profiles.
+    - v2.3.8 (2026-11-05): Mandated 'last = MBlockFps' return assignment in prompt generator to prevent dropped interpolation output.
 #>
 
 [CmdletBinding()]
@@ -65,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.7"
+$Script:InstallerVersion = "2.3.10"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2242,7 +2240,7 @@ function Copy-AiAgentHardwarePrompt {
     $isLowEndGpu = ($gpuName -match '(?i)600|605|610|615|618|630|610M|HD Graphics|Basic Display')
     $epochTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $pluginRule = if (-not $isLowEndGpu) {
-        '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` immediately following LoadPlugin (MANDATORY whenever USE_D3D12 is declared). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` immediately following LoadPlugin with dual-path parameterization (MANDATORY: always default to USE_D3D12 = false; never emit USE_D3D12 = true by default). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
     } else {
         '2. Engine & Plugin Hook: Entry-tier silicon with < 32 EUs / < 600 GFLOPS or TDP <= 10 W MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` and optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}`` (DO NOT reference USE_D3D12 or MEnableD3D12 on low-end silicon). Hook video via ``src = potplayer_source()``.'
     }
@@ -2268,11 +2266,12 @@ $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
 4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=pad_val, vpad=pad_val, sharp=0`` with ``pad_size = USE_D3D12 ? 8 : 0``). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse and MRecalculate (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
-6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 60 fps interpolation). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
+6. Frame Synthesis: MUST use ``last = MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` (assign to 'last' so PotPlayer receives the interpolated clip; never assign to an unused variable like 'out ='; DO NOT use MFlowFps for real-time 60 fps interpolation). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
 7. Direct3D 12 Zero-Overlap Invariant: Direct3D 12 GPU offload (USE_D3D12=true) strictly requires zero block overlap (overlap=0). Shaders in flow_warp.hlsl index vectors via direct coordinate division (DTid.x / nBlkSizeX); non-zero overlap causes coordinate misalignment and severe image tearing. When USE_D3D12=true, MaxQuality MUST use dual-pass coarse-to-fine refinement with ``MRecalculate(divide=0)`` and zero overlap (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with overlap=0). Overlap is ONLY permitted on CPU SIMD fallback (``overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)``).
 8. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
 9. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 10. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
+11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model>`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity) and ``# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)``.
 
 Please generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, mode=0, blend=false``), lowest package power.

@@ -178,6 +178,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      7. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
      8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, and `pad_size`. In MaxQuality, also declare `synth_mode = USE_D3D12 ? 2 : 0` and `overlap_size = USE_D3D12 ? 0 : 4`. (In Eco and Balanced, `synth_mode` must be hardcoded to `0`).
       9. **Mandatory `MEnableD3D12` Engine Activation:** Whenever `USE_D3D12` is declared in a script, `MEnableD3D12(USE_D3D12)` **MUST ALWAYS** be invoked immediately following `LoadPlugin("mvtools2.dll")`. Never omit this call. If omitted, setting `USE_D3D12 = true` silently fails to engage the Direct3D 12 compute queue, leaving the engine trapped in CPU SIMD mode with GPU-budgeted parameters.
+      10. **Mandatory Conservative Default (`USE_D3D12 = false`):** Generated profiles **MUST ALWAYS** default to `USE_D3D12 = false`. Native CPU SIMD is the production reference baseline that guarantees 0 dropped frames and maximum compatibility across all memory channel configurations and bit depths out-of-the-box. Direct3D 12 GPU offload is an experimental opt-in toggle; the agent must never emit a profile with `USE_D3D12 = true` enabled by default, leaving that as an explicit manual choice for the user.
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
@@ -187,7 +188,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    AviSynth+ is an imperative, top-to-bottom interpreted language without variable hoisting. Every profile must strictly follow this sequential execution order:
    ```avisynth
    # 1. Hardware Header & MT Configuration (Resolution-Independent Settings Only)
-   USE_D3D12  = false                    # Set true for Direct3D 12 GPU offload (eligible platforms); false for CPU SIMD
+   USE_D3D12  = false                    # MANDATORY DEFAULT: Always false (CPU SIMD production baseline). User flips to true for GPU offload
    threads    = USE_D3D12 ? <T_GPU> : <T_CPU>  # GPU queue depth (2 for Eco, 3 for Balanced, 4 for MaxQuality) vs CPU cores
    mem_limit  = USE_D3D12 ? <M_GPU> : <M_CPU>
    pel_val    = USE_D3D12 ? 1 : <P_CPU>
@@ -228,8 +229,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    forward_vec  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
 
    # 7. Direct Native 60 fps Frame Synthesis (MBlockFps)
-   # Directly warps native frames with 1:1 pixel accuracy
-   MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=synth_mode, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
+   # Directly warps native frames with 1:1 pixel accuracy; MUST assign to 'last' (or call bare) so PotPlayer receives the interpolated clip (never 'out = MBlockFps')
+   last = MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=synth_mode, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
    # 8. Hardware Thread Affinity & Lookahead Buffer
    last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -350,14 +351,19 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual>`
+   * `# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.4 (2026-11-05)`
-   * `# Changelog: Mandatory MEnableD3D12 binding enforcement, dynamic Unix timestamp cache-busting, prescriptive per-tier synth_mode and zero-overlap declarations`
+   * `# Revision: 2.3.7 (2026-11-05)`
+   * `# Changelog: Enforced AI provenance headers (# Generator, # Specification), mandatory USE_D3D12 = false default, 'last = MBlockFps' return hook`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
+   - [ ] Standard header includes `# Generator:` and `# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)`.
+   - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
    - [ ] `MEnableD3D12(USE_D3D12)` is invoked immediately after `LoadPlugin("mvtools2.dll")` whenever `USE_D3D12` is declared.
+   - [ ] `MBlockFps` is assigned to `last` (e.g. `last = MBlockFps(...)`) or called bare so PotPlayer receives the interpolated clip (never assign to an unused variable like `out =`).
    - [ ] Zero resolution-dependent variable calculations exist in the top hardware configuration block.
    - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.
 4. **Clean Script Formatting:**
