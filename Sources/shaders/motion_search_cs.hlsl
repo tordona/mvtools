@@ -322,10 +322,41 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         }
     }
 
+    // --- Candidate 5: Coarse Horizontal Step Probes (Pan Predictors) ---
+    // When hasUpperPredictor == 0 (single level or coarsest pyramid plane),
+    // blocks cannot inherit spatial neighbor vectors across concurrent GPU threads.
+    // Probe coarse horizontal offsets along the pan axis to capture wide lateral camera motion.
+    uint earlyOutSAD = (nBlkSizeX * nBlkSizeY) >> 1;
+    [branch]
+    if (hasUpperPredictor == 0 && bestSAD > earlyOutSAD)
+    {
+        static const int panOffsets[16] = {
+            -32, -24, -16, -12, -8, -6, -4, -2,
+              2,   4,   6,   8,  12,  16,  24,  32
+        };
+        int pelMul = (int)nPel;
+        [unroll]
+        for (int pIdx = 0; pIdx < 16; ++pIdx)
+        {
+            int probeX = clamp(zeroMV.x + panOffsets[pIdx] * pelMul, nDxMin, nDxMax);
+            int probeY = clamp(zeroMV.y, nDyMin, nDyMax);
+            if (probeX != bestMV.x)
+            {
+                uint sadP = ComputeBlockSAD(x_src, y_src, probeX, probeY);
+                uint costP = sadP + (uint)((pnew * (int)sadP) >> 8);
+                if (costP < minCost)
+                {
+                    minCost = costP;
+                    bestSAD = sadP;
+                    bestMV = int2(probeX, probeY);
+                }
+            }
+        }
+    }
+
     // --- Local Motion Vector Search Refinement ---
     // If coarse predictor is already a near-perfect match (<= 0.5 SAD per pixel, e.g. 128 on 16x16 or 512 on 32x32),
     // skip refinement search completely.
-    uint earlyOutSAD = (nBlkSizeX * nBlkSizeY) >> 1;
     if (hasUpperPredictor != 0 && bestSAD <= earlyOutSAD)
     {
         // Coarse predictor is already optimal

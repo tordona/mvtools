@@ -45,6 +45,8 @@ class GroupOfPlanes
 
   PlaneOfBlocks **
                  planes;
+  VECTOR         prevGlobalMV;
+  bool           hasPrevGlobal;
 
 public :
   GroupOfPlanes(

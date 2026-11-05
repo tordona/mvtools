@@ -49,7 +49,11 @@ GroupOfPlanes::GroupOfPlanes(
   , bits_per_pixel(_bits_per_pixel)
   , divideExtra(_divideExtra)
   , _mt_flag(mt_flag)
+  , hasPrevGlobal(false)
 {
+  prevGlobalMV.x = 0;
+  prevGlobalMV.y = 0;
+  prevGlobalMV.sad = 0;
   planes = new PlaneOfBlocks*[nLevelCount];
 
   int				nBlkX = _nBlkX;
@@ -134,11 +138,18 @@ void	GroupOfPlanes::SearchMVs(
   // may be non zero for finest level only
   int fieldShiftCur = (nLevelCount - 1 == 0) ? fieldShift : 0;
 
-  // create and init global motion vector as zero
+  // create and init global motion vector (using temporal global predictor if available)
   VECTOR globalMV;
-  globalMV.x = zeroMV.x;
-  globalMV.y = zeroMV.y;
-  globalMV.sad = zeroMV.sad;
+  if (global && hasPrevGlobal)
+  {
+    globalMV = prevGlobalMV;
+  }
+  else
+  {
+    globalMV.x = zeroMV.x;
+    globalMV.y = zeroMV.y;
+    globalMV.sad = zeroMV.sad;
+  }
 
   if (!global)
   {
@@ -249,6 +260,27 @@ void	GroupOfPlanes::SearchMVs(
     {
       vecPrev += planes[i]->GetArraySize(divideExtra);
     }
+  }
+
+  // Update temporal global motion vector for next frame
+  if (global)
+  {
+    PlaneOfBlocks::Slicer slicer_glob(_mt_flag);
+    VECTOR currentGlobalMV = { 0, 0, 0 };
+    planes[0]->EstimateGlobalMVDoubled(&currentGlobalMV, slicer_glob);
+    slicer_glob.wait();
+    if (nPel > 1)
+    {
+      prevGlobalMV.x = currentGlobalMV.x / nPel;
+      prevGlobalMV.y = currentGlobalMV.y / nPel;
+    }
+    else
+    {
+      prevGlobalMV.x = currentGlobalMV.x;
+      prevGlobalMV.y = currentGlobalMV.y;
+    }
+    prevGlobalMV.sad = currentGlobalMV.sad;
+    hasPrevGlobal = true;
   }
 }
 
