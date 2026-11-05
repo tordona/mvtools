@@ -165,13 +165,18 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
        2. **Entry-tier ARM64:** Qualcomm Snapdragon 7c / 7c Gen 2 (Adreno 618), Snapdragon 850 (Adreno 630).
        *Architectural Reason:* Low-density GPU shader arrays ($< 32\text{ EUs}$ / $< 4\text{ CUs}$) and narrow memory buses cannot evaluate 8,160 blocks within the 16.67 ms frame budget. Adding compute dispatch starves the GPU's hardware video decoder (DXVA2/D3D11) and D3D11 swapchain presentation, triggering queue stalls and severe frame drops. The native CPU SIMD path evaluates coarse 32x32 vectors in 8 ms – 11 ms without contending for GPU resources.
    * **Direct3D 12 GPU Offload Execution Invariants (The GPU Contract):**
-     When generating profiles for eligible silicon with `USE_D3D12`, the following kernel constraints are mandatory to guarantee GPU execution without silent CPU fallback:
+     When generating profiles for eligible silicon with `USE_D3D12`, the following kernel constraints are mandatory to guarantee GPU execution without silent CPU fallback or visual distortion:
      1. **Luma-Only Vector Search:** `chroma = false` is required in `MAnalyse` and `MRecalculate`. (`D3D12MotionSearch` strictly gates offload on `!chroma`; setting `chroma = true` silently falls back to CPU SIMD).
      2. **Integer Super Clip:** Set `pel = 1` and `sharp = 0` on GPU offload. This avoids CPU-side subpixel plane construction; Direct3D 12 `FlowWarpCS` executes subpixel bilinear texture sampling directly via GPU hardware texture samplers.
      3. **Unsplit Block Grid in Refinement:** In `MRecalculate`, set `divide = 0`. Unsplit block indexing is required for 1:1 structured buffer alignment in `motion_search_cs.hlsl`.
-     4. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
-     5. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
-     6. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, `pad_size`, and `synth_mode` so profiles cleanly fall back to full CPU core utilization if `USE_D3D12 = false` is selected.
+     4. **Mandatory Zero Overlap on GPU Offload:** NEVER use block overlap (`overlap > 0`) when `USE_D3D12 = true`. Direct3D 12 `FlowWarpCS` (`flow_warp.hlsl`) indexes motion vectors via direct coordinate division (`DTid.x / nBlkSizeX`), requiring a non-overlapping block grid. Non-zero overlap causes spatial vector-to-pixel misalignment and severe geometric warping tearing across the frame. In **MaxQuality**, high tracking fidelity with GPU offload MUST be achieved via **dual-pass coarse-to-fine refinement with `MRecalculate(divide=0)`** (`overlap = 0`), never by setting `overlap > 0` on the GPU. (On pure CPU SIMD fallback, `overlap = 4` is supported via `overlap_size = USE_D3D12 ? 0 : 4`).
+     5. **Synthesis Mode Gating by Tier (`synth_mode` / `mode`):**
+        * **Eco Tier (`Profile 1: Eco`):** MUST set `synth_mode = 0` (fast 2-stream block projection) across BOTH GPU and CPU. Mode 2 (Dynamic Median with occlusion masking) must NEVER be used on Eco, as running GPU occlusion shaders defeats the sub-8 W power objective.
+        * **Balanced Tier (`Profile 2: Balanced`):** MUST set `synth_mode = 0` across BOTH GPU and CPU. Direct native block projection sustains 60 fps with 0 dropped frames without optical flow latency bubbles.
+        * **MaxQuality Tier (`Profile 3: MaxQuality`):** Set `synth_mode = USE_D3D12 ? 2 : 0`. Mode 2 engages GPU Dynamic Median with occlusion masking on compute shaders, while cleanly reverting to fast projection (mode=0) on CPU fallback.
+     6. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
+     7. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
+     8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, `pad_size`, and `synth_mode` so profiles cleanly fall back to full CPU core utilization if `USE_D3D12 = false` is selected.
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
@@ -182,12 +187,13 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    ```avisynth
    # 1. Hardware Header & MT Configuration (Resolution-Independent Settings Only)
    USE_D3D12  = false                    # Set true for Direct3D 12 GPU offload (eligible platforms); false for CPU SIMD
-   threads    = USE_D3D12 ? 3 : <T_CPU>  # GPU queue depth (2-4) vs physical CPU core count
-   mem_limit  = USE_D3D12 ? 1024 : <M_CPU>
+   threads    = USE_D3D12 ? <T_GPU> : <T_CPU>  # GPU queue depth (2 for Eco, 3 for Balanced, 4 for MaxQuality) vs CPU cores
+   mem_limit  = USE_D3D12 ? <M_GPU> : <M_CPU>
    pel_val    = USE_D3D12 ? 1 : <P_CPU>
    sharp_mode = USE_D3D12 ? 0 : <S_CPU>
    pad_size   = USE_D3D12 ? 8 : 0
-   synth_mode = USE_D3D12 ? 2 : 0
+   # Frame synthesis mode: mode=0 (fast projection) for Eco and Balanced; mode=2 strictly for MaxQuality on GPU
+   synth_mode = (tier == "MaxQuality" && USE_D3D12) ? 2 : 0
    SetMemoryMax(mem_limit)
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
@@ -267,9 +273,10 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
        * `blk_coarse = is_4k ? 64 : 32` (maintains invariant `2,040` coarse blocks).
        * `blk_fine   = is_4k ? 32 : 16` (maintains invariant `8,160` fine blocks).
        * Total evaluated blocks remains strictly invariant at `10,200` blocks across both 1080p and 4K, cutting 4K block search workload by **75%**.
-     * **Boundary Padding & Overlap:**
-       * Boundary padding scales proportionally: `pad_val = is_4k ? (pad_size * 2) : pad_size`.
+   * **Boundary Padding & Overlap:**
+       * Boundary padding scales proportionally: `pad_val = is_4k ? (pad_size * 2) : pad_size` (where `pad_size = USE_D3D12 ? 8 : 0`).
        * Overlap scales proportionally: `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`.
+       * **Direct3D 12 Zero-Overlap Invariant:** Overlap is strictly prohibited when Direct3D 12 GPU offload is active (`overlap_size = USE_D3D12 ? 0 : 4`). DirectCompute shaders in `flow_warp.hlsl` index vectors via direct coordinate division (`DTid.x / nBlkSizeX`), requiring a non-overlapping block grid. Non-zero overlap causes spatial vector-to-pixel misalignment and severe visual tearing. When targeting MaxQuality on GPU offload, fine vector tracking MUST be achieved via **dual-pass coarse-to-fine refinement with `MRecalculate(divide=0)`** (`overlap = 0`), never by configuring `overlap > 0` on the GPU.
      * **Proxy-Downscaled Profiles (e.g. Snapdragon 7c Gen 2):**
        * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
    * **Mandatory Variable Ordering Invariant (No Forward References):**
@@ -298,25 +305,27 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
 * **Objective:** Sub-8 W to 10 W package power, low-thermal battery playback, 0 dropped frames.
-* **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=0, vpad=0` (zero padding overhead), `sharp=0` (bilinear).
-* **MAnalyse:** Coarse 32x32 blocks (`blksize=32, blksizev=32`, approx. 2,040 blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
-* **MBlockFps:** `mode=0` (fast 2-stream block projection), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
+* **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0` (bilinear).
+* **MAnalyse:** Coarse 32x32 blocks (`blksize=blk_sz, blksizev=blk_sz`, approx. 2,040 blocks total at 1080p), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
+* **MBlockFps:** `mode=0` (fast 2-stream block projection mandatory across BOTH GPU and CPU; never set mode=2 on Eco), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
 * **Lookahead:** `Prefetch(threads, 4)`.
-* **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors.
+* **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors (or < 3% with Direct3D 12 GPU offload).
 
 #### Tier 2: Balanced Profile (`<Platform>-Balanced.avs`)
 * **Objective:** Recommended primary profile. Native 1080p 16x16 vector grid (8,160 blocks; 4x density of 32x32), fine-grained vector tracking, zero optical flow latency bubbles, 0 dropped frames.
-* **MSuper:** `levels=1`, `pel=1`, `hpad=0, vpad=0`, `sharp=0`.
-* **MAnalyse:** Native 1080p 16x16 blocks (`blksize=16, blksizev=16`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
-* **MBlockFps:** `mode=0` (direct native block projection), `blend=false`, `thSCD1=380, thSCD2=125`.
+* **MSuper:** `levels=1`, `pel=1`, `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0`.
+* **MAnalyse:** Native 1080p 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
+* **MBlockFps:** `mode=0` (direct native block projection mandatory across BOTH GPU and CPU), `blend=false`, `thSCD1=380, thSCD2=125`.
 * **Lookahead:** `Prefetch(threads, 6)`.
 * **Expected CPU Load:** Typically **4.5% to 20.8%** on modern processors.
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
-* **Objective:** Highest visual fidelity, dense 4 px overlapping vector grid (14,151 blocks), directional alpha blending across complex motion and scene cuts.
-* **MSuper:** `levels=1`, `pel=1` (or `pel=2` strictly when meeting the quantitative conditions in Step 1.7), `hpad=0, vpad=0`, `sharp=1` (bicubic) or `sharp=2` (Wiener 6-tap filter, accelerated via native AVX2 / ARM64 NEON).
-* **MAnalyse:** Overlapping 16x16 blocks (`blksize=16, blksizev=16, overlap=4, overlapv=4`), `search=2, searchparam=2`, `chroma=false`, `levels=1`. Overlap completely eliminates block boundary discontinuities and contour edge tearing, with block compensation blending accelerated via native 128-bit NEON SIMD.
-* **MBlockFps:** `mode=0`, `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
+* **Objective:** Highest visual fidelity, dense sub-block vector grid, directional alpha blending across complex motion and scene cuts.
+* **MSuper:** `levels=1`, `pel=pel_val` (`pel_val = USE_D3D12 ? 1 : <pel>` strictly adhering to Step 1.7), `hpad=pad_val, vpad=pad_val`, `sharp=sharp_mode` (`sharp_mode = USE_D3D12 ? 0 : <sharp>`).
+* **Motion Vector Architecture:**
+  * **Direct3D 12 GPU Offload (`USE_D3D12 = true`):** Dual-pass coarse-to-fine refinement with zero overlap (`overlap = 0`). Start with coarse 32x32 `MAnalyse` (`blk_coarse = is_4k ? 64 : 32`, `search=2, searchparam=2`), followed by fine 16x16 `MRecalculate` (`blk_fine = is_4k ? 32 : 16`, `divide=0`, `overlap=0`, `search=2, searchparam=2`, `chroma=false`). Direct3D 12 `FlowWarpCS` requires non-overlapping blocks; `overlap > 0` causes spatial coordinate misalignment and severe image tearing.
+  * **CPU SIMD Fallback (`USE_D3D12 = false`):** Overlapping 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz, overlap=overlap_val, overlapv=overlap_val` with `overlap_size = USE_D3D12 ? 0 : 4`), eliminating block boundary discontinuities via CPU vector interpolation.
+* **MBlockFps:** `mode=synth_mode` (`synth_mode = USE_D3D12 ? 2 : 0` — mode 2 Dynamic Median with occlusion masking on GPU; fast projection mode 0 on CPU fallback), `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
 * **Lookahead:** `Prefetch(threads, 6)` (or `8` on 8-core CPUs).
 * **Expected CPU Load:** Typically **6.5% to 28.1%** on modern processors.
 
@@ -336,8 +345,8 @@ For the requested platform, output:
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.0 (<Date>)`
-   * `# Changelog: <Core Feature Summary>`
+   * `# Revision: 2.3.1 (2026-11-05)`
+   * `# Changelog: Direct3D 12 GPU offload invariants (mode=0 for Eco/Balanced, zero-overlap requirement for GPU, coarse-to-fine MRecalculate for MaxQuality)`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
@@ -363,3 +372,4 @@ If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showin
 | **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` is active on hybrid P/E or ARM64 architectures.<br>2. Increase lookahead queue to `Prefetch(threads, 6)`.<br>3. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |
 | **"WARNING: Active pagefile disk swapping detected"** | **Memory Contention / Trimming:** `SetMemoryMax` is exceeding physical budget or starving Windows. | 1. Reduce `SetMemoryMax(mem_limit)` (e.g. 1024 → 768, or 768 → 512).<br>2. Ensure single-level geometry `levels=1` is enabled. |
 | **1–2 dropped frames with Render Latency < 0.5 ms** | **VSync Phase Drift (Display Refresh Rate Artifact).** | If the audit report notes *"Non-integer display refresh rate detected... caused by VSync phase drift"*, **do NOT modify the script**. This is a physical display scanout artifact (e.g. 60.02 Hz or 60.15 Hz panel clock), not a computational bottleneck. |
+````

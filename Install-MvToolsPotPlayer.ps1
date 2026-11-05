@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.3 (2026-11-04)
+# Revision: 2.3.4 (2026-11-05)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,12 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.3
+    2.3.4
 .DATE
-    2026-11-04
+    2026-11-05
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.4 (2026-11-05): Added Direct3D 12 execution invariants to prompt generator:
+                           mandate mode=0 for Eco/Balanced, zero-overlap requirement for GPU,
+                           and coarse-to-fine MRecalculate refinement for MaxQuality.
     - v2.3.3 (2026-11-04): Unified Direct3D 12 GPU offload across x86-64 and ARM64 platforms in AI prompt
                            generation with hardware eligibility gating (>= 32 EUs / 4 CUs / 600 GFLOPS).
     - v2.3.2 (2026-11-04): Added quantitative subpixel precision rules (pel=1 vs pel=2,
@@ -69,7 +72,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.3"
+$Script:InstallerVersion = "2.3.4"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2269,17 +2272,18 @@ Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).
 $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
-4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
-5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
-6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60). When USE_D3D12=true, mode=2 evaluates GPU Dynamic Median with occlusion masking; when USE_D3D12=false, mode=0 ensures lightweight CPU projection.
-7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
-8. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
-9. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
+4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=pad_val, vpad=pad_val, sharp=0`` with ``pad_size = USE_D3D12 ? 8 : 0``). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
+5. Vector Computation: MUST use ``chroma=false`` in MAnalyse and MRecalculate (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
+6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p 60 fps). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
+7. Direct3D 12 Zero-Overlap Invariant: Direct3D 12 GPU offload (USE_D3D12=true) strictly requires zero block overlap (overlap=0). Shaders in flow_warp.hlsl index vectors via direct coordinate division (DTid.x / nBlkSizeX); non-zero overlap causes coordinate misalignment and severe image tearing. When USE_D3D12=true, MaxQuality MUST use dual-pass coarse-to-fine refinement with ``MRecalculate(divide=0)`` and zero overlap (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with overlap=0). Overlap is ONLY permitted on CPU SIMD fallback (``overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)``).
+8. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
+9. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
+10. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
 
 Please generate the complete 3-tier profile set following these exact rules:
-- Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, blend=false``), lowest CPU wattage.
-- Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, blend=false``), daily driver.
-- Profile 3 (MaxQuality): Overlapping blocks (``blk_sz = is_4k ? 32 : 16, overlap_sz = is_4k ? 8 : 4, blksize=blk_sz, blksizev=blk_sz, overlap=overlap_sz, overlapv=overlap_sz, search=2, searchparam=2, blend=true``; evaluate quantitative pel rules for pel=1 vs pel=2 and sharp=1 vs sharp=2), maximum edge fidelity.
+- Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, mode=0, blend=false``), lowest package power.
+- Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, mode=0, blend=false``), daily driver.
+- Profile 3 (MaxQuality): Dual-pass coarse-to-fine refinement for GPU offload (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with divide=0, overlap=0, search=2, searchparam=2; overlap strictly prohibited on GPU offload). CPU fallback uses overlap (overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)). Synthesis mode sets mode=2 on GPU and mode=0 on CPU (synth_mode = USE_D3D12 ? 2 : 0, blend=true). Evaluate quantitative pel rules for pel=1 vs pel=2.
 "@
 
     try {
