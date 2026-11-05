@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.2 (2026-11-04)
+# Revision: 2.3.3 (2026-11-04)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,12 +41,14 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.2
+    2.3.3
 .DATE
     2026-11-04
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.3 (2026-11-04): Unified Direct3D 12 GPU offload across x86-64 and ARM64 platforms in AI prompt
+                           generation with hardware eligibility gating (>= 32 EUs / 4 CUs / 600 GFLOPS).
     - v2.3.2 (2026-11-04): Added quantitative subpixel precision rules (pel=1 vs pel=2,
                            sharp=1 vs sharp=2) to prevent compute saturation on entry-tier/ultrabook platforms.
     - v2.3.1 (2026-11-04): Separated AI Profile Quickstart (GenerateCustomProfiles.md) from in-depth
@@ -67,7 +69,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.2"
+$Script:InstallerVersion = "2.3.3"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2240,10 +2242,12 @@ function Copy-AiAgentHardwarePrompt {
 
     $isArm64 = ($TargetArch -eq "arm64")
     $archDesc = if ($isArm64) { "Windows 11 on ARM64 (AArch64)" } else { "Windows 11 x86-64" }
-    $pluginRule = if ($isArm64) {
-        '2. Engine & Plugin Hook: MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)``. Hook video via ``src = potplayer_source()``.'
+    $gpuName = if ($HardwareInfo.GpuName) { $HardwareInfo.GpuName } else { "" }
+    $isLowEndGpu = ($gpuName -match '(?i)600|605|610|615|618|630|610M|HD Graphics|Basic Display')
+    $pluginRule = if (-not $isLowEndGpu) {
+        '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` with dual-path parameterization (USE_D3D12 = true/false). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
     } else {
-        '2. Engine & Plugin Hook: MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` and optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}`` (DO NOT reference USE_D3D12 or MEnableD3D12 on x64). Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: Entry-tier silicon with < 32 EUs / < 600 GFLOPS or TDP <= 10 W MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` and optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}`` (DO NOT reference USE_D3D12 or MEnableD3D12 on low-end silicon). Hook video via ``src = potplayer_source()``.'
     }
 
     $promptText = @"
@@ -2265,10 +2269,10 @@ Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).
 $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
-4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1``.
-5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half).
-6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60).
-7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``.
+4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=0, vpad=0, sharp=0`` for Eco/Balanced). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
+5. Vector Computation: MUST use ``chroma=false`` in MAnalyse (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
+6. Frame Synthesis: MUST use ``MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` with ``blend=false`` for Eco/Balanced, and ``blend=true`` for MaxQuality (DO NOT use MFlowFps for real-time 1080p60). When USE_D3D12=true, mode=2 evaluates GPU Dynamic Median with occlusion masking; when USE_D3D12=false, mode=0 ensures lightweight CPU projection.
+7. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
 8. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 9. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
 

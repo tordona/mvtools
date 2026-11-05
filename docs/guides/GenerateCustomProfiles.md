@@ -2,10 +2,6 @@
 
 This guide enables you to generate a custom 3-tier AviSynth+ interpolation profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) tailored to your exact CPU, GPU, and RAM in seconds using an AI coding assistant or web chatbot for real-time 60 fps video playback in Daum PotPlayer.
 
-> [!NOTE]
-> **No Git Cloning or Downloads Required:**  
-> You do not need to clone the repository or install developer tools to generate custom profiles. Choose either **[Option 1: In an AI-Enabled IDE](#option-1-in-an-ai-enabled-ide-1-click-setup)** (for Cursor, Windsurf, Claude Code, or Google Antigravity) or **[Option 2: In a Web AI Assistant](#option-2-in-a-web-ai-assistant-chatgpt-claude-gemini)** (for browser chat) below.
-
 ---
 
 ## Option 1: In an AI-Enabled IDE (1-Click Setup)
@@ -19,6 +15,7 @@ Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides
 ```
 
 ### What the IDE Agent Does Autonomously:
+
 1. **Hardware Autodetection:** Queries Windows CIM/WMI (`Get-CimInstance Win32_Processor`, `Win32_VideoController`, `Win32_PhysicalMemory`) to detect your physical core count, P/E core topology, L3 cache, DRAM bandwidth, and sustained TDP limits.
 2. **Deterministic Script Writing:** Synthesizes `<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, and `<Platform>-MaxQuality.avs` with architecture-specific block sizes, thread counts, memory limits, and core pinning.
 3. **Deployment (Optional):** Places the files in your current directory or copies them directly into `C:\Program Files\DAUM\PotPlayer\AviSynth\`.
@@ -30,9 +27,6 @@ Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides
 If you use a web chatbot in your browser (ChatGPT, Claude, Gemini, or Microsoft Copilot):
 
 ### Step 1: Copy the Prompt Template
-
-> [!TIP]
-> **Only the CPU model is required.** The AI assistant already knows its core architecture, cache topology, and integrated graphics engine. If you do not know your RAM or GPU, simply delete those lines or leave them blank.
 
 Copy the prompt below, enter your CPU model, and paste it into your AI assistant:
 
@@ -46,8 +40,13 @@ Target Hardware:
 - GPU (Optional): [e.g. Radeon 780M / Intel Iris Xe / Adreno X1-85]
 ```
 
+> [!TIP]
+> **Only the CPU model is required.** The AI assistant already knows its core architecture, cache topology, and integrated graphics engine. If you do not know your RAM or GPU, simply delete those lines or leave them blank.
+
 ### Step 2: Save the Generated Profile Files
+
 Your AI assistant will generate three scripts:
+
 * `<Platform>-Eco.avs` (Low power, lowest battery drain)
 * `<Platform>-Balanced.avs` (Recommended daily driver, native 1080p vector density)
 * `<Platform>-MaxQuality.avs` (Overlapping blocks for maximum edge fidelity)
@@ -70,5 +69,6 @@ Save these files to your computer (e.g. into `C:\Program Files\DAUM\PotPlayer\Av
 ## Advanced Benchmarking & Profile Tuning
 
 If you experience dropped frames or want empirical verification with PresentMon ETW frame logging:
+
 * See the **[AI Agent Profile Tuning & Specification Guide](guides/AIAgentProfileGuide.md)**.
 * Learn how to run `Benchmarks/MvToolsBenchmark-Start.ps1` from the repository or extracted release package, capture frame pacing data, and use the Telemetry Diagnosis Matrix for closed-loop tuning.

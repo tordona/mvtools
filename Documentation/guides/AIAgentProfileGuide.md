@@ -147,22 +147,47 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 ### Step 1: Architectural Principles & Constraints
 
 1. **Architecture & Compute Engine Targeting:**
-   * **x86-64 Platforms (Intel Core / AMD Ryzen):**
-     * Active engine: Native x64 AVX-512 / AVX2 CPU SIMD via `LoadPlugin("mvtools2.dll")`.
-     * **Do NOT generate dead `USE_D3D12` code or call `MEnableD3D12` on x64 platforms.** Direct3D 12 compute offload is currently ARM64-only. x64 platforms run 100% native CPU SIMD.
-   * **ARM64 Platforms (Qualcomm Snapdragon):**
-     * Supports dual-engine execution: Native ARM64 CPU NEON (`mvtools2.dll`) or Direct3D 12 GPU offload (`MEnableD3D12(true)`) via `USE_D3D12 = false/true`.
-     * **Thread Pool Infrastructure:** Includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`), guaranteeing deterministic multi-threaded slice scheduling across `MTSlicer` in `MVFlowFps` and `MVBlockFps` even when `avstp.dll` is not installed on ARM64.
-     * **NEON Vector Optimizations:** Native engine incorporates 4-wide NEON dot-product predictor batching (`Sad_x4_neon_dotprod`), 3-way directional search packing, 128-bit compensation overlap vectorization (`Overlaps_uint8_t_neon`), and Wiener 6-tap FIR subplane vectorization.
+   * **Dual-Engine Execution Model (CPU SIMD vs. Direct3D 12 GPU Offload):**
+     Both x86-64 (Intel Core / AMD Ryzen) and ARM64 (Qualcomm Snapdragon) platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
+     * **Native CPU SIMD Engine:** Executes 100% on CPU cores using native vector extensions (x86-64 AVX-512 / AVX2 / SSE4.2; ARM64 NEON). On ARM64, this includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`) guaranteeing deterministic slice scheduling without `avstp.dll`.
+     * **Direct3D 12 GPU Offload Engine:** Offloads block SAD vector estimation (`motion_search_cs.hlsl`) and frame synthesis / motion compensation warping (`flow_warp.hlsl`) to the graphics processor via `MEnableD3D12(USE_D3D12)`.
+   * **Hardware Eligibility Gating (When to Include `USE_D3D12`):**
+     Direct3D 12 compute offload requires sufficient shader core density and UMA memory bandwidth to complete within the 16.67 ms presentation deadline:
+     * **Eligible Silicon (Include `USE_D3D12 = true/false` Dual-Path Toggle):**
+       Include `USE_D3D12` whenever the platform meets ALL of the following:
+       1. **GPU Shader Density:** $\ge 32\text{ EUs}$ (Intel Gen 9–12 / Xe / Arc), $\ge 4\text{ CUs}$ (AMD RDNA / Vega), or $\ge\text{Adreno 680}$ (Qualcomm). Examples: AMD Ryzen AI 300 (Radeon 840M/880M/890M), Ryzen 6000/7000/8000 APUs (Radeon 660M/680M/760M/780M), Intel 11th–14th Gen Core / Core Ultra with Iris Xe (80/96 EUs) or Arc Graphics, Qualcomm Snapdragon 8cx Gen 1–3, Snapdragon X Elite/Plus (Adreno X1-85).
+       2. **Shader Compute Throughput:** $\ge 600\text{ GFLOPS}$ FP32 sustained compute.
+       3. **Memory Bandwidth:** $\ge 35\text{ GB/s}$ UMA memory bandwidth (dual-channel DDR4-3200+, DDR5, or LPDDR5/x).
+       4. **Package Thermal Envelope:** Sustained package $\text{TDP} > 10\text{ W}$ (active cooling or adequate heatpipe chassis).
+     * **Excluded Silicon (Mandatory 100% Native CPU SIMD — Exclude `USE_D3D12`):**
+       Do **NOT** generate `USE_D3D12` or reference `MEnableD3D12` on silicon falling below these thresholds:
+       1. **Entry-tier x86-64:** Intel Atom / Celeron / Pentium Silver (e.g. Gemini Lake N5000 / UHD 605 with 18 EUs, N4000 / UHD 600 with 12 EUs), Apollo Lake (HD 500/505), Jasper Lake / Alder Lake-N with $< 32\text{ EUs}$, AMD Mendocino (Radeon 610M, 2 CUs), or fanless packages $\le 6\text{ W – 10 W}$ TDP.
+       2. **Entry-tier ARM64:** Qualcomm Snapdragon 7c / 7c Gen 2 (Adreno 618), Snapdragon 850 (Adreno 630).
+       *Architectural Reason:* Low-density GPU shader arrays ($< 32\text{ EUs}$ / $< 4\text{ CUs}$) and narrow memory buses cannot evaluate 8,160 blocks within the 16.67 ms frame budget. Adding compute dispatch starves the GPU's hardware video decoder (DXVA2/D3D11) and D3D11 swapchain presentation, triggering queue stalls and severe frame drops. The native CPU SIMD path evaluates coarse 32x32 vectors in 8 ms – 11 ms without contending for GPU resources.
+   * **Direct3D 12 GPU Offload Execution Invariants (The GPU Contract):**
+     When generating profiles for eligible silicon with `USE_D3D12`, the following kernel constraints are mandatory to guarantee GPU execution without silent CPU fallback:
+     1. **Luma-Only Vector Search:** `chroma = false` is required in `MAnalyse` and `MRecalculate`. (`D3D12MotionSearch` strictly gates offload on `!chroma`; setting `chroma = true` silently falls back to CPU SIMD).
+     2. **Integer Super Clip:** Set `pel = 1` and `sharp = 0` on GPU offload. This avoids CPU-side subpixel plane construction; Direct3D 12 `FlowWarpCS` executes subpixel bilinear texture sampling directly via GPU hardware texture samplers.
+     3. **Unsplit Block Grid in Refinement:** In `MRecalculate`, set `divide = 0`. Unsplit block indexing is required for 1:1 structured buffer alignment in `motion_search_cs.hlsl`.
+     4. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
+     5. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
+     6. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, `pad_size`, and `synth_mode` so profiles cleanly fall back to full CPU core utilization if `USE_D3D12 = false` is selected.
+
+> [!TIP]
+> **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
+> Direct3D 12 GPU offload executes on any supported DirectX 12 Feature Level 11_0+ GPU (AMD Radeon RDNA/Vega $\ge 4\text{ CUs}$, Intel Iris Xe $\ge 32\text{ EUs}$ / Arc, Qualcomm Adreno 680+ / X1-85) via `MEnableD3D12(USE_D3D12)`. When enabled, SAD motion search and flow synthesis are offloaded to DirectCompute shaders, freeing CPU cores for background system tasks and reducing package thermal strain.
 
 2. **Deterministic Filter Pipeline & Strict Variable Ordering:**
    AviSynth+ is an imperative, top-to-bottom interpreted language without variable hoisting. Every profile must strictly follow this sequential execution order:
    ```avisynth
    # 1. Hardware Header & MT Configuration (Resolution-Independent Settings Only)
-   threads    = <T>
-   mem_limit  = <M>
-   pel_val    = <P>
-   sharp_mode = <S>
+   USE_D3D12  = false                    # Set true for Direct3D 12 GPU offload (eligible platforms); false for CPU SIMD
+   threads    = USE_D3D12 ? 3 : <T_CPU>  # GPU queue depth (2-4) vs physical CPU core count
+   mem_limit  = USE_D3D12 ? 1024 : <M_CPU>
+   pel_val    = USE_D3D12 ? 1 : <P_CPU>
+   sharp_mode = USE_D3D12 ? 0 : <S_CPU>
+   pad_size   = USE_D3D12 ? 8 : 0
+   synth_mode = USE_D3D12 ? 2 : 0
    SetMemoryMax(mem_limit)
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
@@ -175,11 +200,11 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    is_4k      = (src.Width() > 2048)
    blk_coarse = is_4k ? 64 : 32          # (or blk_sz = is_4k ? (<B> * 2) : <B>)
    blk_fine   = is_4k ? 32 : 16
-   pad_val    = is_4k ? 16 : 8
+   pad_val    = is_4k ? (pad_size * 2) : pad_size
 
    # 4. Load Plugin & Configure Offload
    LoadPlugin("mvtools2.dll")
-   # MEnableD3D12(USE_D3D12)             # Include only on ARM64 platforms
+   MEnableD3D12(USE_D3D12)               # Include on D3D12-eligible platforms (both x64 and ARM64)
    try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
    # 5. Base Motion Super Clip (Single-Level Geometry)
@@ -192,7 +217,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
    # 7. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy
-   MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
+   MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=synth_mode, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
    # 8. Hardware Thread Affinity & Lookahead Buffer
    last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -200,6 +225,11 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    ```
 
 3. **Core Topology & Thread Allocation Rules (`threads`):**
+   * **Direct3D 12 Command Queue Threading (`USE_D3D12 = true`):** When offloading to GPU DirectCompute, worker threads do not perform vector SAD arithmetic; they record and dispatch command lists to the Direct3D 12 direct queue. Because queue submission is internally synchronized via mutex, thread counts represent lookahead queue depth rather than physical cores:
+     * **Eco:** `threads = 2` (double-buffered asynchronous submission; minimizes CPU wattage).
+     * **Balanced:** `threads = 3` (triple-buffered submission; balances CPU and GPU pipeline concurrency).
+     * **MaxQuality:** `threads = 4` (quad-buffered submission; fully saturates GPU compute units without mutex lock contention).
+     * On CPU SIMD fallback (`USE_D3D12 = false`), thread counts immediately revert to the physical CPU core budgets detailed below.
    * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores` or `threads <= physical_p_cores` on hybrid architectures). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count).
    * **Hardware Thread Affinity (`PinWorkerThreads`):** On hybrid architectures (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon), chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` immediately prior to `Prefetch(threads, <Lookahead>)`. This confines worker threads strictly to high-IPC Performance cores while leaving audio decoding, DXVA, and D3D11 presentation swapchains free on Efficiency cores. On homogeneous processors (e.g. Intel N100, AMD Ryzen standard CCDs, Snapdragon X Elite/Plus), `PinWorkerThreads()` automatically detects identical efficiency classes and safely evaluates to a no-op without misconfiguring affinity.
    * Leaving logical threads and background cores free guarantees dedicated CPU headroom for hardware DXVA2/D3D11 decoding, audio synchronization, and Windows DWM presentation, preventing dropped frames.
@@ -304,9 +334,9 @@ For the requested platform, output:
    * `# PotPlayer AviSynth 60 fps Interpolation: <Platform> (Profile N: <Tier>)`
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
-   * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON>`
+   * `# Architecture: <Native 1080p x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.2.0 (<Date>)`
+   * `# Revision: 2.3.0 (<Date>)`
    * `# Changelog: <Core Feature Summary>`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:

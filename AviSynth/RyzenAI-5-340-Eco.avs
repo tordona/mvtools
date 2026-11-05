@@ -1,19 +1,24 @@
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: AMD Ryzen AI 5 340 (Profile 1: Eco)
 # Hardware: AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c Cores, Radeon 840M RDNA 3.5 @ 2.9 GHz)
-# Memory: 16 GB-32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
-# Architecture: Native 1080p x86-64 AVX-512 / AVX2 CPU Motion Estimation (mvtools2.dll)
+# Memory: 16 GB – 32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
+# Architecture: Native 1080p x86-64 AVX-512 / Direct3D 12 GPU Offload (mvtools2.dll)
 # Target: Sub-8 W Package Envelope, Silent / Cool Battery Playback, 0 Dropped Frames
-# Revision: 2.2.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, coarse 32x32, AvsAffinity hardware pinning, dynamic 4K adaptation
+# Revision: 2.3.0 (2026-11-04)
+# Changelog: Direct3D 12 GPU offload toggle (USE_D3D12), MEnableD3D12, dynamic thread/memory budget, levels=1, coarse 32x32, AvsAffinity hardware pinning, dynamic 4K adaptation
 # ==============================================================================
 
-# Core Allocation & Threading Strategy:
-# 3 worker threads mapped 1:1 to the 3 high-IPC Zen 5 "Nirvana" performance cores.
-# Leaves all 3 Zen 5c dense cores and all SMT logical threads completely unburdened for
-# Radeon 840M VCN hardware decode, Direct3D 11 swapchain presentation, and Windows DWM.
-threads     = 3
-mem_limit   = 512                 # Generous memory pool for native 1080p coarse vectors
+# ------------------------------------------------------------------------------
+# User Configuration: Toggle Direct3D 12 Compute Offload
+# Set to true for Direct3D 12 GPU offload to Radeon 840M (via MEnableD3D12 in mvtools2.dll)
+# Set to false for native x86-64 AVX-512 / AVX2 CPU SIMD baseline (mvtools2.dll)
+# ------------------------------------------------------------------------------
+USE_D3D12 = false
+
+# Dynamic parameters adapted to USE_D3D12
+# GPU offload executes on direct command queue (2 threads optimal); CPU uses 3 Zen 5 P-cores
+threads     = USE_D3D12 ? 2 : 3
+mem_limit   = USE_D3D12 ? 512 : 512
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -28,12 +33,13 @@ src = potplayer_source()
 is_4k  = (src.Width() > 2048)
 blk_sz = is_4k ? 64 : 32
 
-# Load Native x64 MVTools2 plugin (leveraging Zen 5 dual 512-bit AVX-512 SIMD pipelines)
+# Load Native x64 MVTools2 plugin & enable Direct3D 12 GPU offload
 LoadPlugin("mvtools2.dll")
+MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
-# pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
+# pel=1: Full-pixel precision only (avoids subpixel interpolation overhead; D3D12 FlowWarpCS performs subpixel sampling in hardware)
 # levels=1: Eliminates redundant multi-level pyramid generation
 # hpad=0, vpad=0: Zero padding overhead, preserving native pitch alignment
 # sharp=0: Fast bilinear interpolation for minimal ALU load
@@ -42,7 +48,7 @@ super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 # 2. Native 1080p Motion Vector Search (No Proxy / Zero Downscale)
 # blksize=blk_sz, blksizev=blk_sz: 32x32 blocks at native 1080p (~2,040 blocks total)
 # search=2, searchparam=1: Hexagonal search with tight radius
-# chroma=false: Luma-only search cuts vector computation by 50%
+# chroma=false: Luma-only search required for D3D12 compute offload, cuts vector compute by 50%
 # levels=1: Single-level search matching super's levels=1
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
@@ -54,7 +60,7 @@ forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, searc
 # thSCD1=400, thSCD2=130: Robust scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=400, thSCD2=130)
 
-# 4. Hardware Thread Affinity & Core Pinning: 3 Threads with 4-Frame Lookahead Queue
+# 4. Hardware Thread Affinity & Core Pinning: Multi-Threading adapted dynamically to USE_D3D12
 # Keeps worker threads within high-IPC Zen 5 P-core domain, preventing Zen 5c latency stalls
 # 4 lookahead frames absorb thread scheduling jitter
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
