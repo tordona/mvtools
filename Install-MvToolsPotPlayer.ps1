@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.5 (2026-11-05)
+# Revision: 2.3.7 (2026-11-05)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,19 +41,17 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.5
+    2.3.7
 .DATE
     2026-11-05
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
-    - v2.3.5 (2026-11-05): Updated live specification URL to raw.githack.com for zero-cache AI crawler
-                           fetching, made prompt resolution-neutral, and clarified per-tier synth_mode.
-    - v2.3.4 (2026-11-05): Added Direct3D 12 execution invariants to prompt generator:
-                           mandate mode=0 for Eco/Balanced, zero-overlap requirement for GPU,
-                           and coarse-to-fine MRecalculate refinement for MaxQuality.
-    - v2.3.3 (2026-11-04): Unified Direct3D 12 GPU offload across x86-64 and ARM64 platforms in AI prompt
-                           generation with hardware eligibility gating (>= 32 EUs / 4 CUs / 600 GFLOPS).
+    - v2.3.7 (2026-11-05): Enforced mandatory MEnableD3D12(USE_D3D12) activation call in prompt generator.
+    - v2.3.6 (2026-11-05): Added dynamic Unix timestamp query parameter (?t=<epoch>) to AI prompt
+                           generator to guarantee un-cached origin specification retrieval.
+    - v2.3.5 (2026-11-05): Updated live specification URL for zero-cache AI crawler fetching,
+                           made prompt resolution-neutral, and clarified per-tier synth_mode.
 #>
 
 [CmdletBinding()]
@@ -67,7 +65,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.5"
+$Script:InstallerVersion = "2.3.7"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2242,8 +2240,9 @@ function Copy-AiAgentHardwarePrompt {
     $archDesc = if ($isArm64) { "Windows 11 on ARM64 (AArch64)" } else { "Windows 11 x86-64" }
     $gpuName = if ($HardwareInfo.GpuName) { $HardwareInfo.GpuName } else { "" }
     $isLowEndGpu = ($gpuName -match '(?i)600|605|610|615|618|630|610M|HD Graphics|Basic Display')
+    $epochTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $pluginRule = if (-not $isLowEndGpu) {
-        '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` with dual-path parameterization (USE_D3D12 = true/false). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
+        '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` immediately following LoadPlugin (MANDATORY whenever USE_D3D12 is declared). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
     } else {
         '2. Engine & Plugin Hook: Entry-tier silicon with < 32 EUs / < 600 GFLOPS or TDP <= 10 W MUST run 100% native CPU SIMD via ``LoadPlugin("mvtools2.dll")`` and optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}`` (DO NOT reference USE_D3D12 or MEnableD3D12 on low-end silicon). Hook video via ``src = potplayer_source()``.'
     }
@@ -2260,8 +2259,7 @@ My Target Hardware Specifications:
 
 Specification & Reference Guide:
 - Quickstart Guide: https://tordona.github.io/mvtools/#/guides/GenerateCustomProfiles
-- Technical Specification (Live Un-cached Raw for AI ingestion): https://raw.githack.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
-- GitHub Raw Fallback: https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+- Technical Specification (Live Origin Fetch): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md?t=$epochTime
 - Web Mirror (GitHub UI View): https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
 Mandatory Architecture & AviSynth+ 3.x Rules:
