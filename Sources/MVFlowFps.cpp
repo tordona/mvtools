@@ -544,49 +544,46 @@ PVideoFrame __stdcall MVFlowFps::GetFrame(int n, IScriptEnvironment* env)
   if (mvClipF.IsBackward())
     env->ThrowError("MFlowFps: wrong forward vectors");
 
-  PVideoFrame	src = finest->GetFrame(nleft, env); // move here - v2.0
-  PVideoFrame ref = finest->GetFrame(nright, env);//  right frame for  compensation
-
-  dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi); // frame property support
-
   bool isUsableB = mvClipB.IsUsable();
   bool isUsableF = mvClipF.IsUsable();
 
   if (isUsableB && isUsableF)
   {
-
-
-    int planes_y[4] = { PLANAR_Y, PLANAR_U, PLANAR_V, PLANAR_A };
-    int planes_r[4] = { PLANAR_G, PLANAR_B, PLANAR_R, PLANAR_A };
-    int *planes = (vi.IsYUV() || vi.IsYUVA()) ? planes_y : planes_r;
-    planecount = ClipFnc::nbr_planes_processed(vi);
-    for (int p = 0; p < planecount; ++p) {
-      const int plane = planes[p];
-      pSrc[p] = src->GetReadPtr(plane);
-      nSrcPitches[p] = src->GetPitch(plane);
-
-      pRef[p] = ref->GetReadPtr(plane);
-      nRefPitches[p] = ref->GetPitch(plane);
-
-      pDst[p] = dst->GetWritePtr(plane);
-      nDstPitches[p] = dst->GetPitch(plane);
-    }
-
-
-    int nOffsetY = nRefPitches[0] * nVPadding*nPel + nHPadding*nPel*pixelsize_super;
-    int nOffsetUV = nRefPitches[1] * nVPaddingUV*nPel + nHPaddingUV*nPel*pixelsize_super;
-
     // Direct3D 12 GPU Gather-Based Frame Synthesis Offload
     if (pixelsize_super == 1 && D3D12FlowSynthesis::GetInstance().IsAvailable())
     {
-      const uint8_t* pGpuSrc[3] = { pSrc[0] + nOffsetY, pSrc[1] + nOffsetUV, pSrc[2] + nOffsetUV };
-      const uint8_t* pGpuRef[3] = { pRef[0] + nOffsetY, pRef[1] + nOffsetUV, pRef[2] + nOffsetUV };
-      uint8_t* pGpuDst[3] = { pDst[0], pDst[1], pDst[2] };
+      PVideoFrame srcGpu = child->GetFrame(nleft, env);
+      PVideoFrame refGpu = child->GetFrame(nright, env);
+      dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &srcGpu) : env->NewVideoFrame(vi);
+
+      int planes_y[4] = { PLANAR_Y, PLANAR_U, PLANAR_V, PLANAR_A };
+      int planes_r[4] = { PLANAR_G, PLANAR_B, PLANAR_R, PLANAR_A };
+      int *planes = (vi.IsYUV() || vi.IsYUVA()) ? planes_y : planes_r;
+      planecount = ClipFnc::nbr_planes_processed(vi);
+
+      const uint8_t* pGpuSrc[3] = { nullptr, nullptr, nullptr };
+      const uint8_t* pGpuRef[3] = { nullptr, nullptr, nullptr };
+      uint8_t* pGpuDst[3] = { nullptr, nullptr, nullptr };
+      int nGpuSrcPitches[3] = { 0, 0, 0 };
+      int nGpuRefPitches[3] = { 0, 0, 0 };
+      int nGpuDstPitches[3] = { 0, 0, 0 };
+
+      for (int p = 0; p < planecount && p < 3; ++p) {
+        const int plane = planes[p];
+        pGpuSrc[p] = srcGpu->GetReadPtr(plane);
+        nGpuSrcPitches[p] = srcGpu->GetPitch(plane);
+
+        pGpuRef[p] = refGpu->GetReadPtr(plane);
+        nGpuRefPitches[p] = refGpu->GetPitch(plane);
+
+        pGpuDst[p] = dst->GetWritePtr(plane);
+        nGpuDstPitches[p] = dst->GetPitch(plane);
+      }
 
       bool gpuSuccess = D3D12FlowSynthesis::GetInstance().SynthesizeFrame(
-        pGpuSrc, nSrcPitches,
-        pGpuRef, nRefPitches,
-        pGpuDst, nDstPitches,
+        pGpuSrc, nGpuSrcPitches,
+        pGpuRef, nGpuRefPitches,
+        pGpuDst, nGpuDstPitches,
         nWidth, nHeight,
         nWidthUV, nHeightUV,
         planecount,
@@ -606,10 +603,35 @@ PVideoFrame __stdcall MVFlowFps::GetFrame(int n, IScriptEnvironment* env)
           snprintf(buf, sizeof(buf), "D3D12 GPU FlowInter time256=%d mode=%d", time256, maskmode);
           DrawString(dst, vi, 0, 6, buf);
         }
+        ClipFnc::copy_alpha_from(dst, child, time256 < 128 ? nleft : nright, vi, env);
         reentrancy_check = false;
         return dst;
       }
     }
+
+    PVideoFrame	src = finest->GetFrame(nleft, env); // move here - v2.0
+    PVideoFrame ref = finest->GetFrame(nright, env);//  right frame for  compensation
+
+    dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi); // frame property support
+
+    int planes_y[4] = { PLANAR_Y, PLANAR_U, PLANAR_V, PLANAR_A };
+    int planes_r[4] = { PLANAR_G, PLANAR_B, PLANAR_R, PLANAR_A };
+    int *planes = (vi.IsYUV() || vi.IsYUVA()) ? planes_y : planes_r;
+    planecount = ClipFnc::nbr_planes_processed(vi);
+    for (int p = 0; p < planecount; ++p) {
+      const int plane = planes[p];
+      pSrc[p] = src->GetReadPtr(plane);
+      nSrcPitches[p] = src->GetPitch(plane);
+
+      pRef[p] = ref->GetReadPtr(plane);
+      nRefPitches[p] = ref->GetPitch(plane);
+
+      pDst[p] = dst->GetWritePtr(plane);
+      nDstPitches[p] = dst->GetPitch(plane);
+    }
+
+    int nOffsetY = nRefPitches[0] * nVPadding*nPel + nHPadding*nPel*pixelsize_super;
+    int nOffsetUV = nRefPitches[1] * nVPaddingUV*nPel + nHPaddingUV*nPel*pixelsize_super;
 
     // Block-grid work (small vectors and masks) is done here; upsizing them
     // to frame size is done by the slices, together with the interpolation.
@@ -804,6 +826,7 @@ PVideoFrame __stdcall MVFlowFps::GetFrame(int n, IScriptEnvironment* env)
 
        // prepare pointers
     PVideoFrame src = child->GetFrame(nleft, env); // it is easy to use child here - v2.0
+    dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
 
     if (blend) //let's blend src with ref frames like ConvertFPS
     {
