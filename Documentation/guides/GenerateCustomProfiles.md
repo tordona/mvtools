@@ -1,4 +1,4 @@
-# Custom AviSynth Profiles: Quick Generation Guide using AI Agents
+# Custom AviSynth+ Profiles: Quick Generation Guide using AI Agents
 
 This guide enables you to generate a custom 3-tier AviSynth+ interpolation profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) tailored to your exact CPU, GPU, and RAM in seconds using an AI coding assistant or web chatbot for real-time 60 fps video playback in Daum PotPlayer.
 
@@ -18,7 +18,7 @@ Paste this single instruction into your IDE agent:
 Read the specification at:
 https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
-Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the exact architectural specifications in that guide.
+Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth+ profile set for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide.
 ```
 
 ### What the IDE Agent Does Autonomously:
@@ -34,22 +34,22 @@ If you use a web chatbot in your browser (ChatGPT, Claude, Gemini, or Microsoft 
 
 ### Step 1: Copy the Prompt Template
 
-> [!TIP]
-> **Only the CPU model is required.** The AI assistant already knows its core architecture, cache topology, and integrated graphics engine. If you do not know your RAM or GPU, simply delete those lines or leave them blank.
-
 Copy the prompt below, enter your CPU model, and paste it into your AI assistant:
 
 ```text
 Read the specification at:
 https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
-Generate a 3-tier AviSynth+ profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide.
+Generate the tailored 3-tier AviSynth+ profile set for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide.
 
 Target Hardware:
 - CPU (Required): [e.g. AMD Ryzen 7 7840U / Intel Core i7-12700H / Snapdragon X Plus]
 - RAM (Optional): [e.g. 16 GB]
 - GPU (Optional): [e.g. Radeon 780M / Intel Iris Xe / Adreno X1-85]
 ```
+
+> [!TIP]
+> **Only the CPU model is required.** The AI assistant already knows its core architecture, cache topology, and integrated graphics engine. If you do not know your RAM or GPU, simply delete those lines or leave them blank.
 
 ### Step 2: Save the Generated Profile Files
 Your AI assistant will generate three scripts:

@@ -1,4 +1,4 @@
-# AviSynth Profile Library & Specifications
+# AviSynth+ Profile Library & Specifications
 
 > **Curated, hardware-tailored AviSynth+ profiles for real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows on ARM64 and x86-64.**
 

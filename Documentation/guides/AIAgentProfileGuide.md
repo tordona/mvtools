@@ -33,7 +33,7 @@ No repository checkout or download is required. The agent reads the raw specific
 Read the specification at:
 https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
-Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the exact architectural specifications in that guide.
+Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth+ profile set for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide.
 ```
 
 **What the IDE Agent Does Autonomously:**
@@ -52,7 +52,7 @@ If you want empirical verification (measuring PresentMon 1% low frame pacing and
 
 **The Closed-Loop Benchmark & Tuning Prompt:**
 ```text
-Verify the current workspace contains .\Benchmarks\MvToolsBenchmark-Start.ps1 (if not, clone https://github.com/tordona/mvtools.git branch mvtools-d3d12). Auto-detect hardware, generate the 3-tier AviSynth profiles in AviSynth/, run .\Benchmarks\MvToolsBenchmark-Start.ps1 on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
+Verify the current workspace contains .\Benchmarks\MvToolsBenchmark-Start.ps1 (if not, clone https://github.com/tordona/mvtools.git branch mvtools-d3d12). Auto-detect hardware, generate the 3-tier AviSynth+ profiles in AviSynth/, run .\Benchmarks\MvToolsBenchmark-Start.ps1 on Balanced.avs to verify 60 fps stability with 0 drops, and tune parameters according to the Step 4 Diagnosis Matrix if any saturation or drops occur.
 ```
 
 **What the IDE Agent Does Autonomously in Option 2:**
@@ -142,7 +142,7 @@ Copy the text inside the block below and paste it into your AI assistant:
 ````markdown
 You are an expert performance engineer specializing in real-time video processing, AviSynth+ multithreading, and MVTools2 motion interpolation (real-time 24 fps -> 60 fps playback in PotPlayer).
 
-Your task is to generate and iteratively tune a complete, production-grade 3-tier AviSynth profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) for the following target hardware platform:
+Your task is to generate and iteratively tune a complete, production-grade 3-tier AviSynth+ profile set (`<Platform>-Eco.avs`, `<Platform>-Balanced.avs`, `<Platform>-MaxQuality.avs`) for the following target hardware platform:
 [INSERT TARGET HARDWARE HERE: e.g. AMD Ryzen AI 5 340 (3x Zen 5 + 3x Zen 5c, Radeon 840M, 16 GB LPDDR5x) or Intel Core i7-11850H (8 Willow Cove cores / 16 threads @ 45 W, Intel UHD 32EU, 24 MB L3)]
 
 ---
@@ -370,7 +370,7 @@ For the requested platform, output:
    - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.
 4. **Clean Script Formatting:**
    * Emit standard AviSynth+ syntax with one statement per line. Never collapse statements onto a single line without linebreaks.
-   * If splitting multi-argument function calls, use AviSynth line continuation (`\` as the first non-whitespace character on subsequent lines).
+   * If splitting multi-argument function calls, use AviSynth+ line continuation (`\` as the first non-whitespace character on subsequent lines).
 
 ---
 
@@ -381,7 +381,7 @@ If the user runs `MvToolsBenchmark-Start.ps1` and returns an audit report showin
 | Telemetry Symptom in Audit Report | Root Cause Diagnosis | Prescribed Parameter Adjustment |
 | :--- | :--- | :--- |
 | **"AviSynth.dll not found"** dialog in PotPlayer (Win32 Error 126 / `ERROR_MOD_NOT_FOUND`) | **Missing Visual C++ 2015–2022 CRT runtimes:** `vcruntime140.dll`, `msvcp140.dll`, or `vcruntime140_1.dll` missing in `System32`. | Instruct the user to run the benchmark with `-AutoInstallVcRedist`, which automatically downloads and silently installs the official Microsoft redistributable from `https://aka.ms/vc14/vc_redist.x64.exe` (or `arm64.exe`). |
-| **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
+| **"WARNING: Thread Capacity Saturation Detected"** or **Swapchain Duplication Suspected** | **Compute Saturation with Swapchain Masking:** AviSynth+ worker threads are pinned near 100% capacity (≥ 88% saturation ratio). PotPlayer's D3D11 swapchain is repeating cached frames to fake a 60 fps presentation rate while the filter pipeline falls behind. | 1. If spare physical cores exist (e.g. `threads < physical_cores`), increment `threads` by 1 to add compute capacity.<br>2. Switch `search=2` → `search=0` (OneTime search) in `MAnalyse` to cut vector search ALU time by 40%.<br>3. Increase macroblock size (e.g. 16x16 → 32x32, or 32x32 → 64x32).<br>4. Ensure `blend=false` and `levels=1`. |
 | **Average FPS < 58.0 or Dropped Frames > 0** with high CPU (> 85%) | **Compute saturation:** Vector search density exceeds CPU core capability. | 1. Ensure `levels=1` is set in both `MSuper` and `MAnalyse`.<br>2. If `pel=2` is active, revert `pel=2` → `pel=1` and `sharp=2` → `sharp=1` in `MSuper` to eliminate 3 subpixel planes and cut memory bus traffic.<br>3. Increase block size (e.g. 16x16 → 32x32).<br>4. In MaxQuality, remove `overlap=4` (revert to non-overlapping 16x16).<br>5. Ensure `blend=false` in `MBlockFps`. |
 | **FPS degrades over time** (starts at 60 fps, drops to 45–50 fps by 60 s) | **Thermal Throttling:** All-core package heat forces sustained CPU clock decay. | 1. **Reduce `threads` by 1 or 2** (e.g. 6 → 4, or 4 → 3) to lower total package wattage.<br>2. Restrict threads strictly to Performance cores.<br>3. Ensure `chroma=false` in `MAnalyse` to cut vector ALU work by 50%. |
 | **Severe Microstutter (1% Low < 45 fps)** while Average FPS is near 60 | **Thread Scheduling Contention or Jitter.** | 1. Ensure `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` is active on hybrid P/E or ARM64 architectures.<br>2. Increase lookahead queue to `Prefetch(threads, 6)`.<br>3. If `threads >= physical_cores`, decrement `threads` by 1 to guarantee CPU headroom for DXVA decoding and DWM presentation. |

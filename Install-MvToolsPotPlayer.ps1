@@ -15,7 +15,7 @@
     3. Acquires and silently installs official Daum PotPlayer 64-bit from Kakao CDN if not present.
     4. Acquires native 64-bit AviSynth.dll from AviSynth+ official releases and deploys to PotPlayer.
     5. Acquires native MVTools2 binaries (mvtools2.dll with native CPU NEON and D3D12 GPU engine) and deploys to PotPlayer.
-    6. Deploys architecture-filtered AviSynth profiles:
+    6. Deploys architecture-filtered AviSynth+ profiles:
        - ARM64: Deploys strictly Snapdragon*.avs profiles.
        - x86-64: Deploys strictly non-Snapdragon profiles (Ryzen AI, Intel Core, N100, Generic-x64).
     7. Evaluates hardware topology and auto-configures PotPlayer:
@@ -1829,7 +1829,7 @@ function Install-MvToolsRelease {
 }
 
 # ---------------------------------------------------------
-# HELPER: Deploy Architecture-Filtered AviSynth Profiles
+# HELPER: Deploy Architecture-Filtered AviSynth+ Profiles
 # ---------------------------------------------------------
 function Install-ArchitectureFilteredProfiles {
     param(
@@ -1847,7 +1847,7 @@ function Install-ArchitectureFilteredProfiles {
     }
 
     $isArm64 = ($TargetArch -eq "arm64")
-    Write-Host "`n[PROFILES] Deploying $TargetArch AviSynth profiles..." -ForegroundColor Cyan
+    Write-Host "`n[PROFILES] Deploying $TargetArch AviSynth+ profiles..." -ForegroundColor Cyan
 
     $localAvsDir = Join-Path $RepoRoot "AviSynth"
     $deployedCount = 0
