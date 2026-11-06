@@ -13,10 +13,10 @@
 This documentation hub covers the key architectural additions developed in this fork:
 * **Native Windows on ARM64 Port:** Pure 64-bit ARM assembly (`ARM64 NEON`) with zero x86 emulation overhead.
 * **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`MEnableD3D12(true)`).
-* **18 Tuned Snapdragon Profiles:** Empirically verified `.avs` scripts with single-level geometry (`levels=1`) preserving memory bus bandwidth.
+* **21 Tuned Snapdragon Profiles:** Hardware-tailored `.avs` scripts with single-level geometry (`levels=1`) preserving memory bus bandwidth.
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
-* **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth worker threads to Performance cores on hybrid architectures.
+* **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth+ worker threads to Performance cores on hybrid architectures.
 
 ---
 
@@ -24,8 +24,9 @@ This documentation hub covers the key architectural additions developed in this 
 
 Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selection, and profile configuration for each Qualcomm Snapdragon generation:
 
-| SoC Platform | Target Hardware / Devices | Verified Profiles | Hardware Setup Guide |
+| SoC Platform | Target Hardware / Devices | Tuned Profiles | Hardware Setup Guide |
 | :--- | :--- | :--- | :---: |
+| **Snapdragon X2 Elite / Plus** | 3rd-Gen Oryon (18C / 12C / 10C / 6C), Adreno X2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonX2.md) |
 | **Snapdragon X Elite / Plus** | Surface Pro 11, Galaxy Book4 Edge, Dell XPS 13 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonXPlus.md) |
 | **Snapdragon 8cx Gen 3 / SQ3** | Lenovo ThinkPad X13s, Surface Pro 9 5G | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen3.md) |
 | **Snapdragon 8cx Gen 2 / SQ2** | Microsoft Surface Pro X SQ2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen2.md) |
@@ -40,8 +41,8 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 * [**Quick Start Setup Guide**](quickstart.md)  
   Get up and running with 60 fps video interpolation in PotPlayer in under 3 minutes.
 
-* [**AviSynth Profile Library**](profiles/README.md)  
-  Explore all 18 Snapdragon profiles (`Eco`, `Balanced`, `MaxQuality`), inspect parameter settings, and copy `.avs` scripts directly.
+* [**AviSynth+ Profile Library**](profiles/README.md)  
+  Explore all 21 Snapdragon profiles (`Eco`, `Balanced`, `MaxQuality`), inspect parameter settings, and copy `.avs` scripts directly.
 
 * [**Benchmark & Telemetry Suite**](benchmarks/README.md)  
   Learn how to run `MvToolsBenchmark-Start.ps1`, measure PresentMon ETW 1% Low frame pacing, detect swapchain frame duplication, and compare baseline results.

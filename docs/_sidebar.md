@@ -3,6 +3,7 @@
   * [Quick Start Setup](quickstart.md)
 
 * **Qualcomm Snapdragon Guides**
+  * [Snapdragon X2 Elite / Plus](guides/SnapdragonX2.md)
   * [Snapdragon X Elite / Plus](guides/SnapdragonXPlus.md)
   * [Snapdragon 8cx Gen 3](guides/Snapdragon8cxGen3.md)
   * [Snapdragon 8cx Gen 2](guides/Snapdragon8cxGen2.md)

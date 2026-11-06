@@ -12,7 +12,7 @@ All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`
 In traditional AviSynth MVTools implementations (`levels=0`, default 7–8 levels), the engine generates a deep hierarchical Gaussian image pyramid for each frame. On unified memory architectures (Qualcomm Snapdragon LPDDR4x/LPDDR5x and modern thin-and-light x86 SoCs), continuously copying, downsampling, and filtering 8 pyramid levels across 4–8 concurrent worker threads saturates the system memory bus and triggers aggressive thermal throttling.
 
 **The Rev 3.0.0 Solution:**
-* Setting `levels=1` (or `plevel=0`) restricts motion estimation to native 1080p single-level evaluation.
+* Setting `levels=1` (or `plevel=0`) restricts motion estimation to single-level evaluation without downscaled pyramid levels.
 * Eliminates over 60% of unnecessary memory read/write traffic.
 * Prevents cache pollution and stabilizes CPU/GPU temperatures under 15 W/5 W envelopes.
 
@@ -33,6 +33,7 @@ Prefetch(threads)
 * **Zero Host Blast Radius:** Host media player threads—including audio decoding, DXVA video acceleration, and Direct3D swapchain presentation—remain unconstrained and free to run on Efficiency cores.
 * **Homogeneous Processor Bypass:** On processors with uniform core efficiency (e.g. Snapdragon X Elite/Plus, Intel N100, standard AMD Ryzen CCDs), the filter automatically detects uniform core efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`).
 * **Core Budget Allocations:**
+  * **Snapdragon X2 (6–12x Prime + 4–6x Perf Oryon):** Pinned strictly to 3rd-Gen Oryon Prime cores.
   * **Snapdragon X Plus (8x Oryon):** 6–8 uniform threads (homogeneous no-op).
   * **Snapdragon 8cx Gen 3 (4x X1 + 4x A78):** Pinned strictly to Cortex-X1 Prime cores.
   * **Snapdragon 8cx Gen 1/2 (4x Gold + 4x Silver):** Pinned strictly to Kryo Gold cores.
@@ -67,8 +68,11 @@ pad_val    = is_4k ? 16 : 8
 
 ## Part I: Qualcomm Snapdragon (ARM64) Profiles
 
-| Platform / SoC | Profile Tier | Architecture | Block Size (1080p / 4K) | `pel` | Threads | Direct3D 12 GPU Offload | Raw Download |
+| Platform / SoC | Profile Tier | Architecture | Block Size (Base / 4K) | `pel` | Threads | Direct3D 12 GPU Offload | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Snapdragon X2 Series** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 2 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Eco.avs) |
+| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | 1 | 3 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 | 1 (GPU) / 2 (CPU) | 4 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-MaxQuality.avs) |
 | **Snapdragon X Plus** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Plus-MaxQuality.avs) |
@@ -311,8 +315,8 @@ Prefetch(threads)
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 850 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
-# Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
-# Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
+# Target: Fluid 720p–4K 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
+# Architecture: Coarse-to-Fine Refinement (Zero Resizing Overhead)
 # Revision: 2.1.0 (2026-11-03)
 # Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=3, Prefetch(3, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
@@ -371,7 +375,7 @@ Prefetch(threads, 4)
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 7c Gen 2 (Profile 2: Balanced)
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
 # Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
-# Target: Fluid 1080p 60 fps, 32x32 Native Motion Vectors, Stable 5 W Thermal Ceiling
+# Target: Fluid 720p–4K 60 fps, 32x32 Motion Vectors, Stable 5 W Thermal Ceiling
 # Revision: 2.1.0 (2026-11-03)
 # Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=2, Prefetch(2, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
@@ -416,7 +420,7 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 
 ### x86-64 Profile Matrix
 
-| Platform / CPU | Topology & TDP | Tier | Block Size (1080p / 4K) | Threads | Memory | Download |
+| Platform / CPU | Topology & TDP | Tier | Block Size (Base / 4K) | Threads | Memory | Download |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | **AMD Ryzen AI 5 340** | 3x Zen 5 + 3x Zen 5c (12T) @ 15 W – 28 W | `Eco` | 32×32 / 64×64 | 4 | 1536 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Eco.avs) |
 | | Radeon 840M (RDNA 3.5) | `Balanced` | 32 → 16 / 64 → 32 | 6 | 2048 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RyzenAI-5-340-Balanced.avs) |
@@ -451,8 +455,8 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Generic x86-64 (Profile 2: Balanced)
 # Hardware: Generic 64-bit x86 (Intel Core i3/i5/i7 / AMD Ryzen Quad+ Cores, 15 W – 28 W TDP)
-# Architecture: Native 1080p x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
-# Target: Fluid 1080p 60 fps, Native 32x32 Vectors (2,040 Blocks), Recommended Default
+# Architecture: x86-64 AVX2 / SSE4.2 CPU Motion Estimation (mvtools2.dll)
+# Target: Fluid 720p–4K 60 fps, 32x32 Vectors (2,040 Blocks), Recommended Default
 # Revision: 3.1.0 (2026-11-03)
 # Changelog: Replaced 0.5x proxy with native 1080p 32x32 blocks (~2,040 blocks), dynamic 4K adaptation
 # ==============================================================================
@@ -479,22 +483,22 @@ blk_sz = is_4k ? 64 : 32
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
+# 1. Base Motion Super Clip (Single-Level, Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
 # levels=1: Eliminates redundant multi-level spatial pyramid generation
 # hpad=0, vpad=0: Zero padding overhead, preserving native pitch alignment
 # sharp=0: Fast bilinear interpolation for minimal ALU load
 super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 
-# 2. Native 1080p Balanced Motion Vector Search (No Proxy / Zero Downscale)
-# blksize=blk_sz, blksizev=blk_sz: 32x32 blocks at native 1080p (~2,040 blocks total)
+# 2. Balanced Motion Vector Search (No Proxy / Zero Downscale)
+# blksize=blk_sz, blksizev=blk_sz: 32x32 blocks (~2,040 blocks total)
 # search=2, searchparam=1: Radius-1 hexagonal search ensures tight vector consistency
 # chroma=false: Luma-only search cuts vector computation by 50%
 # levels=1: Single-level search matching super's levels=1
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
 
-# 3. Direct Native 60 fps Frame Synthesis
+# 3. Direct 60 fps Frame Synthesis
 # Directly warps source frames with 1:1 native pixel coordinate accuracy
 # mode=0: Fast 2-stream block projection (sustains 60 fps without CPU pipeline stalls)
 # blend=false: Clean block projection avoiding blur on fast motion

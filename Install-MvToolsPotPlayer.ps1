@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.12 (2026-11-06)
+# Revision: 2.3.14 (2026-11-06)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.12
+    2.3.14
 .DATE
     2026-11-06
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.14 (2026-11-06): Updated AI provenance prompt header to AIAgentProfileGuide Rev 2.3.10.
+    - v2.3.13 (2026-11-06): Added Snapdragon X2 profile manifest and hardware autodetection rules.
     - v2.3.12 (2026-11-06): Removed dynamic timestamp query parameter from prompt generator.
-    - v2.3.11 (2026-11-05): Consolidated AI provenance header format (# Generator with AIAgentProfileGuide Rev).
-    - v2.3.10 (2026-11-05): Added AI provenance headers (# Generator, # Specification) to prompt generator.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.12"
+$Script:InstallerVersion = "2.3.14"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -1870,6 +1870,7 @@ function Install-ArchitectureFilteredProfiles {
         
         $profileManifest = if ($isArm64) {
             @(
+                "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
                 "Snapdragon-X-Plus-Eco.avs", "Snapdragon-X-Plus-Balanced.avs", "Snapdragon-X-Plus-MaxQuality.avs",
                 "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
                 "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
@@ -1986,7 +1987,11 @@ function Match-HardwareProfile {
 
     # Match rules for Snapdragon ARM64
     if ($isArm64) {
-        if ($combined -match '(?i)X1P|Snapdragon.*X|Oryon') {
+        if ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
+            $cand = Join-Path $potAvsDir "Snapdragon-X2-Balanced.avs"
+            if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X2-Balanced"; IsGeneric = $false } }
+        }
+        if ($combined -match '(?i)X1P|X1E|Snapdragon.*X|Oryon') {
             $cand = Join-Path $potAvsDir "Snapdragon-X-Plus-Balanced.avs"
             if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X-Plus-Balanced"; IsGeneric = $false } }
         }
@@ -2270,7 +2275,7 @@ $pluginRule
 8. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
 9. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 10. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
-11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model> (AIAgentProfileGuide Rev 2.3.9)`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity).
+11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model> (AIAgentProfileGuide Rev 2.3.10)`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity).
 
 Generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, mode=0, blend=false``), lowest package power.
