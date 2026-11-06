@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.10 (2026-11-05)
+# Revision: 2.3.12 (2026-11-06)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.10
+    2.3.12
 .DATE
-    2026-11-05
+    2026-11-06
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.12 (2026-11-06): Removed dynamic timestamp query parameter from prompt generator.
+    - v2.3.11 (2026-11-05): Consolidated AI provenance header format (# Generator with AIAgentProfileGuide Rev).
     - v2.3.10 (2026-11-05): Added AI provenance headers (# Generator, # Specification) to prompt generator.
-    - v2.3.9 (2026-11-05): Mandated conservative USE_D3D12 = false default across all generated profiles.
-    - v2.3.8 (2026-11-05): Mandated 'last = MBlockFps' return assignment in prompt generator to prevent dropped interpolation output.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.10"
+$Script:InstallerVersion = "2.3.12"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2238,7 +2238,6 @@ function Copy-AiAgentHardwarePrompt {
     $archDesc = if ($isArm64) { "Windows 11 on ARM64 (AArch64)" } else { "Windows 11 x86-64" }
     $gpuName = if ($HardwareInfo.GpuName) { $HardwareInfo.GpuName } else { "" }
     $isLowEndGpu = ($gpuName -match '(?i)600|605|610|615|618|630|610M|HD Graphics|Basic Display')
-    $epochTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $pluginRule = if (-not $isLowEndGpu) {
         '2. Engine & Plugin Hook: Direct3D 12-eligible hardware (>= 32 EUs / >= 4 CUs / Adreno 680+, TDP > 10 W on x64 or ARM64) MUST load unified binary via ``LoadPlugin("mvtools2.dll")``, optional companion ``try { LoadPlugin("AvsAffinity.dll") } catch(e) {}``, and activate Direct3D 12 compute mode via ``MEnableD3D12(USE_D3D12)`` immediately following LoadPlugin with dual-path parameterization (MANDATORY: always default to USE_D3D12 = false; never emit USE_D3D12 = true by default). Low-end / entry-tier silicon (< 32 EUs / < 600 GFLOPS or TDP <= 10 W, e.g. N5000 / UHD 600/605, Snapdragon 7c/850) runs 100% native CPU SIMD without D3D12. Hook video via ``src = potplayer_source()``.'
     } else {
@@ -2257,7 +2256,7 @@ My Target Hardware Specifications:
 
 Specification & Reference Guide:
 - Quickstart Guide: https://tordona.github.io/mvtools/#/guides/GenerateCustomProfiles
-- Technical Specification (Live Origin Fetch): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md?t=$epochTime
+- Technical Specification (Live Origin Fetch): https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 - Web Mirror (GitHub UI View): https://github.com/tordona/mvtools/blob/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
 Mandatory Architecture & AviSynth+ 3.x Rules:
@@ -2271,9 +2270,9 @@ $pluginRule
 8. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
 9. Dynamic 4K Resolution Adaptation & Strict Ordering: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Scale block sizes by 2x when is_4k is true to preserve the spatial macroblock count invariant and avoid 4K memory bus saturation. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 10. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
-11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model>`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity) and ``# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)``.
+11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model> (AIAgentProfileGuide Rev 2.3.9)`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity).
 
-Please generate the complete 3-tier profile set following these exact rules:
+Generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, mode=0, blend=false``), lowest package power.
 - Profile 2 (Balanced): Crisp blocks (``blk_sz = is_4k ? 32 : 16, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, mode=0, blend=false``), daily driver.
 - Profile 3 (MaxQuality): Dual-pass coarse-to-fine refinement for GPU offload (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with divide=0, overlap=0, search=2, searchparam=2; overlap strictly prohibited on GPU offload). CPU fallback uses overlap (overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)). Synthesis mode sets mode=2 on GPU and mode=0 on CPU (synth_mode = USE_D3D12 ? 2 : 0, blend=true). Evaluate quantitative pel rules for pel=1 vs pel=2.

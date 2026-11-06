@@ -15,7 +15,10 @@ If you use an agentic IDE (Google Antigravity, Cursor, Windsurf, Claude Code, or
 Paste this single instruction into your IDE agent:
 
 ```text
-Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md (append current Unix epoch timestamp as query parameter ?t=... when requesting). Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
+Read the specification at:
+https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+
+Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the exact architectural specifications in that guide.
 ```
 
 ### What the IDE Agent Does Autonomously:
@@ -37,11 +40,10 @@ If you use a web chatbot in your browser (ChatGPT, Claude, Gemini, or Microsoft 
 Copy the prompt below, enter your CPU model, and paste it into your AI assistant:
 
 ```text
-Please fetch the latest specification from:
-https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md?t=1
-(Mandatory: Replace ?t=1 with the current Unix epoch timestamp or any random number when fetching the URL to guarantee an un-cached origin response).
+Read the specification at:
+https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
 
-Please generate a 3-tier AviSynth+ profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide. Include `# Generator: <Your Model Name>` and `# Specification: AIAgentProfileGuide Rev 2.3.7` in each profile header.
+Generate a 3-tier AviSynth+ profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) for real-time 24 fps -> 60 fps video motion interpolation in Daum PotPlayer following the exact architectural specifications in that guide.
 
 Target Hardware:
 - CPU (Required): [e.g. AMD Ryzen 7 7840U / Intel Core i7-12700H / Snapdragon X Plus]

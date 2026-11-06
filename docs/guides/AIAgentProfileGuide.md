@@ -30,7 +30,10 @@ No repository checkout or download is required. The agent reads the raw specific
 
 **The 1-Step Generation Prompt:**
 ```text
-Read https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md (append current Unix epoch timestamp as query parameter ?t=... when requesting). Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the Step 1 & Step 2 architectural constraints.
+Read the specification at:
+https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/docs/guides/AIAgentProfileGuide.md
+
+Auto-detect this machine's CPU/GPU hardware using Windows CIM/WMI, and generate the tailored 3-tier AviSynth profile set (<Platform>-Eco.avs, <Platform>-Balanced.avs, <Platform>-MaxQuality.avs) following the exact architectural specifications in that guide.
 ```
 
 **What the IDE Agent Does Autonomously:**
@@ -126,7 +129,7 @@ If the benchmark reports dropped frames or under 60 fps:
 2. Copy the **`FRAME RATE & PACING TELEMETRY`**, **`PERFORMANCE TELEMETRY SUMMARY`**, and **`MEMORY & PAGING INTEGRITY`** sections.
 3. Paste them back to your AI assistant with this prompt:
    ```text
-   The benchmark reported performance issues. Please analyze this telemetry audit report and tune the <Platform> profiles according to the Step 4 Telemetry Diagnosis & Tuning Matrix in your instructions:
+   The benchmark reported performance issues. Analyze this telemetry audit report and tune the <Platform> profiles according to the Step 4 Telemetry Diagnosis & Tuning Matrix in your instructions:
    [PASTE TELEMETRY REPORT SECTIONS HERE]
    ```
 
@@ -177,8 +180,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      6. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
      7. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
      8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, and `pad_size`. In MaxQuality, also declare `synth_mode = USE_D3D12 ? 2 : 0` and `overlap_size = USE_D3D12 ? 0 : 4`. (In Eco and Balanced, `synth_mode` must be hardcoded to `0`).
-      9. **Mandatory `MEnableD3D12` Engine Activation:** Whenever `USE_D3D12` is declared in a script, `MEnableD3D12(USE_D3D12)` **MUST ALWAYS** be invoked immediately following `LoadPlugin("mvtools2.dll")`. Never omit this call. If omitted, setting `USE_D3D12 = true` silently fails to engage the Direct3D 12 compute queue, leaving the engine trapped in CPU SIMD mode with GPU-budgeted parameters.
-      10. **Mandatory Conservative Default (`USE_D3D12 = false`):** Generated profiles **MUST ALWAYS** default to `USE_D3D12 = false`. Native CPU SIMD is the production reference baseline that guarantees 0 dropped frames and maximum compatibility across all memory channel configurations and bit depths out-of-the-box. Direct3D 12 GPU offload is an experimental opt-in toggle; the agent must never emit a profile with `USE_D3D12 = true` enabled by default, leaving that as an explicit manual choice for the user.
+     9. **Mandatory `MEnableD3D12` Engine Activation:** Whenever `USE_D3D12` is declared in a script, `MEnableD3D12(USE_D3D12)` **MUST ALWAYS** be invoked immediately following `LoadPlugin("mvtools2.dll")`. Never omit this call. If omitted, setting `USE_D3D12 = true` silently fails to engage the Direct3D 12 compute queue, leaving the engine trapped in CPU SIMD mode with GPU-budgeted parameters.
+     10. **Mandatory Conservative Default (`USE_D3D12 = false`):** Generated profiles **MUST ALWAYS** default to `USE_D3D12 = false`. Native CPU SIMD is the production reference baseline that guarantees 0 dropped frames and maximum compatibility across all memory channel configurations and bit depths out-of-the-box. Direct3D 12 GPU offload is an experimental opt-in toggle; the agent must never emit a profile with `USE_D3D12 = true` enabled by default, leaving that as an explicit manual choice for the user.
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
@@ -351,14 +354,13 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
-   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual>`
-   * `# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.9)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.7 (2026-11-05)`
-   * `# Changelog: Enforced AI provenance headers (# Generator, # Specification), mandatory USE_D3D12 = false default, 'last = MBlockFps' return hook`
+   * `# Revision: 2.3.9 (2026-11-06)`
+   * `# Changelog: Removed query timestamp parameters from prompt helpers, consolidated provenance header, enforced USE_D3D12 = false default`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
-   - [ ] Standard header includes `# Generator:` and `# Specification: AIAgentProfileGuide Rev 2.3.7 (2026-11-05)`.
+   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.9)`.
    - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
