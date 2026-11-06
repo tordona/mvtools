@@ -1,9 +1,12 @@
 # ==============================================================================
-# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 2: Balanced)
-# Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
-# Revision: 2.3.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X (Profile 2: Balanced)
+# Hardware: Qualcomm Snapdragon X Elite / Plus (8x-12x Oryon Cores @ ARM64 NEON, Adreno X1-85)
+# Memory: 16 GB - 64 GB LPDDR5x-8448 (135 GB/s Unified Bandwidth)
+# Architecture: ARM64 NEON / Direct3D 12 GPU Offload (mvtools2.dll)
+# Generator: Google Antigravity (AIAgentProfileGuide Rev 2.3.10)
+# Target: Fluid 720p–4K 60 fps, Balanced Tradeoff between Fluidity and Power
+# Revision: 2.4.0 (2026-11-06)
+# Changelog: Series-wide Snapdragon X rename (X Elite + X Plus), removed 1080p phrasing, updated comments, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -24,20 +27,19 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 src = potplayer_source()
 
-# Dynamic Resolution Adaptation:
-# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
-# At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
-# density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
+# Dynamic Resolution Adaptation (720p through 4K):
+# At 4K, 64x64 coarse -> 32x32 fine maintains the exact spatial grid
+# density of standard 16x16 search, cutting 4K block evaluations by 75% and preventing memory bus saturation.
 is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
 
-# Load Native ARM64 MVTools2 plugin
+# Load Native ARM64 MVTools2 plugin & configure Direct3D 12 engine
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-# 1. Motion Super Clip with Edge Guard
+# 1. Base Motion Super Clip with Edge Guard
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes motion vectors near frame borders
@@ -45,7 +47,7 @@ MEnableD3D12(USE_D3D12)
 super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
-# 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
+# 2,040 blocks (32x32 at standard resolutions, 64x64 at 4K)
 # search=2, searchparam=2: Hexagonal search with radius 2
 # badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
 # levels=1: Strictly searches base Level 0
@@ -53,7 +55,7 @@ backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_co
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
-# Refines to 8,160 blocks (16x16 at 1080p, 32x32 at 4K) using 2x2 bilinear coarse predictors
+# Refines to 8,160 blocks (16x16 at standard resolutions, 32x32 at 4K) using 2x2 bilinear coarse predictors
 # search=2, searchparam=1: 3x3 local grid refinement around interpolated coarse predictor
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
@@ -62,8 +64,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=2: Dynamic Median synthesis (clamps static cross-fade between forward and backward warped pixels)
 # blend=true: Scene-change fallback blending for camera cuts or occluded regions
 # thSCD1=350, thSCD2=120: Scene-change detection thresholds
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
+last = MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
 # 5. Thread Pool (adapted dynamically to USE_D3D12)
 Prefetch(threads)
-

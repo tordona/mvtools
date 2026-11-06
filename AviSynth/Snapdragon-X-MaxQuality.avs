@@ -1,9 +1,12 @@
 # ==============================================================================
-# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X Plus (Profile 3: Max Quality)
-# Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
-# Target: Highest visual fidelity, diamond motion search, sustained 60 fps
-# Revision: 2.4.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon X (Profile 3: Max Quality)
+# Hardware: Qualcomm Snapdragon X Elite / Plus (8x-12x Oryon Cores @ ARM64 NEON, Adreno X1-85)
+# Memory: 16 GB - 64 GB LPDDR5x-8448 (135 GB/s Unified Bandwidth)
+# Architecture: ARM64 NEON / Direct3D 12 GPU Offload (mvtools2.dll)
+# Generator: Google Antigravity (AIAgentProfileGuide Rev 2.3.10)
+# Target: Highest Visual Fidelity, Diamond Motion Search, Sustained 60 fps
+# Revision: 2.5.0 (2026-11-06)
+# Changelog: Series-wide Snapdragon X rename (X Elite + X Plus), removed 1080p phrasing, updated comments, D3D12 toggle
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -36,19 +39,18 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 src = potplayer_source()
 
-# Dynamic Resolution Adaptation:
-# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
-# At 4K, block sizes scale by 2x to match 1080p spatial grid density (2,040 coarse / 8,160 fine),
+# Dynamic Resolution Adaptation (720p through 4K):
+# At 4K, block sizes scale by 2x to maintain spatial grid density (2,040 coarse / 8,160 fine),
 # eliminating the 40,560 block explosion while preserving maximal visual detail.
 is_4k       = (src.Width() > 2048)
 blk_coarse  = USE_D3D12 ? (is_4k ? 64 : 32) : (is_4k ? 32 : 16)
 blk_fine    = USE_D3D12 ? (is_4k ? 32 : 16) : (is_4k ? 16 : 8)
 
-# Load Native ARM64 MVTools2 plugin
+# Load Native ARM64 MVTools2 plugin & configure Direct3D 12 engine
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-# 1. Motion Super Clip
+# 1. Base Motion Super Clip
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
 # pel=pel_val: Integer grid on GPU (paired with hardware bilinear texture warp); half-pel on CPU
 # hpad, vpad: Boundary padding (8 px on GPU, 16 px on CPU)
@@ -77,8 +79,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=2: Dynamic Median synthesis with occlusion masking
 # blend=true: Scene-change fallback blending without edge tearing
 # thSCD1=320, thSCD2=115: Strict scene-change detection to isolate camera cuts
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
+last = MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 
-# 5. Full Core Utilization (adapted dynamically to USE_D3D12)
+# 5. Thread Pool (adapted dynamically to USE_D3D12)
 Prefetch(threads)
-

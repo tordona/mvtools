@@ -47,7 +47,7 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.6.0` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.6.1` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
 | [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.6.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 | [`MvToolsBenchmark-Headless.ps1`](MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
 | [`Benchmark-BigBuckBunny-Fidelity.ps1`](Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
@@ -198,7 +198,7 @@ powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps
 
 #### Example 3: Select by Tier Keyword on Detected Platform
 ```powershell
-# Automatically resolves to Snapdragon-X-Plus-MaxQuality.avs on Snapdragon X Plus host
+# Automatically resolves to Snapdragon-X-MaxQuality.avs on Snapdragon X Series host
 powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmark-Start.ps1" -Profile MaxQuality -GpuMode CPU
 ```
 
@@ -232,7 +232,7 @@ The comparative aggregation tool that parses individual audit reports and transf
 | `-WarmupSeconds` | `int` | `10` | Warmup seconds discarded per run when executing `-RunMatrix`. |
 | `-OutputMarkdown` | `string` | `"BenchmarkMatrix_Comparison_<Platform>.md"` | Path to save the Markdown comparison table. By default, auto-names with the platform key to prevent cross-platform file overwrites. |
 | `-OutputCsv` | `string` | `"BenchmarkMatrix_Comparison_<Platform>.csv"` | Path to save the CSV comparison table. By default, auto-names with the platform key to prevent cross-platform file overwrites. |
-| `-FilterPlatform` | `string` | `""` | Substring to filter reports by platform (e.g. `Generic-x64`, `Snapdragon-X-Plus`, `Snapdragon-8cxGen3`). When executing with `-RunMatrix`, automatically forwards `-Profile <FilterPlatform>-<Tier>`. |
+| `-FilterPlatform` | `string` | `""` | Substring to filter reports by platform (e.g. `Generic-x64`, `Snapdragon-X`, `Snapdragon-8cxGen3`). When executing with `-RunMatrix`, automatically forwards `-Profile <FilterPlatform>-<Tier>`. |
 | `-PotPlayerDir` | `string` | `""` | Custom PotPlayer installation or portable directory, forwarded across all matrix permutations executed under `-RunMatrix`. |
 | `-MvToolsRepo` | `string` | `""` | GitHub repository slug for release acquisition, forwarded across all matrix permutations executed under `-RunMatrix`. |
 | `-IgnoreRamWarning` | `switch` | `$false` | Bypasses interactive RAM headroom confirmation across all matrix runs on memory-constrained devices. |
@@ -261,7 +261,7 @@ powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare
 
 #### Example 3: Filter by Platform and Output to Custom Location
 ```powershell
-powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare.ps1" -FilterPlatform "Snapdragon-X-Plus" -OutputMarkdown "C:\Reports\XPlus_Matrix.md"
+powershell -ExecutionPolicy Bypass -File "./Benchmarks/MvToolsBenchmarks-Compare.ps1" -FilterPlatform "Snapdragon-X" -OutputMarkdown "C:\Reports\X_Matrix.md"
 ```
 
 ---
@@ -284,14 +284,14 @@ When analyzing the comparison matrix, focus on the following key performance ind
   - **Direct3D 12 GPU (`MEnableD3D12(true)`):** Offloads motion search into Adreno GPU compute queues (~72-75% GPU load), freeing CPU compute resources for background multi-tasking. *(Note: D3D12 GPU execution is an experimental preview; rendering fidelity and real-time performance are best-effort).*
 - **PotPlayer Working Set (RAM):**
   - **Eco Tier:** 315 MB (540p proxy clip reduces cache lines and DRAM pressure).
-  - **Balanced Tier:** 384 MB (Full 1080p motion search).
+  - **Balanced Tier:** 384 MB (Full-resolution motion search).
   - **MaxQuality Tier:** 507 MB (Sub-pixel `pel=2` multi-level pyramid).
 
 ---
 
 ## Prerequisites & Setup
 
-1. **Host Operating System:** Windows 11 on ARM64 (Qualcomm Snapdragon X Elite, Snapdragon X Plus, Snapdragon 8cx Gen 3/2/1, 850, or 7c) or Windows 10/11 on x64 (AMD Ryzen, Intel Core).
+1. **Host Operating System:** Windows 11 on ARM64 (Qualcomm Snapdragon X2, Snapdragon X Series, Snapdragon 8cx Gen 3/2/1, 850, or 7c) or Windows 10/11 on x64 (AMD Ryzen, Intel Core).
 2. **Administrator Privileges (Recommended):**
    - Windows Event Tracing for Windows (ETW) Direct3D presentation hooks require elevation for PresentMon to record sub-millisecond frame intervals and 1% Lows.
    - Launch PowerShell with **Run as Administrator**.

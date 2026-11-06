@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.14 (2026-11-06)
+# Revision: 2.3.15 (2026-11-06)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -35,21 +35,21 @@
     Git branch to acquire profiles and releases from. Default: 'mvtools-d3d12'.
 
 .PARAMETER ForceProfile
-    Optional override to specify an exact .avs profile name to activate (e.g. 'Snapdragon-X-Plus-MaxQuality.avs').
+    Optional override to specify an exact .avs profile name to activate (e.g. 'Snapdragon-X-Balanced.avs').
 
 .PARAMETER Launch
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.14
+    2.3.15
 .DATE
     2026-11-06
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.15 (2026-11-06): Renamed Snapdragon-X-Plus profiles to series-wide Snapdragon-X.
     - v2.3.14 (2026-11-06): Updated AI provenance prompt header to AIAgentProfileGuide Rev 2.3.10.
     - v2.3.13 (2026-11-06): Added Snapdragon X2 profile manifest and hardware autodetection rules.
-    - v2.3.12 (2026-11-06): Removed dynamic timestamp query parameter from prompt generator.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.14"
+$Script:InstallerVersion = "2.3.15"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -1871,7 +1871,7 @@ function Install-ArchitectureFilteredProfiles {
         $profileManifest = if ($isArm64) {
             @(
                 "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
-                "Snapdragon-X-Plus-Eco.avs", "Snapdragon-X-Plus-Balanced.avs", "Snapdragon-X-Plus-MaxQuality.avs",
+                "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
                 "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
                 "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
                 "Snapdragon-8cxGen1-Eco.avs", "Snapdragon-8cxGen1-Balanced.avs", "Snapdragon-8cxGen1-MaxQuality.avs",
@@ -1992,8 +1992,8 @@ function Match-HardwareProfile {
             if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X2-Balanced"; IsGeneric = $false } }
         }
         if ($combined -match '(?i)X1P|X1E|Snapdragon.*X|Oryon') {
-            $cand = Join-Path $potAvsDir "Snapdragon-X-Plus-Balanced.avs"
-            if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X-Plus-Balanced"; IsGeneric = $false } }
+            $cand = Join-Path $potAvsDir "Snapdragon-X-Balanced.avs"
+            if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X-Balanced"; IsGeneric = $false } }
         }
         if ($combined -match '(?i)8cx.*Gen.*3|SQ3') {
             $cand = Join-Path $potAvsDir "Snapdragon-8cxGen3-Balanced.avs"
@@ -2017,7 +2017,7 @@ function Match-HardwareProfile {
         }
 
         # Fallback for unrecognized ARM64 hardware
-        $fallback = Join-Path $potAvsDir "Snapdragon-X-Plus-Balanced.avs"
+        $fallback = Join-Path $potAvsDir "Snapdragon-X-Balanced.avs"
         if (-not (Test-Path $fallback)) {
             $fallback = ($availableProfiles | Select-Object -First 1).FullName
         }
@@ -2441,6 +2441,10 @@ Write-Host "------------------------------------------------------------" -Foreg
 # Select Active Profile
 $selectedMatch = $null
 if (-not [string]::IsNullOrWhiteSpace($ForceProfile)) {
+    # Backward compatibility shim for legacy Snapdragon-X-Plus profile names
+    if ($ForceProfile -match '(?i)Snapdragon-X-Plus-(Eco|Balanced|MaxQuality)(\.avs)?$') {
+        $ForceProfile = "Snapdragon-X-$($Matches[1]).avs"
+    }
     $forcedPath = Join-Path (Join-Path $resolvedPotDir "AviSynth") $ForceProfile
     if (Test-Path $forcedPath) {
         $selectedMatch = @{ Profile = $forcedPath; Name = $ForceProfile; IsGeneric = $false }

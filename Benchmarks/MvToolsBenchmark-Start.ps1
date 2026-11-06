@@ -34,12 +34,13 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.6.0
+    2.6.1
 .DATE
-    2026-11-03
+    2026-11-06
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.1 (2026-11-06): Standardized Snapdragon X series platform detection and profile manifest.
     - v2.6.0 (2026-11-03): Added Direct3D 12 GPU offload support and companion plugin integration.
                            Supports unified mvtools2.dll deployment (CPU NEON + D3D12 compute engine)
                            and AvsAffinity.dll deployment across ARM64 and x64 targets. Added -GpuMode
@@ -2457,7 +2458,8 @@ function Install-AviSynthProfilesFromRepo {
     if (-not $fileItems -or $fileItems.Count -eq 0) {
         $canonicalProfiles = @(
             "Generic-x64-Eco.avs", "Generic-x64-Balanced.avs", "Generic-x64-MaxQuality.avs",
-            "Snapdragon-X-Plus-Eco.avs", "Snapdragon-X-Plus-Balanced.avs", "Snapdragon-X-Plus-MaxQuality.avs",
+            "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
+            "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
             "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
             "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
             "Snapdragon-8cxGen1-Eco.avs", "Snapdragon-8cxGen1-Balanced.avs", "Snapdragon-8cxGen1-MaxQuality.avs",
@@ -2955,14 +2957,12 @@ function Get-SystemPlatformRecommendation {
         }
     } else {
         # Baseline ARM64 hardware detection rules
-        if ($combined -match '(?i)X\s*Plus|X1P') {
-            $platform = "Snapdragon-X-Plus"
-            $platformLabel = "Snapdragon X Plus (Qualcomm Oryon CPU, Adreno X1 GPU)"
-        } elseif ($combined -match '(?i)X\s*Elite|X1E') {
-            # Dynamically check if dedicated X-Elite profiles exist in AviSynth/
-            $hasElite = $profiles | Where-Object { $_.Platform -match '(?i)X[-_]?Elite' } | Select-Object -First 1
-            $platform = if ($hasElite) { $hasElite.Platform } else { "Snapdragon-X-Plus" }
-            $platformLabel = "Snapdragon X Elite (Qualcomm Oryon CPU, Adreno X1 GPU)"
+        if ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
+            $platform = "Snapdragon-X2"
+            $platformLabel = "Snapdragon X2 Series (Qualcomm Oryon CPU, Adreno X2 GPU)"
+        } elseif ($combined -match '(?i)X\s*Plus|X1P|X\s*Elite|X1E|Snapdragon.*X|Oryon') {
+            $platform = "Snapdragon-X"
+            $platformLabel = "Snapdragon X Series (Qualcomm Oryon CPU, Adreno X1 GPU)"
         } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|8180X') {
             $platform = "Snapdragon-8cxGen3"
             $platformLabel = "Snapdragon 8cx Gen 3 (Kryo Cortex-X1/A78, Adreno 690)"
@@ -2996,7 +2996,7 @@ function Get-SystemPlatformRecommendation {
                 $platform = $matchedProfile.Platform
                 $platformLabel = if ($matchedProfile.HardwareDesc) { $matchedProfile.HardwareDesc } else { "$($matchedProfile.Platform) ($cpuName)" }
             } else {
-                $platform = "Snapdragon-X-Plus"
+                $platform = "Snapdragon-X"
                 $platformLabel = "Generic ARM64 ($cpuName $gpuName)"
             }
         }

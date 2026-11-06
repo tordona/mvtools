@@ -91,15 +91,15 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 
 Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Qualcomm Snapdragon platforms:
 
-- **Snapdragon X Plus (8x Oryon Cores @ 3.4 GHz, 15 W – 30 W TDP)**:
-  - [`Snapdragon-X-Plus-Eco.avs`](AviSynth/Snapdragon-X-Plus-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
-  - [`Snapdragon-X-Plus-Balanced.avs`](AviSynth/Snapdragon-X-Plus-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 target.
-  - [`Snapdragon-X-Plus-MaxQuality.avs`](AviSynth/Snapdragon-X-Plus-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` → `8x8` micro-blocks, Diamond motion search (`search=2, searchparam=2`), `Prefetch(8)`. Maximum fidelity for plugged-in operation.
-  - Guide: [`Documentation/guides/SnapdragonXPlus.md`](Documentation/guides/SnapdragonXPlus.md).
+- **Snapdragon X Series (8–12x Oryon Cores @ up to 3.4–4.3 GHz, 15 W – 45 W TDP)**:
+  - [`Snapdragon-X-Eco.avs`](AviSynth/Snapdragon-X-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
+  - [`Snapdragon-X-Balanced.avs`](AviSynth/Snapdragon-X-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 60 fps target.
+  - [`Snapdragon-X-MaxQuality.avs`](AviSynth/Snapdragon-X-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` → `8x8` micro-blocks, Diamond motion search (`search=2, searchparam=2`), `Prefetch(8)`. Maximum fidelity for plugged-in operation.
+  - Guide: [`Documentation/guides/SnapdragonX.md`](Documentation/guides/SnapdragonX.md).
 
 - **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7 W – 15 W)**:
   - [`Snapdragon-8cxGen3-Eco.avs`](AviSynth/Snapdragon-8cxGen3-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low power and cool operating thermals.
-  - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 1080p60 on Adreno 690 GPU or 6 out-of-order performance cores.
+  - [`Snapdragon-8cxGen3-Balanced.avs`](AviSynth/Snapdragon-8cxGen3-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 60 fps on Adreno 690 GPU or 6 out-of-order performance cores.
   - [`Snapdragon-8cxGen3-MaxQuality.avs`](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs): Subpixel `pel=2` bicubic, `16x16` → `8x8` micro-blocks on CPU / `32x32` → `16x16` on Adreno 690 GPU, `mode=2` with `blend=true`, `Prefetch(7)`. Full utilization of 4x Cortex-X1 prime cores + Adreno 690 compute shader.
   - Guide: [`Documentation/guides/Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md).
 

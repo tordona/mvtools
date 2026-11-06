@@ -27,7 +27,7 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 | SoC Platform | Target Hardware / Devices | Tuned Profiles | Hardware Setup Guide |
 | :--- | :--- | :--- | :---: |
 | **Snapdragon X2 Elite / Plus** | 3rd-Gen Oryon (18C / 12C / 10C / 6C), Adreno X2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonX2.md) |
-| **Snapdragon X Elite / Plus** | Surface Pro 11, Galaxy Book4 Edge, Dell XPS 13 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonXPlus.md) |
+| **Snapdragon X Elite / Plus** | Surface Pro 11, Galaxy Book4 Edge, Dell XPS 13 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonX.md) |
 | **Snapdragon 8cx Gen 3 / SQ3** | Lenovo ThinkPad X13s, Surface Pro 9 5G | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen3.md) |
 | **Snapdragon 8cx Gen 2 / SQ2** | Microsoft Surface Pro X SQ2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen2.md) |
 | **Snapdragon 8cx Gen 1 / SQ1** | Microsoft Surface Pro X SQ1 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen1.md) |
