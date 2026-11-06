@@ -102,7 +102,7 @@ Both the benchmark test harness and all AviSynth interpolation profiles follow *
   # Revision: 2.2.0 (2026-11-03)
   # Changelog: Coarse 32x32 -> fine 16x16, pinned to 4x Cortex-X1 cores (threads=4), mem_limit=1024, D3D12 toggle
   ```
-  - `MAJOR`: Fundamental architectural paradigm shifts (e.g. moving from 0.5x proxy estimation to native 1080p `levels=1`).
+  - `MAJOR`: Fundamental architectural paradigm shifts (e.g. moving from 0.5x proxy estimation to direct-resolution `levels=1`).
   - `MINOR`: SoC-specific core cluster pinning, memory ceiling changes, or adding the Direct3D 12 `USE_D3D12` engine toggle.
   - `PATCH`: Parameter fine-tuning, search parameter calibration, or bug fixes.
 
@@ -217,7 +217,7 @@ The comparative aggregation tool that parses individual audit reports and transf
 - **Automatic Log Parsing:** Extracts frame rate pacing (`Avg FPS`, `1% Low FPS`, `0.1% Low FPS`, `Dropped Frames`) and resource load (`CPU %`, `GPU %`, `PotPlayer GPU %`, `RAM MB`).
 - **Deduplication:** Groups results by `(Tier, Mode)` and keeps the most recent valid run for each configuration.
 - **Multiple Output Formats:** Produces colorized console tables, GitHub Flavored Markdown (`.md`), and spreadsheet-ready CSV (`.csv`).
-- **Dynamic Chipset-Agnostic Architectural Analysis:** Dynamically extracts the active profile configuration (540p proxy vs. native 1080p, block refinement, subpixel precision, synthesis mode), computes measured CPU/GPU compute deltas and frame pacing, and generates platform-specific recommendations based on real benchmark telemetry.
+- **Dynamic Chipset-Agnostic Architectural Analysis:** Dynamically extracts the active profile configuration (540p proxy vs. direct full resolution, block refinement, subpixel precision, synthesis mode), computes measured CPU/GPU compute deltas and frame pacing, and generates platform-specific recommendations based on real benchmark telemetry.
 - **Batch Matrix Execution (`-RunMatrix`):** Sequentially runs all 6 permutations back-to-back under identical environmental conditions, then displays the final comparison matrix.
 
 ---

@@ -316,15 +316,15 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
 * **Objective:** Sub-8 W to 10 W package power, low-thermal battery playback, 0 dropped frames.
 * **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0` (bilinear).
-* **MAnalyse:** Coarse 32x32 blocks (`blksize=blk_sz, blksizev=blk_sz`, approx. 2,040 blocks total at 1080p), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
+* **MAnalyse:** Coarse 32x32 blocks (`blksize=blk_sz, blksizev=blk_sz`, approx. 2,040 coarse blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
 * **MBlockFps:** `mode=0` (fast 2-stream block projection mandatory across BOTH GPU and CPU; never set mode=2 on Eco), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
 * **Lookahead:** `Prefetch(threads, 4)`.
 * **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors (or < 3% with Direct3D 12 GPU offload).
 
 #### Tier 2: Balanced Profile (`<Platform>-Balanced.avs`)
-* **Objective:** Recommended primary profile. Native 1080p 16x16 vector grid (8,160 blocks; 4x density of 32x32), fine-grained vector tracking, zero optical flow latency bubbles, 0 dropped frames.
+* **Objective:** Recommended primary profile. High-density 16x16 vector grid (8,160 blocks; 4x density of 32x32), fine-grained vector tracking, zero optical flow latency bubbles, 0 dropped frames.
 * **MSuper:** `levels=1`, `pel=1`, `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0`.
-* **MAnalyse:** Native 1080p 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
+* **MAnalyse:** High-density 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
 * **MBlockFps:** `mode=0` (direct native block projection mandatory across BOTH GPU and CPU), `blend=false`, `thSCD1=380, thSCD2=125`.
 * **Lookahead:** `Prefetch(threads, 6)`.
 * **Expected CPU Load:** Typically **4.5% to 20.8%** on modern processors.
@@ -354,13 +354,13 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
-   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.9)`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.10)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.9 (2026-11-06)`
-   * `# Changelog: Removed query timestamp parameters from prompt helpers, consolidated provenance header, enforced USE_D3D12 = false default`
+   * `# Revision: 2.3.10 (2026-11-06)`
+   * `# Changelog: Removed residual 1080p phrasing across profile tier definitions for complete 720p-to-4K resolution neutrality`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
-   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.9)`.
+   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.10)`.
    - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.

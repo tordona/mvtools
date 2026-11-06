@@ -99,12 +99,12 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 
 ## Profile Comparison: Snapdragon 8cx Gen 3 / SQ3
 
-All Snapdragon 8cx Gen 3 profiles utilize native 1080p motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads)` lookahead buffering:
+All Snapdragon 8cx Gen 3 profiles utilize direct-resolution motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads)` lookahead buffering:
 
 | Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
 | :--- | :--- | :--- | :--- | :--- |
 | **Eco** | Ultra-Low Power, Maximum Battery Longevity | Single-Pass 32×32 Blocks (`searchparam=1`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` |
-| **Balanced** | Fluid 1080p 60 fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
+| **Balanced** | Fluid 720p–4K 60 fps, Refined Edges *(Recommended)* | Dual-Pass 32×32 → 16×16 (`MRecalculate`) | `mode=2` Dynamic Median (`blend=false`) | `threads = USE_D3D12 ? 3 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
 | **MaxQuality** | High-Fidelity Action, Wide Search Radius | Dual-Pass 32×32 (`search=2` Diamond) → 16×16 | `mode=2` Dynamic Median (`blend=true`) | `threads = USE_D3D12 ? 4 : 4`, `Prefetch(threads)` (pinned to Cortex-X1) |
 
 ---

@@ -15,7 +15,7 @@ On the Qualcomm Snapdragon 850, software video decoding on the Kryo 385 Gold (Co
 To achieve sustained, smooth 60 fps playback without thermal throttling:
 1. **Adreno 630 Hardware Decoding:** Offload H.264/HEVC/VP9 decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back, reducing CPU decode load to 0%.
 2. **Direct3D 11 Video Renderer:** Display presentation and scaling run directly on Adreno 630 shader units with zero CPU intervention.
-3. **Single-Super Native 1080p Analysis:** Eliminates CPU frame downscaling/resizing and redundant pyramid generation (`levels=1`), sharing a single whole-pixel `MSuper` clip across the pipeline.
+3. **Single-Super Direct-Resolution Analysis:** Eliminates CPU frame downscaling/resizing and redundant pyramid generation (`levels=1`), sharing a single whole-pixel `MSuper` clip across the pipeline.
 4. **Coarse-to-Fine Block Refinement:** Employs wide 64×32 blocks for Eco (1,020 blocks) and dual-pass 32×32 → 16×16 refinement for Balanced/MaxQuality, delivering artifact-free 60 fps presentation while bypassing the overhead of 7-pass proxy pipelines.
 5. **Strict Core Pinning (`Prefetch(2, 4)` to `Prefetch(4, 4)`):** Limits worker threads so execution stays strictly on the high-IPC Kryo 385 Gold cores, absorbing thread jitter with a 4-frame lookahead queue and avoiding stalls from the in-order Silver cores.
 
@@ -100,12 +100,12 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Analysis Resolution** | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) | Native 1080p (Single Super Clip, `levels=1`) |
+| **Analysis Resolution** | Direct Resolution (Single Super Clip, `levels=1`) | Direct Resolution (Single Super Clip, `levels=1`) | Direct Resolution (Single Super Clip, `levels=1`) |
 | **Search Block Size** | 64×32 wide blocks (1,020 blocks) | Dual-pass 32×32 → 16×16 | Dual-pass 32×32 → 16×16 (`searchparam=2`) |
 | **Subpixel Precision** | `pel=1` | `pel=1` | `pel=1` |
 | **Search Algorithm** | Hexagonal (`search=2`) | Hexagonal (`search=2`) | Hexagonal (`search=2`) |
 | **Outlier Filter** | Off | `badrange=(-24)` | `badrange=(-24)` |
-| **Frame Synthesis** | Native 1080p `mode=0` | Native 1080p `mode=0` | Native 1080p `mode=0` |
+| **Frame Synthesis** | Direct `mode=0` | Direct `mode=0` | Direct `mode=0` |
 | **Worker Threads** | `Prefetch(2, 4)` | `Prefetch(3, 4)` | `Prefetch(4, 4)` |
 | **Target Power** | 3.0 W – 3.5 W | 3.8 W – 4.2 W | 4.5 W – 5.0 W |
 
