@@ -66,5 +66,5 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 ## 📦 Binaries & Downloads
 
 Download official pre-compiled releases from the [GitHub Releases Page](https://github.com/tordona/mvtools/releases):
-* **`mvtools2.dll`** : Native ARM64 NEON SIMD engine for daily viewing and deterministic 60 fps frame delivery.
+* **`mvtools2.dll`** : AviSynth+ motion estimation filter for ARM64 and x86-64 platforms. Delivers real-time 60 fps frame interpolation via native CPU vector extensions (NEON, AVX2) or Direct3D 12 GPU shaders.
 * **`AvsAffinity.dll`** : Companion filter restricting AviSynth worker threads to Performance cores on hybrid architectures.
