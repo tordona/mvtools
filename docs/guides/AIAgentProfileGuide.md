@@ -151,7 +151,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 1. **Architecture & Compute Engine Targeting:**
    * **Dual-Engine Execution Model (CPU SIMD vs. Direct3D 12 GPU Offload):**
-     Both x86-64 (AMD / Intel) and ARM64 (NVIDIA / Qualcomm) platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
+     Both x86-64 and ARM64 platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
      * **Native CPU SIMD Engine:** Executes 100% on CPU cores using native vector extensions (x86-64 AVX-512 / AVX2 / SSE4.2; ARM64 NEON). On ARM64, this includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`) guaranteeing deterministic slice scheduling without `avstp.dll`.
      * **Direct3D 12 GPU Offload Engine:** Offloads block SAD vector estimation (`motion_search_cs.hlsl`) and frame synthesis / motion compensation warping (`flow_warp.hlsl`) to the graphics processor via `MEnableD3D12(USE_D3D12)`.
    * **Hardware Eligibility Gating (When to Include `USE_D3D12`):**

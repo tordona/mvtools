@@ -67,7 +67,7 @@ pad_val    = is_4k ? 16 : 8
 
 ---
 
-## Part I: ARM64 Hardware Profiles (NVIDIA / Qualcomm)
+## Part I: ARM64 Hardware Profiles
 
 | Platform / SoC | Profile Tier | Architecture | Block Size (Base / 4K) | `pel` | Threads | Direct3D 12 GPU Offload | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -418,7 +418,7 @@ Prefetch(threads, 4)
 
 ---
 
-## Part II: x86-64 Hardware Profiles (AMD / Intel)
+## Part II: x86-64 Hardware Profiles
 
 Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, preserving memory bandwidth on integrated GPUs (AMD Radeon RDNA, Intel Iris Xe, and Intel Arc) while maintaining fluid 60 fps frame delivery.
 
@@ -447,7 +447,7 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 | **Intel Processor N100** | 4 Gracemont E-cores (4T) @ 6 W (Fanless) | `Eco` | 32×32 / 64×64 | 2 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Eco.avs) |
 | | Intel UHD Graphics 24EU | `Balanced` | 32 → 16 / 64 → 32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-Balanced.avs) |
 | | | `MaxQuality` | 32 → 16 / 64 → 32 | 3 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Intel-N100-MaxQuality.avs) |
-| **Generic x86-64** | Universal fallback for all AMD / Intel PCs | `Eco` | 64×32 / 64×64 | 3 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Eco.avs) |
+| **Generic x86-64** | Universal fallback for all 64-bit x86 PCs | `Eco` | 64×32 / 64×64 | 3 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Eco.avs) |
 | | Compatible with any x86-64 CPU | `Balanced` | 32×32 / 64×64 | 3 | 512 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-Balanced.avs) |
 | | | `MaxQuality` | 16×16 / 32×32 | 4 | 768 MB | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Generic-x64-MaxQuality.avs) |
 

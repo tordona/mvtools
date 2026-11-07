@@ -2,7 +2,7 @@
 
 > **Achieve real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows 11 on ARM64 and x86-64 with zero frame drops.**
 
-Choose between the [**Automated 1-Click PowerShell Setup**](#method-1-automated-1-click-setup-recommended) (recommended), [**Manual Setup for ARM64 (NVIDIA / Qualcomm)**](#method-2-manual-setup-for-arm64-nvidia-qualcomm), or [**Manual Setup for x86-64 (AMD / Intel)**](#method-3-manual-setup-for-x86-64-amd-intel).
+Choose between the [**Automated 1-Click PowerShell Setup**](#method-1-automated-1-click-setup-recommended) (recommended), [**Manual Setup for ARM64**](#method-2-manual-setup-for-arm64), or [**Manual Setup for x86-64**](#method-3-manual-setup-for-x86-64).
 
 ---
 
@@ -46,7 +46,7 @@ If you have cloned or downloaded the repository, open PowerShell in the project 
 
 ---
 
-## Method 2: Manual Setup for ARM64 (NVIDIA / Qualcomm)
+## Method 2: Manual Setup for ARM64
 
 Follow these steps for RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series, 8cx Gen 1–3, 850, and 7c Gen 2 devices.
 
@@ -88,11 +88,11 @@ Follow these steps for RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series,
 ### Step 4: Enable AviSynth & Apply ARM64 Profile
 1. In Preferences (**`F5`**), navigate to **Video** → **AviSynth**.
 2. Check the box **AviSynth**.
-3. Copy and paste the profile for your chipset from the [ARM64 Profile Section](profiles/README.md#part-i-arm64-hardware-profiles-nvidia-qualcomm) or use this universal starter script:
+3. Copy and paste the profile for your chipset from the [ARM64 Profile Section](profiles/README.md#part-i-arm64-hardware-profiles) or use this universal starter script:
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60 fps Balanced Script (ARM64 NVIDIA / Qualcomm)
+# MVTools2 60 fps Balanced Script (ARM64)
 # ==============================================================================
 USE_D3D12 = false
 
@@ -133,7 +133,7 @@ Prefetch(threads)
 
 ---
 
-## Method 3: Manual Setup for x86-64 (AMD / Intel)
+## Method 3: Manual Setup for x86-64
 
 Follow these steps for standard x86-64 PCs and laptops.
 
@@ -167,11 +167,11 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ### Step 3: Enable AviSynth & Apply x86-64 Profile
 1. Navigate to **Video** → **AviSynth** and check **AviSynth**.
-2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) or use this universal x86-64 script:
+2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles) or use this universal x86-64 script:
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60 fps Balanced Script (x86-64 AMD / Intel)
+# MVTools2 60 fps Balanced Script (x86-64)
 # ==============================================================================
 threads   = 4
 mem_limit = 1024

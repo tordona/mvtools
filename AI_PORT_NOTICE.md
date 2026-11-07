@@ -89,7 +89,7 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 
 ## 3. Hardware Profiles & Deployment Guides
 
-Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Windows on ARM64 platforms (NVIDIA / Qualcomm):
+Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Windows on ARM64 platforms:
 
 - **RTX Spark N1X (9–10x Cortex-X925 + 9–10x Cortex-A725, Blackwell RTX GPU, 15 W – 45 W TDP)**:
   - [`RTX-Spark-N1X-Eco.avs`](AviSynth/RTX-Spark-N1X-Eco.avs): `pel=1`, `32x32` coarse blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact.

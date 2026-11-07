@@ -1,6 +1,6 @@
 # MVTools Benchmark & Comparison Test Suite
 
-Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows on ARM64 (NVIDIA / Qualcomm) and x86-64 (AMD / Intel).
+Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows across ARM64 and x86-64 architectures.
 
 This test suite rigorously measures, validates, and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2.dll`).
 
@@ -291,7 +291,7 @@ When analyzing the comparison matrix, focus on the following key performance ind
 
 ## Prerequisites & Setup
 
-1. **Host Operating System:** Windows 11 on ARM64 (RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series, Snapdragon 8cx Gen 1–3, 850, or 7c) or Windows 10/11 on x64 (AMD / Intel).
+1. **Host Operating System:** Windows 11 on ARM64 (RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series, Snapdragon 8cx Gen 1–3, 850, or 7c) or Windows 10/11 on x86-64.
 2. **Administrator Privileges (Recommended):**
    - Windows Event Tracing for Windows (ETW) Direct3D presentation hooks require elevation for PresentMon to record sub-millisecond frame intervals and 1% Lows.
    - Launch PowerShell with **Run as Administrator**.

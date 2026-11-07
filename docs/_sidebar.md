@@ -2,7 +2,7 @@
   * [Welcome & Hub Overview](README.md)
   * [Quick Start Setup](quickstart.md)
 
-* **Windows on ARM64 Guides**
+* **ARM64 Hardware Guides**
   * [RTX Spark N1X](guides/RTXSparkN1X.md)
   * [Snapdragon X2 Series](guides/SnapdragonX2.md)
   * [Snapdragon X Series](guides/SnapdragonX.md)
@@ -13,8 +13,8 @@
   * [Snapdragon 7c Gen 2](guides/Snapdragon7cGen2.md)
 
 * **AviSynth+ Profiles**
-  * [ARM64 Profiles (NVIDIA / Qualcomm)](profiles/README.md#part-i-arm64-hardware-profiles-nvidia-qualcomm)
-  * [x86-64 Profiles (AMD / Intel)](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel)
+  * [ARM64 Profiles](profiles/README.md#part-i-arm64-hardware-profiles)
+  * [x86-64 Profiles](profiles/README.md#part-ii-x86-64-hardware-profiles)
 
 * **Benchmark Suite**
   * [PresentMon Harness & Baselines](benchmarks/README.md)
