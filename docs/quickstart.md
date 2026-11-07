@@ -2,7 +2,7 @@
 
 > **Achieve real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows 11 on ARM64 and x86-64 with zero frame drops.**
 
-Choose between the **Automated 1-Click PowerShell Setup** (recommended) or the **Manual Step-by-Step Setup** for your architecture.
+Choose between the [**Automated 1-Click PowerShell Setup**](#method-1-automated-1-click-setup-recommended) (recommended), [**Manual Setup for ARM64 (NVIDIA / Qualcomm)**](#method-2-manual-setup-for-arm64-nvidia-qualcomm), or [**Manual Setup for x86-64 (AMD / Intel)**](#method-3-manual-setup-for-x86-64-amd-intel).
 
 ---
 
@@ -15,7 +15,7 @@ An automated setup script is provided in the repository to detect your hardware,
 2. Installs Microsoft Visual C++ 2015–2022 Redistributable if missing.
 3. Downloads and silently installs official Daum PotPlayer 64-bit if not present.
 4. Deploys native `AviSynth.dll`, `mvtools2.dll`, and companion `AvsAffinity.dll` directly to PotPlayer.
-5. Deploys architecture-filtered profiles (**Snapdragon-only** on ARM64; **AMD/Intel-only** on x86-64).
+5. Deploys architecture-filtered profiles (**ARM64** on ARM64; **AMD/Intel** on x86-64).
 6. Auto-configures D3D11 Copy-Back hardware decoding, D3D11 Video Renderer, and activates the optimal **Balanced** profile.
 
 ### How to Run:
@@ -46,9 +46,9 @@ If you have cloned or downloaded the repository, open PowerShell in the project 
 
 ---
 
-## Method 2: Manual Setup for Qualcomm Snapdragon (ARM64)
+## Method 2: Manual Setup for ARM64 (NVIDIA / Qualcomm)
 
-Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen 2 devices.
+Follow these steps for RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series, 8cx Gen 1–3, 850, and 7c Gen 2 devices.
 
 ### Prerequisites (ARM64)
 1. **Microsoft Visual C++ 2015–2022 ARM64 Redistributable:**  
@@ -69,14 +69,14 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
    C:\Program Files\DAUM\PotPlayer\
    ```
 
-### Step 2: Configure Hardware Decoding (Adreno VPU)
+### Step 2: Configure Hardware Decoding (NVDEC / Adreno VPU)
 1. Open PotPlayer and press **`F5`** to open **Preferences**.
 2. Navigate to **Filter Control** → **Video Decoder** → click **Built-in Video Codec/DXVA Settings**.
 3. Check **Use DXVA** at the top.
 4. Under **Hardware acceleration (DXVA) settings**:
    * Set **DXVA2 Copy-Back:** to **`D3D11`** (or **`Auto (Recommended)`**).
    * Set **Resolution limit:** to **`Always use`**.
-   * Verify individual codec dropdowns (**H.264/AVC1**, **H.265/HEVC**, **VP9**, and **AV1** on Snapdragon X) are set to their default built-in decoders.
+   * Verify individual codec dropdowns (**H.264/AVC1**, **H.265/HEVC**, **VP9**, and **AV1**) are set to their default built-in decoders.
 5. Click **Apply**.
 
 ### Step 3: Configure Direct3D 11 Video Renderer
@@ -85,14 +85,14 @@ Follow these steps for Snapdragon X Elite / Plus, 8cx Gen 1–3, 850, and 7c Gen
 3. Under D3D11 settings, set **Present:** to **`Auto`** or **`Flip Exhaustive`**.
 4. Click **Apply**.
 
-### Step 4: Enable AviSynth & Apply Snapdragon Profile
+### Step 4: Enable AviSynth & Apply ARM64 Profile
 1. In Preferences (**`F5`**), navigate to **Video** → **AviSynth**.
 2. Check the box **AviSynth**.
-3. Copy and paste the profile for your chipset from the [Snapdragon Profile Library](profiles/README.md) or use this universal starter script:
+3. Copy and paste the profile for your chipset from the [ARM64 Profile Section](profiles/README.md#part-i-arm64-hardware-profiles-nvidia-qualcomm) or use this universal starter script:
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60 fps Balanced Script (Qualcomm Snapdragon ARM64)
+# MVTools2 60 fps Balanced Script (ARM64 NVIDIA / Qualcomm)
 # ==============================================================================
 USE_D3D12 = false
 
@@ -133,7 +133,7 @@ Prefetch(threads)
 
 ---
 
-## Method 3: Manual Setup for x86-64 (AMD Ryzen & Intel Core)
+## Method 3: Manual Setup for x86-64 (AMD / Intel)
 
 Follow these steps for standard x86-64 PCs and laptops.
 
@@ -167,11 +167,11 @@ Follow these steps for standard x86-64 PCs and laptops.
 
 ### Step 3: Enable AviSynth & Apply x86-64 Profile
 1. Navigate to **Video** → **AviSynth** and check **AviSynth**.
-2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-ryzen-intel-core) or use this universal x86-64 script:
+2. Paste the script for your CPU tier from the [x86-64 Profile Section](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) or use this universal x86-64 script:
 
 ```avisynth
 # ==============================================================================
-# MVTools2 60 fps Balanced Script (x86-64 AMD Ryzen / Intel Core)
+# MVTools2 60 fps Balanced Script (x86-64 AMD / Intel)
 # ==============================================================================
 threads   = 4
 mem_limit = 1024
@@ -228,4 +228,4 @@ Prefetch(threads)
 | **"LoadPlugin: unable to find mvtools2.dll"** | `mvtools2.dll` is not in PotPlayer's working directory. | Verify `mvtools2.dll` is placed in `C:\Program Files\DAUM\PotPlayer\`, or specify the absolute path: `LoadPlugin("C:\Program Files\DAUM\PotPlayer\mvtools2.dll")`. |
 | **Audio out of sync or stuttering** | Video decoder is set to software decode, saturating CPU. | Verify that **DXVA2 Copy-Back (D3D11)** is active in Video Decoder settings. |
 | **Occasional micro-stutters** | System thermal throttle or high resolution load. | Switch from `MaxQuality` to `Balanced` or `Eco` profile in the [Profile Library](profiles/README.md). |
-| **Direct3D 12 GPU offload testing (ARM64)** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_D3D12 = true` at the top of the Snapdragon script and ensure `mvtools2.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |
+| **Direct3D 12 GPU offload testing (ARM64)** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_D3D12 = true` at the top of the ARM64 script and ensure `mvtools2.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |

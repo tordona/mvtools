@@ -151,14 +151,14 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 1. **Architecture & Compute Engine Targeting:**
    * **Dual-Engine Execution Model (CPU SIMD vs. Direct3D 12 GPU Offload):**
-     Both x86-64 (Intel Core / AMD Ryzen) and ARM64 (Qualcomm Snapdragon) platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
+     Both x86-64 (AMD / Intel) and ARM64 (NVIDIA / Qualcomm) platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
      * **Native CPU SIMD Engine:** Executes 100% on CPU cores using native vector extensions (x86-64 AVX-512 / AVX2 / SSE4.2; ARM64 NEON). On ARM64, this includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`) guaranteeing deterministic slice scheduling without `avstp.dll`.
      * **Direct3D 12 GPU Offload Engine:** Offloads block SAD vector estimation (`motion_search_cs.hlsl`) and frame synthesis / motion compensation warping (`flow_warp.hlsl`) to the graphics processor via `MEnableD3D12(USE_D3D12)`.
    * **Hardware Eligibility Gating (When to Include `USE_D3D12`):**
      Direct3D 12 compute offload requires sufficient shader core density and UMA memory bandwidth to complete within the 16.67 ms presentation deadline:
      * **Eligible Silicon (Include `USE_D3D12 = true/false` Dual-Path Toggle):**
        Include `USE_D3D12` whenever the platform meets ALL of the following:
-       1. **GPU Shader Density:** $\ge 32\text{ EUs}$ (Intel Gen 9–12 / Xe / Arc), $\ge 4\text{ CUs}$ (AMD RDNA / Vega), or $\ge\text{Adreno 680}$ (Qualcomm). Examples: AMD Ryzen AI 300 (Radeon 840M/880M/890M), Ryzen 6000/7000/8000 APUs (Radeon 660M/680M/760M/780M), Intel 11th–14th Gen Core / Core Ultra with Iris Xe (80/96 EUs) or Arc Graphics, Qualcomm Snapdragon 8cx Gen 1–3, Snapdragon X Elite/Plus (Adreno X1-85).
+       1. **GPU Shader Density:** $\ge 32\text{ EUs}$ (Intel Gen 9–12 / Xe / Arc), $\ge 4\text{ CUs}$ (AMD RDNA / Vega), $\ge\text{Adreno 680}$ (Qualcomm), or NVIDIA Blackwell RTX GPU. Examples: AMD Ryzen AI 300 (Radeon 840M/880M/890M), Ryzen 6000/7000/8000 APUs (Radeon 660M/680M/760M/780M), Intel 11th–14th Gen Core / Core Ultra with Iris Xe (80/96 EUs) or Arc Graphics, NVIDIA RTX Spark (Blackwell RTX GPU), Qualcomm Snapdragon 8cx Gen 1–3, Snapdragon X Series, Snapdragon X2 Series.
        2. **Shader Compute Throughput:** $\ge 600\text{ GFLOPS}$ FP32 sustained compute.
        3. **Memory Bandwidth:** $\ge 35\text{ GB/s}$ UMA memory bandwidth (dual-channel DDR4-3200+, DDR5, or LPDDR5/x).
        4. **Package Thermal Envelope:** Sustained package $\text{TDP} > 10\text{ W}$ (active cooling or adequate heatpipe chassis).
@@ -185,7 +185,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 > [!TIP]
 > **Direct3D 12 GPU Offload (`USE_D3D12 = true` — Experimental Preview)**  
-> Direct3D 12 GPU offload executes on any supported DirectX 12 Feature Level 11_0+ GPU (AMD Radeon RDNA/Vega $\ge 4\text{ CUs}$, Intel Iris Xe $\ge 32\text{ EUs}$ / Arc, Qualcomm Adreno 680+ / X1-85) via `MEnableD3D12(USE_D3D12)`. When enabled, SAD motion search and flow synthesis are offloaded to DirectCompute shaders, freeing CPU cores for background system tasks and reducing package thermal strain.
+> Direct3D 12 GPU offload executes on any supported DirectX 12 Feature Level 11_0+ GPU (NVIDIA Blackwell RTX / GeForce, AMD Radeon RDNA/Vega $\ge 4\text{ CUs}$, Intel Iris Xe $\ge 32\text{ EUs}$ / Arc, Qualcomm Adreno 680+ / X1 / X2) via `MEnableD3D12(USE_D3D12)`. When enabled, SAD motion search and flow synthesis are offloaded to DirectCompute shaders, freeing CPU cores for background system tasks and reducing package thermal strain.
 
 2. **Deterministic Filter Pipeline & Strict Variable Ordering:**
    AviSynth+ is an imperative, top-to-bottom interpreted language without variable hoisting. Every profile must strictly follow this sequential execution order:
@@ -247,7 +247,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **MaxQuality:** `threads = 4` (quad-buffered submission; fully saturates GPU compute units without mutex lock contention).
      * On CPU SIMD fallback (`USE_D3D12 = false`), thread counts immediately revert to the physical CPU core budgets detailed below.
    * **Worker Thread Sizing & Physical Core Budgeting:** Never allocate worker threads to SMT / Hyperthreading logical threads (`threads <= physical_cores` or `threads <= physical_p_cores` on hybrid architectures). During heavy SIMD SAD vector loops, SMT causes cache-line thrashing and context-switch stalls. Note that `Prefetch(threads)` controls AviSynth+ thread pool concurrency (worker instance count).
-   * **Hardware Thread Affinity (`PinWorkerThreads`):** On hybrid architectures (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon), chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` immediately prior to `Prefetch(threads, <Lookahead>)`. This confines worker threads strictly to high-IPC Performance cores while leaving audio decoding, DXVA, and D3D11 presentation swapchains free on Efficiency cores. On homogeneous processors (e.g. Intel N100, AMD Ryzen standard CCDs, Snapdragon X Elite/Plus), `PinWorkerThreads()` automatically detects identical efficiency classes and safely evaluates to a no-op without misconfiguring affinity.
+   * **Hardware Thread Affinity (`PinWorkerThreads`):** On hybrid architectures (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon, NVIDIA RTX Spark), chain `last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last` immediately prior to `Prefetch(threads, <Lookahead>)`. This confines worker threads strictly to high-IPC Performance cores while leaving audio decoding, DXVA, and D3D11 presentation swapchains free on Efficiency cores. On homogeneous processors (e.g. Intel N100, AMD Ryzen standard CCDs, Snapdragon X Elite/Plus), `PinWorkerThreads()` automatically detects identical efficiency classes and safely evaluates to a no-op without misconfiguring affinity.
    * Leaving logical threads and background cores free guarantees dedicated CPU headroom for hardware DXVA2/D3D11 decoding, audio synchronization, and Windows DWM presentation, preventing dropped frames.
    * **Homogeneous Cores (Intel 8th–11th Gen, Desktop Core, AMD Zen):**
      * 4-Core CPU (e.g. i5-8259U, i5-1135G7): `threads = 3` (Eco), `threads = 4` (Balanced), `threads = 4` (MaxQuality).
@@ -256,7 +256,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    * **Heterogeneous / Hybrid Cores (Intel Alder Lake/Raptor Lake/Core Ultra P+E, AMD Zen 5+Zen 5c, ARM big.LITTLE):**
      * **Intel Hybrid (P+E Cores):** Budget worker threads strictly against high-performance P-cores (`threads <= p_cores`; e.g. on 4P+8E `i7-1260P`, set `threads = 3` for Eco, `threads = 4` for Balanced/MaxQuality; on 6P+8E `Ultra 7 155H`, set `threads = 3` for Eco, `threads = 4` for Balanced, `threads = 5` or `6` for MaxQuality). Never allocate thread counts based on total physical cores or allow worker threads to spill into low-throughput E-cores where the slowest thread stalls the frame presentation deadline.
      * **AMD Zen 5 + Zen 5c (Kraken Point / Strix Point):** Both Zen 5 and Zen 5c share the unified 16 MB L3 cache with full AVX-512 support. Set `threads = 3` (Eco, P-cores only), `threads = 4` (Balanced), `threads = 6` (MaxQuality, all physical cores).
-     * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 3` (Eco), `threads = 4` (Balanced & MaxQuality).
+     * **ARM Heterogeneous Cores (RTX Spark N1X, Snapdragon 8cx Gen 3, Snapdragon X2 Series):** Budget worker threads strictly against high-IPC Prime cores (`threads <= prime_cores`; e.g. on 10 Prime + 10 Perf `RTX Spark N1X`, set `threads = 4` for Eco, `threads = 6` for Balanced, `threads = 8` for MaxQuality; on Snapdragon X2 Series, set `threads = 4` for Eco, `threads = 6` for Balanced/MaxQuality). `AvsAffinity.dll` (`PinWorkerThreads()`) programmatically confines threads to the Prime cluster, leaving secondary cores free for NVDEC/DXVA decode, audio, and presentation swapchains.
+      * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 3` (Eco), `threads = 4` (Balanced & MaxQuality).
 
 4. **Lookahead Queue Sizing (`Prefetch(threads, Lookahead)`):**
    * **Eco Tier:** `Prefetch(threads, 4)` (4 lookahead frames).
@@ -354,13 +355,13 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
-   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.10)`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.11)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.10 (2026-11-06)`
-   * `# Changelog: Removed residual 1080p phrasing across profile tier definitions for complete 720p-to-4K resolution neutrality`
+   * `# Revision: 2.3.11 (2026-11-07)`
+   * `# Changelog: Added NVIDIA RTX Spark (Blackwell RTX GPU) to Direct3D 12 eligible silicon and ARM64 heterogeneous topology guidance`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
-   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.10)`.
+   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.11)`.
    - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.

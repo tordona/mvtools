@@ -89,7 +89,19 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 
 ## 3. Hardware Profiles & Deployment Guides
 
-Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Qualcomm Snapdragon platforms:
+Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hardware acceleration guides were engineered for Windows on ARM64 platforms (NVIDIA / Qualcomm):
+
+- **RTX Spark N1X (9–10x Cortex-X925 + 9–10x Cortex-A725, Blackwell RTX GPU, 15 W – 45 W TDP)**:
+  - [`RTX-Spark-N1X-Eco.avs`](AviSynth/RTX-Spark-N1X-Eco.avs): `pel=1`, `32x32` coarse blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact.
+  - [`RTX-Spark-N1X-Balanced.avs`](AviSynth/RTX-Spark-N1X-Balanced.avs): Single-pass `16x16` fine blocks, `AvsAffinity` Cortex-X925 core pinning, `Prefetch(6)`. Fluid 60 fps target.
+  - [`RTX-Spark-N1X-MaxQuality.avs`](AviSynth/RTX-Spark-N1X-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation on CPU / `pel=1` on Blackwell RTX GPU, dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `Prefetch(8)`.
+  - Guide: [`Documentation/guides/RTXSparkN1X.md`](Documentation/guides/RTXSparkN1X.md).
+
+- **Snapdragon X2 Series (6–12x Prime + 4–6x Performance 3rd-Gen Oryon Cores, Adreno X2 GPU, 15 W – 45 W TDP)**:
+  - [`Snapdragon-X2-Eco.avs`](AviSynth/Snapdragon-X2-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact.
+  - [`Snapdragon-X2-Balanced.avs`](AviSynth/Snapdragon-X2-Balanced.avs): Single-pass `16x16` fine blocks, `AvsAffinity` Oryon Prime core pinning, `Prefetch(6)`. Fluid 60 fps target.
+  - [`Snapdragon-X2-MaxQuality.avs`](AviSynth/Snapdragon-X2-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation on CPU / `pel=1` on Adreno X2 GPU, dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `Prefetch(6)`.
+  - Guide: [`Documentation/guides/SnapdragonX2.md`](Documentation/guides/SnapdragonX2.md).
 
 - **Snapdragon X Series (8–12x Oryon Cores @ up to 3.4–4.3 GHz, 15 W – 45 W TDP)**:
   - [`Snapdragon-X-Eco.avs`](AviSynth/Snapdragon-X-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low thermal impact and high efficiency.
