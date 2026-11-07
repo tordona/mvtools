@@ -1,14 +1,14 @@
-# MVTools2 — Native ARM64 & Direct3D 12 GPU Video Motion Interpolation
+# MVTools2 — Real-Time 60 fps Video Motion Interpolation
 
-### Real-Time 60 fps Playback for Windows on ARM64 (NVIDIA / Qualcomm) & PotPlayer
+### Native x86-64 & ARM64 Motion Estimation for Daum PotPlayer & AviSynth+
 
 <p align="center">
   <a href="https://github.com/tordona/mvtools/releases/latest"><img src="https://img.shields.io/github/v/release/tordona/mvtools?color=blue&logo=github" height="20" alt="GitHub Release"></a>
   <a href="https://tordona.github.io/mvtools/"><img src="https://img.shields.io/badge/Docs-GitHub%20Pages-blue?logo=github" height="20" alt="Documentation Hub"></a>
-  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Platform-Windows%20on%20ARM64-0078D4?logo=windows" height="20" alt="Platform"></a>
-  <a href="AI_PORT_NOTICE.md"><img src="https://img.shields.io/badge/Architecture-ARM64%20NEON%20%2B%20AVX2-410099?logo=arm" height="20" alt="Architecture"></a>
+  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Platform-Windows%20(x86--64%20%26%20ARM64)-0078D4?logo=windows" height="20" alt="Platform"></a>
+  <a href="AI_PORT_NOTICE.md"><img src="https://img.shields.io/badge/SIMD-AVX2%20%2F%20AVX--512%20%2B%20NEON-410099" height="20" alt="SIMD"></a>
   <a href="#experimental-feature-notice-direct3d-12-gpu-offload"><img src="https://img.shields.io/badge/GPU%20Engine-Direct3D%2012%20(Experimental)-107C41?logo=directx" height="20" alt="GPU Engine"></a>
-  <a href="#windows-on-arm64-60-fps-real-time-motion-interpolation-nvidia--qualcomm"><img src="https://img.shields.io/badge/Framerate-24%20fps%20%E2%86%92%2060%20fps%20Real--Time-brightgreen" height="20" alt="Framerate"></a>
+  <a href="#real-time-60-fps-hardware-profiles-x86-64--arm64"><img src="https://img.shields.io/badge/Framerate-24%20fps%20%E2%86%92%2060%20fps%20Real--Time-brightgreen" height="20" alt="Framerate"></a>
   <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Tested%20On-Daum%20PotPlayer%20(D3D11)-E5A00D" height="20" alt="Tested On"></a>
   <a href="Documentation/gpl.txt"><img src="https://img.shields.io/badge/License-GPL--2.0-blue.svg" height="20" alt="License"></a>
 </p>
@@ -17,7 +17,7 @@
 
 **MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
-This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **experimental Direct3D 12 DirectCompute GPU offload engine**, enabling real-time 60 fps playback across Windows on ARM64 devices (including NVIDIA RTX Spark and Qualcomm Snapdragon) as well as x86-64 platforms.
+This repository provides **48 hardware-tailored real-time profiles** across **x86-64** (AVX2 / AVX-512) and **ARM64** (NEON) platforms, an **experimental Direct3D 12 GPU offload engine**, and an automated **PresentMon sub-millisecond benchmark test harness** to verify zero dropped frames and evaluate true 1% Low frame pacing.
 
 > 📖 **Documentation Hub:** Visit [**tordona.github.io/mvtools**](https://tordona.github.io/mvtools/) for browsable profiles, step-by-step setup guides, and benchmark analysis.
 
@@ -27,9 +27,9 @@ This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **exper
 
 | Feature                                   | Implementation                                                                                                                   | Hardware & Compatibility Notes                                                                                         |
 |:----------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
-| **Native Windows on ARM64**               | Native ARM64 NEON SIMD vector implementation running without x86 emulation.                                                      | Provides real-time 60 fps interpolation on Windows on ARM, where software like SVP lacks native ARM64 support.         |
+| **Dual Architecture (x86-64 & ARM64)**    | Native AVX2/AVX-512 and ARM64 NEON SIMD vector implementations running without emulation overhead.                              | Delivers deterministic real-time 60 fps motion interpolation across 64-bit x86 and Windows on ARM devices.            |
 | **Experimental Direct3D 12 GPU Offload**  | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                               |
-| **24 Tuned ARM64 Profiles**               | Curated `.avs` scripts for **RTX Spark N1X, Snapdragon X2 Series, Snapdragon X Series, 8cx Gen 1–3, 850, and 7c Gen 2**.         | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
+| **48 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 8 x86-64 platforms and 8 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
 | **Sub-Millisecond Benchmark Harness**     | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                      |
 | **Custom AviSynth+ Profile Generation**   | 1-click quickstart ([`GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)) & technical spec ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)). | Instant tailored AviSynth+ profile generation for PotPlayer (zero clone needed) and autonomous closed-loop PresentMon tuning. |
 
@@ -37,18 +37,33 @@ This fork delivers **a native Windows on ARM64 (NEON SIMD) port** and an **exper
 
 ### Plugin Binaries & Architecture
 
-* **`mvtools2.dll`**: Unified canonical binary containing both the production native ARM64 CPU NEON engine (default) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
+* **`mvtools2.dll`**: Unified canonical binary containing the production native CPU SIMD vector engine (AVX2/AVX-512 on x86-64, NEON on ARM64) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
 * **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake, AMD Zen 4c/5c, Qualcomm Snapdragon), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
 > Direct3D 12 GPU offload (`MEnableD3D12(true)`) is provided as an **experimental preview**. Rendering fidelity, motion vector precision, and real-time performance are provided on a **best-effort basis and are not guaranteed**. Behavior and visual output may vary depending on Qualcomm Adreno GPU architecture, Windows display driver revisions, and concurrent desktop swapchain loads.
 >
-> For production stability, reference image quality, and deterministic stutter-free playback, the native **ARM64 CPU NEON reference engine (`mvtools2.dll`)** remains the recommended default.
+> For production stability, reference image quality, and deterministic stutter-free playback, the native **CPU SIMD reference engine (`mvtools2.dll`)** remains the recommended default.
 
-## Windows on ARM64 60 fps Real-Time Motion Interpolation (NVIDIA / Qualcomm)
+## Real-Time 60 fps Hardware Profiles (x86-64 & ARM64)
 
-This fork provides **24 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and step-by-step PotPlayer hardware acceleration guides under [`Documentation/guides/`](Documentation/guides/) across Windows on ARM64 SoC platforms:
+This repository provides **48 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and configuration guides under [`Documentation/guides/`](Documentation/guides/) across 8 x86-64 and 8 ARM64 platforms:
+
+### x86-64 Platforms (AVX2 / AVX-512)
+
+| Platform Token | Topology / GPU | Verified Profiles | Hardware Spec |
+|:--- |:--- |:--- |:---: |
+| **`Generic-x64`** | Universal fallback for all 64-bit x86 systems | [Eco](AviSynth/Generic-x64-Eco.avs), [Balanced](AviSynth/Generic-x64-Balanced.avs), [MaxQuality](AviSynth/Generic-x64-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`RyzenAI-5-340`** | 3x Zen 5 + 3x Zen 5c (12T) / Radeon 840M (RDNA 3.5) | [Eco](AviSynth/RyzenAI-5-340-Eco.avs), [Balanced](AviSynth/RyzenAI-5-340-Balanced.avs), [MaxQuality](AviSynth/RyzenAI-5-340-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i7-11850H`** | 8C/16T Tiger Lake-H @ 45 W / Intel UHD 32EU | [Eco](AviSynth/Core-i7-11850H-Eco.avs), [Balanced](AviSynth/Core-i7-11850H-Balanced.avs), [MaxQuality](AviSynth/Core-i7-11850H-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-1135G7`** | 4C/8T Tiger Lake-U @ 12–28 W / Iris Xe 80EU | [Eco](AviSynth/Core-i5-1135G7-Eco.avs), [Balanced](AviSynth/Core-i5-1135G7-Balanced.avs), [MaxQuality](AviSynth/Core-i5-1135G7-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-8259U`** | 4C/8T Coffee Lake @ 28 W / Iris Plus 655 (128 MB eDRAM) | [Eco](AviSynth/Core-i5-8259U-Eco.avs), [Balanced](AviSynth/Core-i5-8259U-Balanced.avs), [MaxQuality](AviSynth/Core-i5-8259U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i3-1215U`** | 2P+4E/8T Alder Lake-U @ 15 W / Intel UHD 64EU (`AvsAffinity`) | [Eco](AviSynth/Core-i3-1215U-Eco.avs), [Balanced](AviSynth/Core-i3-1215U-Balanced.avs), [MaxQuality](AviSynth/Core-i3-1215U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Intel-N100`** | 4C/4T Gracemont @ 6 W Fanless / Intel UHD 24EU | [Eco](AviSynth/Intel-N100-Eco.avs), [Balanced](AviSynth/Intel-N100-Balanced.avs), [MaxQuality](AviSynth/Intel-N100-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-7Y54`** | 2C/4T Amber Lake @ 4.5 W Fanless / Intel HD 615 | [Eco](AviSynth/Core-i5-7Y54-Eco.avs), [Balanced](AviSynth/Core-i5-7Y54-Balanced.avs), [MaxQuality](AviSynth/Core-i5-7Y54-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+
+### ARM64 Platforms (NEON SIMD & Direct3D 12 GPU Offload)
 
 | Platform                       | Cores / GPU                                     | Verified Profiles                                                                                                                                          | Hardware Guide                                                      |
 |:------------------------------ |:----------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------------------------------------------- |:------------------------------------------------------------------- |
@@ -71,7 +86,7 @@ An automated benchmark harness and comparative matrix suite for reproducible fra
 
 - **[`MvToolsBenchmark-Start.ps1`](Benchmarks/MvToolsBenchmark-Start.ps1)**: Automated PotPlayer test harness with PresentMon frame timing (Avg FPS, 1% Lows, 0.1% Lows), hardware platform autodetection (ARM64 & x86-64), and deterministic configuration enforcement.
 - **[`MvToolsBenchmarks-Compare.ps1`](Benchmarks/MvToolsBenchmarks-Compare.ps1)**: Automated 3×2 comparative matrix runner and Markdown/CSV report generator comparing **Eco vs. Balanced vs. MaxQuality** and **ARM64 CPU NEON / x64 CPU SIMD vs. Direct3D 12 GPU**.
-- **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Verified baseline performance matrices and comparative pacing reports across 6 Snapdragon SoC generations.
+- **[`Benchmarks/Baseline/`](Benchmarks/Baseline/)**: Verified baseline performance matrices and comparative pacing reports across ARM64 and x86-64 platforms.
 - **[`Documentation/guides/GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)**: Custom AviSynth+ Profiles Quickstart — instant 1-click generation of tailored 3-tier profiles (`Eco`, `Balanced`, `MaxQuality`) for use in PotPlayer with zero cloning or tools required.
 - **[`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)**: AI Agent Technical Specification & Tuning Guide for closed-loop benchmark validation and telemetry diagnosis.
 
