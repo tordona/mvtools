@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.15 (2026-11-06)
+# Revision: 2.3.16 (2026-11-07)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.15
+    2.3.16
 .DATE
-    2026-11-06
+    2026-11-07
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.16 (2026-11-07): Added RTX Spark N1X profile manifest and hardware autodetection rules.
     - v2.3.15 (2026-11-06): Renamed Snapdragon-X-Plus profiles to series-wide Snapdragon-X.
     - v2.3.14 (2026-11-06): Updated AI provenance prompt header to AIAgentProfileGuide Rev 2.3.10.
-    - v2.3.13 (2026-11-06): Added Snapdragon X2 profile manifest and hardware autodetection rules.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.15"
+$Script:InstallerVersion = "2.3.16"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -1855,9 +1855,9 @@ function Install-ArchitectureFilteredProfiles {
     if (Test-Path $localAvsDir) {
         $localProfiles = Get-ChildItem -Path $localAvsDir -Filter "*.avs"
         foreach ($p in $localProfiles) {
-            $isSnapdragon = ($p.Name -like "Snapdragon*")
-            # Filter rule: ARM64 gets ONLY Snapdragon; x86-64 gets strictly non-Snapdragon
-            if (($isArm64 -and $isSnapdragon) -or (-not $isArm64 -and -not $isSnapdragon)) {
+            $isArm64Profile = ($p.Name -like "Snapdragon*" -or $p.Name -like "*Spark*" -or $p.Name -like "RTX*")
+            # Filter rule: ARM64 gets ARM64 profiles; x86-64 gets strictly non-ARM64
+            if (($isArm64 -and $isArm64Profile) -or (-not $isArm64 -and -not $isArm64Profile)) {
                 Copy-Item -Path $p.FullName -Destination (Join-Path $potAvsDir $p.Name) -Force
                 $deployedCount++
             }
@@ -1870,6 +1870,7 @@ function Install-ArchitectureFilteredProfiles {
         
         $profileManifest = if ($isArm64) {
             @(
+                "RTX-Spark-N1X-Eco.avs", "RTX-Spark-N1X-Balanced.avs", "RTX-Spark-N1X-MaxQuality.avs",
                 "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
                 "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
                 "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
@@ -1985,8 +1986,12 @@ function Match-HardwareProfile {
     $combined = "$($HardwareInfo.CpuName) $($HardwareInfo.GpuName)"
     $isArm64 = ($TargetArch -eq "arm64")
 
-    # Match rules for Snapdragon ARM64
+    # Match rules for Windows on ARM64
     if ($isArm64) {
+        if ($combined -match '(?i)N1X|Spark|RTX.*Spark') {
+            $cand = Join-Path $potAvsDir "RTX-Spark-N1X-Balanced.avs"
+            if (Test-Path $cand) { return @{ Profile = $cand; Name = "RTX-Spark-N1X-Balanced"; IsGeneric = $false } }
+        }
         if ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
             $cand = Join-Path $potAvsDir "Snapdragon-X2-Balanced.avs"
             if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X2-Balanced"; IsGeneric = $false } }

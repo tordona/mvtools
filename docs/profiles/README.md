@@ -33,8 +33,9 @@ Prefetch(threads)
 * **Zero Host Blast Radius:** Host media player threads—including audio decoding, DXVA video acceleration, and Direct3D swapchain presentation—remain unconstrained and free to run on Efficiency cores.
 * **Homogeneous Processor Bypass:** On processors with uniform core efficiency (e.g. Snapdragon X Elite/Plus, Intel N100, standard AMD Ryzen CCDs), the filter automatically detects uniform core efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`).
 * **Core Budget Allocations:**
-  * **Snapdragon X2 (6–12x Prime + 4–6x Perf Oryon):** Pinned strictly to 3rd-Gen Oryon Prime cores.
-  * **Snapdragon X Plus (8x Oryon):** 6–8 uniform threads (homogeneous no-op).
+  * **RTX Spark N1X (9–10x Cortex-X925 + 9–10x Cortex-A725):** Pinned strictly to Cortex-X925 Prime cores.
+  * **Snapdragon X2 Series (6–12x Prime + 4–6x Perf Oryon):** Pinned strictly to 3rd-Gen Oryon Prime cores.
+  * **Snapdragon X Series (8x / 12x Oryon):** 6–8 uniform threads (homogeneous no-op).
   * **Snapdragon 8cx Gen 3 (4x X1 + 4x A78):** Pinned strictly to Cortex-X1 Prime cores.
   * **Snapdragon 8cx Gen 1/2 (4x Gold + 4x Silver):** Pinned strictly to Kryo Gold cores.
   * **Snapdragon 7c Gen 2 (2x Gold + 6x Silver):** Pinned strictly to the 2 Cortex-A76 cores.
@@ -42,11 +43,11 @@ Prefetch(threads)
   * **AMD Hybrid (Zen 5 + Zen 5c):** Pinned strictly to high-frequency Zen 5 cores, leaving 3.4 GHz Zen 5c cores for host playback.
 
 ### 4. Direct3D 12 DirectCompute GPU Offload Toggle (ARM64)
-Snapdragon X Plus and 8cx Gen 3 profiles include an inline toggle:
+ARM64 profiles for eligible hardware include an inline toggle:
 ```avisynth
-USE_D3D12 = false  # Set to true for Direct3D 12 Adreno GPU offload (mvtools2.dll)
+USE_D3D12 = false  # Set to true for Direct3D 12 GPU offload (mvtools2.dll)
 ```
-When enabled, motion vector estimation executes on the Adreno iGPU command queue while keeping CPU utilization minimal.
+When enabled, motion vector estimation executes on the GPU command queue (NVIDIA Blackwell RTX or Qualcomm Adreno) while keeping CPU utilization minimal.
 
 ### 5. Dynamic Resolution Adaptation & 4K Block Density Invariant
 A 4K (3840×2160) video stream contains 4× the pixel area of 1080p (1920×1080). Evaluating fixed 1080p block sizes (`16x16`) across a 4K frame generates 240 × 135 = 32,400 blocks per pass (4× more than 1080p's 8,160 blocks). Across a two-pass coarse-to-fine pipeline, this quadruples motion vector search operations and saturates memory bandwidth, resulting in severe GPU compute stalls and CPU worker thread starvation.
@@ -66,10 +67,13 @@ pad_val    = is_4k ? 16 : 8
 
 ---
 
-## Part I: Qualcomm Snapdragon (ARM64) Profiles
+## Part I: ARM64 Hardware Profiles (NVIDIA / Qualcomm)
 
 | Platform / SoC | Profile Tier | Architecture | Block Size (Base / 4K) | `pel` | Threads | Direct3D 12 GPU Offload | Raw Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
+| **RTX Spark N1X** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 2 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Eco.avs) |
+| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | 1 | 3 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Balanced.avs) |
+| | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 | 1 (GPU) / 2 (CPU) | 4 / 8 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-MaxQuality.avs) |
 | **Snapdragon X2 Series** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 2 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Eco.avs) |
 | | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | 1 | 3 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 | 1 (GPU) / 2 (CPU) | 4 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-MaxQuality.avs) |
@@ -93,7 +97,7 @@ pad_val    = is_4k ? 16 : 8
 | | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 2 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
 
 > [!NOTE]
-> All profiles default to pure CPU NEON execution (`USE_D3D12 = false`). Profiles marked **Opt-in (Preview)** provide an inline toggle allowing users to optionally test experimental Direct3D 12 GPU compute offload on supported Adreno hardware.
+> All profiles default to pure CPU NEON execution (`USE_D3D12 = false`). Profiles marked **Opt-in (Preview)** provide an inline toggle allowing users to optionally test experimental Direct3D 12 GPU compute offload on supported hardware (NVIDIA Blackwell RTX and Qualcomm Adreno).
 
 ---
 
@@ -413,8 +417,8 @@ Prefetch(threads, 4)
 ```
 
 ---
-<span id="part-ii-x86-64-hardware-profiles-amd-ryzen-intel-core"></span>
-## Part II: x86-64 Hardware Profiles (AMD Ryzen & Intel Core)
+
+## Part II: x86-64 Hardware Profiles (AMD / Intel)
 
 Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, preserving memory bandwidth on integrated GPUs (AMD Radeon RDNA, Intel Iris Xe, and Intel Arc) while maintaining fluid 60 fps frame delivery.
 

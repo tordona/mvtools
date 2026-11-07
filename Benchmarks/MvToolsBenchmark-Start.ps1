@@ -34,23 +34,19 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.6.1
+    2.6.2
 .DATE
-    2026-11-06
+    2026-11-07
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.2 (2026-11-07): Added RTX Spark N1X platform detection and profile manifest.
     - v2.6.1 (2026-11-06): Standardized Snapdragon X series platform detection and profile manifest.
     - v2.6.0 (2026-11-03): Added Direct3D 12 GPU offload support and companion plugin integration.
                            Supports unified mvtools2.dll deployment (CPU NEON + D3D12 compute engine)
                            and AvsAffinity.dll deployment across ARM64 and x64 targets. Added -GpuMode
                            parameter (Auto, D3D12, CPU, NEON), dynamic USE_D3D12 injection, and experimental
                            preview diagnostic warnings in benchmark telemetry and console reports.
-    - v2.5.0 (2026-10-25): Added Thread Capacity Saturation & Swapchain Frame Duplication Safeguard.
-                           Detects when worker threads are compute-bound (saturation >= 88%) while PresentMon
-                           records ~60 fps from PotPlayer D3D11 swapchain backbuffer duplication, preventing
-                           silent false positives. Adds profile thread parsing, thread ceiling auditing,
-                           and OSD verification warnings in audit reports and console output.
     - v2.4.1 (2026-10-25): Added automated diagnostic testing and acquisition for Microsoft Visual C++
                            2015-2022 Redistributables (ARM64 & x64) via aka.ms permalinks (-AutoInstallVcRedist).
                            Eliminates PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies
@@ -170,7 +166,7 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.6.0"
+$Script:HarnessVersion = "2.6.2"
 $Script:AutoInstallVcRedist = $AutoInstallVcRedist
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
@@ -2458,6 +2454,7 @@ function Install-AviSynthProfilesFromRepo {
     if (-not $fileItems -or $fileItems.Count -eq 0) {
         $canonicalProfiles = @(
             "Generic-x64-Eco.avs", "Generic-x64-Balanced.avs", "Generic-x64-MaxQuality.avs",
+            "RTX-Spark-N1X-Eco.avs", "RTX-Spark-N1X-Balanced.avs", "RTX-Spark-N1X-MaxQuality.avs",
             "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
             "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
             "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
@@ -2957,7 +2954,10 @@ function Get-SystemPlatformRecommendation {
         }
     } else {
         # Baseline ARM64 hardware detection rules
-        if ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
+        if ($combined -match '(?i)N1X|Spark|RTX.*Spark') {
+            $platform = "RTX-Spark-N1X"
+            $platformLabel = "RTX Spark N1X (Arm Cortex-X925/A725, Blackwell RTX GPU)"
+        } elseif ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
             $platform = "Snapdragon-X2"
             $platformLabel = "Snapdragon X2 Series (Qualcomm Oryon CPU, Adreno X2 GPU)"
         } elseif ($combined -match '(?i)X\s*Plus|X1P|X\s*Elite|X1E|Snapdragon.*X|Oryon') {
