@@ -17,7 +17,7 @@
 
 **MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
-This repository provides **48 hardware-tailored real-time profiles** across **x86-64** (AVX2 / AVX-512) and **ARM64** (NEON) platforms, an **experimental Direct3D 12 GPU offload engine**, and an automated **PresentMon sub-millisecond benchmark test harness** to verify zero dropped frames and evaluate true 1% Low frame pacing.
+This repository provides **51 hardware-tailored real-time profiles** across **x86-64** (AVX2 / AVX-512) and **ARM64** (NEON) platforms, an **experimental Direct3D 12 GPU offload engine**, and an automated **PresentMon sub-millisecond benchmark test harness** to verify zero dropped frames and evaluate true 1% Low frame pacing.
 
 > 📖 **Documentation Hub:** Visit [**tordona.github.io/mvtools**](https://tordona.github.io/mvtools/) for browsable profiles, step-by-step setup guides, and benchmark analysis.
 
@@ -29,7 +29,7 @@ This repository provides **48 hardware-tailored real-time profiles** across **x8
 |:----------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
 | **Dual Architecture (x86-64 & ARM64)**    | Native AVX2/AVX-512 and ARM64 NEON SIMD vector implementations running without emulation overhead.                              | Delivers deterministic real-time 60 fps motion interpolation across 64-bit x86 and Windows on ARM devices.            |
 | **Experimental Direct3D 12 GPU Offload**  | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                               |
-| **48 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 8 x86-64 platforms and 8 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
+| **51 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 8 x86-64 platforms and 9 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
 | **Sub-Millisecond Benchmark Harness**     | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                      |
 | **Custom AviSynth+ Profile Generation**   | 1-click quickstart ([`GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)) & technical spec ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)). | Instant tailored AviSynth+ profile generation for PotPlayer (zero clone needed) and autonomous closed-loop PresentMon tuning. |
 
@@ -48,7 +48,7 @@ This repository provides **48 hardware-tailored real-time profiles** across **x8
 
 ## Real-Time 60 fps Hardware Profiles (x86-64 & ARM64)
 
-This repository provides **48 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and configuration guides under [`Documentation/guides/`](Documentation/guides/) across 8 x86-64 and 8 ARM64 platforms:
+This repository provides **51 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and configuration guides under [`Documentation/guides/`](Documentation/guides/) across 8 x86-64 and 9 ARM64 platforms:
 
 ### x86-64 Platforms (AVX2 / AVX-512)
 
@@ -70,6 +70,7 @@ This repository provides **48 tuned real-time 60 fps AviSynth+ motion interpolat
 | **RTX Spark N1X**              | 9–10x Cortex-X925 + 9–10x A725 / Blackwell RTX  | [Eco](AviSynth/RTX-Spark-N1X-Eco.avs), [Balanced](AviSynth/RTX-Spark-N1X-Balanced.avs), [MaxQuality](AviSynth/RTX-Spark-N1X-MaxQuality.avs)                | [`RTXSparkN1X.md`](Documentation/guides/RTXSparkN1X.md)             |
 | **Snapdragon X2 Series**       | 6–12x Prime + 4–6x Perf Oryon / Adreno X2       | [Eco](AviSynth/Snapdragon-X2-Eco.avs), [Balanced](AviSynth/Snapdragon-X2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-X2-MaxQuality.avs)                | [`SnapdragonX2.md`](Documentation/guides/SnapdragonX2.md)           |
 | **Snapdragon X Series**        | 8–12x Oryon / Adreno X1-85 (~3.8 TFLOPS)        | [Eco](AviSynth/Snapdragon-X-Eco.avs), [Balanced](AviSynth/Snapdragon-X-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-X-MaxQuality.avs)                   | [`SnapdragonX.md`](Documentation/guides/SnapdragonX.md)             |
+| **Snapdragon C**               | 1x Prime + 3x Perf + 4x Eff Kryo / Adreno A643  | [Eco](AviSynth/Snapdragon-C-Eco.avs), [Balanced](AviSynth/Snapdragon-C-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-C-MaxQuality.avs)                   | [`SnapdragonC.md`](Documentation/guides/SnapdragonC.md)             |
 | **Snapdragon 8cx Gen 3 / SQ3** | 4x X1 + 4x A78 / Adreno 690 (~2.2 TFLOPS)       | [Eco](AviSynth/Snapdragon-8cxGen3-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen3-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) | [`Snapdragon8cxGen3.md`](Documentation/guides/Snapdragon8cxGen3.md) |
 | **Snapdragon 8cx Gen 2 / SQ2** | 4x Gold + 4x Silver / Adreno 680 (~1.3 TFLOPS)  | [Eco](AviSynth/Snapdragon-8cxGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) | [`Snapdragon8cxGen2.md`](Documentation/guides/Snapdragon8cxGen2.md) |
 | **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS)  | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |

@@ -34,30 +34,15 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.6.2
+    2.6.3
 .DATE
     2026-11-07
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.3 (2026-11-07): Added Snapdragon C profile manifest and hardware autodetection rules.
     - v2.6.2 (2026-11-07): Added RTX Spark N1X platform detection and profile manifest.
     - v2.6.1 (2026-11-06): Standardized Snapdragon X series platform detection and profile manifest.
-    - v2.6.0 (2026-11-03): Added Direct3D 12 GPU offload support and companion plugin integration.
-                           Supports unified mvtools2.dll deployment (CPU NEON + D3D12 compute engine)
-                           and AvsAffinity.dll deployment across ARM64 and x64 targets. Added -GpuMode
-                           parameter (Auto, D3D12, CPU, NEON), dynamic USE_D3D12 injection, and experimental
-                           preview diagnostic warnings in benchmark telemetry and console reports.
-    - v2.4.1 (2026-10-25): Added automated diagnostic testing and acquisition for Microsoft Visual C++
-                           2015-2022 Redistributables (ARM64 & x64) via aka.ms permalinks (-AutoInstallVcRedist).
-                           Eliminates PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies
-                           (vcruntime140.dll, msvcp140.dll, vcruntime140_1.dll). Added architecture-specific
-                           PE machine validation in System32.
-    - v2.4.0 (2026-10-24): Added full cross-architecture support for x64 (AMD/Intel) and ARM64.
-                           Dynamic hardware platform detection and mode recommendations (CPU SIMD / Platform vs
-                           CPU NEON / SoC). Zero-hardcoded-version asset acquisition via GitHub REST API and
-                           HTML asset fallbacks for MVTools, AviSynth+, 7-Zip, and PotPlayer. Architecture-aware
-                           AviSynth profile validation and automated acquisition from tordona/mvtools. Strict PE
-                           machine validation (0x8664 vs 0xAA64).
     - v2.3.0 (2026-10-19): Added automated GitHub acquisition for MVTools ARM64 and AviSynth+, dual
                            AppData/local PotPlayer INI targeting, binary PE architecture validation,
                            user download confirmations, and background app quiescence prompts.
@@ -2457,6 +2442,7 @@ function Install-AviSynthProfilesFromRepo {
             "RTX-Spark-N1X-Eco.avs", "RTX-Spark-N1X-Balanced.avs", "RTX-Spark-N1X-MaxQuality.avs",
             "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
             "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
+            "Snapdragon-C-Eco.avs", "Snapdragon-C-Balanced.avs", "Snapdragon-C-MaxQuality.avs",
             "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
             "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
             "Snapdragon-8cxGen1-Eco.avs", "Snapdragon-8cxGen1-Balanced.avs", "Snapdragon-8cxGen1-MaxQuality.avs",
@@ -2963,6 +2949,9 @@ function Get-SystemPlatformRecommendation {
         } elseif ($combined -match '(?i)X\s*Plus|X1P|X\s*Elite|X1E|Snapdragon.*X|Oryon') {
             $platform = "Snapdragon-X"
             $platformLabel = "Snapdragon X Series (Qualcomm Oryon CPU, Adreno X1 GPU)"
+        } elseif ($combined -match '(?i)Snapdragon.*C\b|SC[0-9]|Snapdragon.*Compute') {
+            $platform = "Snapdragon-C"
+            $platformLabel = "Snapdragon C (Qualcomm Kryo CPU, Adreno A643 GPU)"
         } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|8180X') {
             $platform = "Snapdragon-8cxGen3"
             $platformLabel = "Snapdragon 8cx Gen 3 (Kryo Cortex-X1/A78, Adreno 690)"

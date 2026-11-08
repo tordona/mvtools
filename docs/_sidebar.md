@@ -6,6 +6,7 @@
   * [RTX Spark N1X](guides/RTXSparkN1X.md)
   * [Snapdragon X2 Series](guides/SnapdragonX2.md)
   * [Snapdragon X Series](guides/SnapdragonX.md)
+  * [Snapdragon C](guides/SnapdragonC.md)
   * [Snapdragon 8cx Gen 3](guides/Snapdragon8cxGen3.md)
   * [Snapdragon 8cx Gen 2](guides/Snapdragon8cxGen2.md)
   * [Snapdragon 8cx Gen 1](guides/Snapdragon8cxGen1.md)

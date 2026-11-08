@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.16 (2026-11-07)
+# Revision: 2.3.17 (2026-11-07)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.16
+    2.3.17
 .DATE
     2026-11-07
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.17 (2026-11-07): Added Snapdragon C profile manifest and hardware autodetection rules.
     - v2.3.16 (2026-11-07): Added RTX Spark N1X profile manifest and hardware autodetection rules.
     - v2.3.15 (2026-11-06): Renamed Snapdragon-X-Plus profiles to series-wide Snapdragon-X.
-    - v2.3.14 (2026-11-06): Updated AI provenance prompt header to AIAgentProfileGuide Rev 2.3.10.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.16"
+$Script:InstallerVersion = "2.3.17"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -1873,6 +1873,7 @@ function Install-ArchitectureFilteredProfiles {
                 "RTX-Spark-N1X-Eco.avs", "RTX-Spark-N1X-Balanced.avs", "RTX-Spark-N1X-MaxQuality.avs",
                 "Snapdragon-X2-Eco.avs", "Snapdragon-X2-Balanced.avs", "Snapdragon-X2-MaxQuality.avs",
                 "Snapdragon-X-Eco.avs", "Snapdragon-X-Balanced.avs", "Snapdragon-X-MaxQuality.avs",
+                "Snapdragon-C-Eco.avs", "Snapdragon-C-Balanced.avs", "Snapdragon-C-MaxQuality.avs",
                 "Snapdragon-8cxGen3-Eco.avs", "Snapdragon-8cxGen3-Balanced.avs", "Snapdragon-8cxGen3-MaxQuality.avs",
                 "Snapdragon-8cxGen2-Eco.avs", "Snapdragon-8cxGen2-Balanced.avs", "Snapdragon-8cxGen2-MaxQuality.avs",
                 "Snapdragon-8cxGen1-Eco.avs", "Snapdragon-8cxGen1-Balanced.avs", "Snapdragon-8cxGen1-MaxQuality.avs",
@@ -1999,6 +2000,10 @@ function Match-HardwareProfile {
         if ($combined -match '(?i)X1P|X1E|Snapdragon.*X|Oryon') {
             $cand = Join-Path $potAvsDir "Snapdragon-X-Balanced.avs"
             if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-X-Balanced"; IsGeneric = $false } }
+        }
+        if ($combined -match '(?i)Snapdragon.*C\b|SC[0-9]|Snapdragon.*Compute') {
+            $cand = Join-Path $potAvsDir "Snapdragon-C-Balanced.avs"
+            if (Test-Path $cand) { return @{ Profile = $cand; Name = "Snapdragon-C-Balanced"; IsGeneric = $false } }
         }
         if ($combined -match '(?i)8cx.*Gen.*3|SQ3') {
             $cand = Join-Path $potAvsDir "Snapdragon-8cxGen3-Balanced.avs"

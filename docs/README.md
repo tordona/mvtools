@@ -41,8 +41,10 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 
 | SoC Platform | Target Hardware / Devices | Tuned Profiles | Hardware Setup Guide |
 | :--- | :--- | :--- | :---: |
+| **RTX Spark N1X** | Arm Cortex-X925/A725, Blackwell RTX GPU | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/RTXSparkN1X.md) |
 | **Snapdragon X2 Series** | 3rd-Gen Oryon (18C / 12C / 10C / 6C), Adreno X2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonX2.md) |
 | **Snapdragon X Series** | Surface Pro 11, Galaxy Book4 Edge, Dell XPS 13 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonX.md) |
+| **Snapdragon C** | 8-Core Kryo (1+3+4), Adreno A643 (~5 W – 10 W) | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/SnapdragonC.md) |
 | **Snapdragon 8cx Gen 3 / SQ3** | Lenovo ThinkPad X13s, Surface Pro 9 5G | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen3.md) |
 | **Snapdragon 8cx Gen 2 / SQ2** | Microsoft Surface Pro X SQ2 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen2.md) |
 | **Snapdragon 8cx Gen 1 / SQ1** | Microsoft Surface Pro X SQ1 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon8cxGen1.md) |
@@ -57,7 +59,7 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
   Get up and running with 60 fps video interpolation in PotPlayer in under 3 minutes.
 
 * [**AviSynth+ Profile Library**](profiles/README.md)  
-  Explore all 48 profiles across x86-64 and ARM64, inspect parameter settings, and copy `.avs` scripts directly.
+  Explore all 51 profiles across x86-64 and ARM64, inspect parameter settings, and copy `.avs` scripts directly.
 
 * [**Benchmark & Telemetry Suite**](benchmarks/README.md)  
   Learn how to run `MvToolsBenchmark-Start.ps1`, measure PresentMon ETW 1% Low frame pacing, detect swapchain frame duplication, and compare baseline results.

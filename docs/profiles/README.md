@@ -36,6 +36,7 @@ Prefetch(threads)
   * **RTX Spark N1X (9–10x Cortex-X925 + 9–10x Cortex-A725):** Pinned strictly to Cortex-X925 Prime cores.
   * **Snapdragon X2 Series (6–12x Prime + 4–6x Perf Oryon):** Pinned strictly to 3rd-Gen Oryon Prime cores.
   * **Snapdragon X Series (8x / 12x Oryon):** 6–8 uniform threads (homogeneous no-op).
+  * **Snapdragon C (1x Prime + 3x Perf + 4x Eff):** Pinned strictly to 1 Prime + 3 Perf Kryo cores via `PinWorkerThreads(strictPrime=true)` / `PinWorkerThreads()`.
   * **Snapdragon 8cx Gen 3 (4x X1 + 4x A78):** Pinned strictly to Cortex-X1 Prime cores.
   * **Snapdragon 8cx Gen 1/2 (4x Gold + 4x Silver):** Pinned strictly to Kryo Gold cores.
   * **Snapdragon 7c Gen 2 (2x Gold + 6x Silver):** Pinned strictly to the 2 Cortex-A76 cores.
@@ -80,6 +81,9 @@ pad_val    = is_4k ? 16 : 8
 | **Snapdragon X Series** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 / 6 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | 1 (GPU) / 2 (CPU) | 4 / 8 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-MaxQuality.avs) |
+| **Snapdragon C** | `Eco` | Dynamic 0.5x Proxy Vector Warp | 16×16 / 32×32 | 1 | 2 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Eco.avs) |
+| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | 1 | 3 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Balanced.avs) |
+| | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 4 | Unsupported | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-MaxQuality.avs) |
 | **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 / 64×64 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
 | | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | 1 | 3 / 4 | Opt-in (Preview) | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
@@ -412,6 +416,55 @@ forward_scaled  = forward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mo
 super_src = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
 MBlockFps(src, super_src, backward_scaled, forward_scaled, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
+last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
+Prefetch(threads, 4)
+```
+
+---
+
+## 6. Qualcomm Snapdragon C
+
+> **Hardware Target:** 8-Core Heterogeneous Kryo (1x Prime @ up to 3.0 GHz + 3x Performance @ up to 2.6 GHz + 4x Efficiency @ up to 2.0 GHz), Adreno A643 iGPU, Fanless ~5 W – 10 W.  
+> **Tested Chassis:** \$300 Budget-Tier Windows on ARM Laptops.
+
+### Snapdragon C: Balanced Profile *(Recommended)*
+```avisynth
+# ==============================================================================
+# PotPlayer AviSynth 60 fps Interpolation: Snapdragon C (Profile 2: Balanced)
+# Hardware: Qualcomm Snapdragon C (8-Core Heterogeneous Kryo: 1+3+4)
+# Target: Fluid 1080p 60 fps, Single-Level Native Fine Search (16x16), Fanless ~5 W – 10 W
+# Revision: 1.0.1 (2026-11-08)
+# Changelog: Standardized platform naming to Snapdragon C, heterogeneous Kryo tuning, single-level geometry (levels=1), fine 16x16 search, dynamic median synthesis (mode=2), threads=3, Prefetch(3, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
+# ==============================================================================
+USE_D3D12 = false  # Experimental GPU offload gated off on Adreno A643
+
+threads   = 3
+mem_limit = 768
+
+SetMemoryMax(mem_limit)
+SetFilterMTMode("DEFAULT_MT_MODE", 2)
+
+src = potplayer_source()
+
+LoadPlugin("mvtools2.dll")
+try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
+
+# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+is_4k      = (src.Width() > 2048)
+blk_size   = is_4k ? 32 : 16
+pad_val    = is_4k ? 16 : 8
+
+# 1. Motion Super Clip (Single-level geometry, pel=1, sharp=0)
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+
+# 2. Native Fine Motion Vector Analysis (Diamond search, fine 16x16 blocks)
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_size, blksizev=blk_size, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_size, blksizev=blk_size, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+
+# 3. Dynamic Median Pixel-Flow Motion Interpolation (mode=2)
+MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=2, blend=false, thSCD1=360, thSCD2=120)
+
+# 4. CPU Performance Core Affinity Pinning
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
 ```
