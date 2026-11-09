@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tordona.github.io/mvtools/sitemap.xml

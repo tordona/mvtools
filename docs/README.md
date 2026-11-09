@@ -13,7 +13,7 @@
 This documentation hub covers the key architectural additions developed in this fork:
 * **Dual Architecture Support:** Native AVX2/AVX-512 SIMD (x86-64) and NEON SIMD (ARM64) running without emulation overhead.
 * **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`MEnableD3D12(true)`).
-* **48 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 8 x86-64 platforms and 8 ARM64 platforms with single-level geometry (`levels=1`) preserving memory bus bandwidth.
+* **51 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 8 x86-64 platforms and 9 ARM64 platforms with single-level geometry (`levels=1`) preserving memory bus bandwidth.
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
 * **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth+ worker threads to Performance cores on hybrid architectures.
