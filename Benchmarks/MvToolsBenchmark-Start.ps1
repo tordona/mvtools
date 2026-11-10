@@ -34,27 +34,15 @@
 .PARAMETER AviSynthRepo
     GitHub repository slug for downloading official AviSynth+ releases (default: "AviSynth/AviSynthPlus").
 .VERSION
-    2.6.3
+    2.6.5
 .DATE
-    2026-11-07
+    2026-11-09
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.6.5 (2026-11-09): Added interactive prompt on idle stabilization timeout to allow waiting another 60 s or proceeding.
+    - v2.6.4 (2026-11-09): Fixed Snapdragon 7c Gen 2 hardware detection regression.
     - v2.6.3 (2026-11-07): Added Snapdragon C profile manifest and hardware autodetection rules.
-    - v2.6.2 (2026-11-07): Added RTX Spark N1X platform detection and profile manifest.
-    - v2.6.1 (2026-11-06): Standardized Snapdragon X series platform detection and profile manifest.
-    - v2.3.0 (2026-10-19): Added automated GitHub acquisition for MVTools ARM64 and AviSynth+, dual
-                           AppData/local PotPlayer INI targeting, binary PE architecture validation,
-                           user download confirmations, and background app quiescence prompts.
-    - v2.2.0 (2026-10-19): Added automated official PotPlayer ARM64 acquisition and silent installation
-                           with live stream download progress (speed, percent, ETA) and animated
-                           background installation spinner with elapsed seconds timer and safety watchdog.
-    - v2.1.0 (2026-10-19): Added empirical panel scanout ETW analysis, strict integer VSync detection,
-                           sub-millisecond render latency tracking on drops, automatic DXGI flip discard
-                           classification, and profile revision tracking.
-    - v2.0.0 (2026-10-18): Added TopMost=2 window enforcement, USE_GPU dynamic injection, and Win32
-                           QueryDisplayConfig pre-flight inspection.
-    - v1.0.0 (2026-10-16): Initial portable automated benchmark harness.
 #>
 
 [CmdletBinding()]
@@ -151,7 +139,7 @@ param(
 )
 
 # Harness Semantic Revision
-$Script:HarnessVersion = "2.6.2"
+$Script:HarnessVersion = "2.6.5"
 $Script:AutoInstallVcRedist = $AutoInstallVcRedist
 
 # Initialize TLS 1.2 and System.Net.Http assembly (required for Windows PowerShell 5.1 compatibility)
@@ -2943,30 +2931,30 @@ function Get-SystemPlatformRecommendation {
         if ($combined -match '(?i)N1X|Spark|RTX.*Spark') {
             $platform = "RTX-Spark-N1X"
             $platformLabel = "RTX Spark N1X (Arm Cortex-X925/A725, Blackwell RTX GPU)"
-        } elseif ($combined -match '(?i)X2E|X2P|Snapdragon.*X2|Adreno.*X2') {
+        } elseif ($combined -match '(?i)\bSnapdragon\s+X2\b|X2[EP]|Adreno\s*X2') {
             $platform = "Snapdragon-X2"
             $platformLabel = "Snapdragon X2 Series (Qualcomm Oryon CPU, Adreno X2 GPU)"
-        } elseif ($combined -match '(?i)X\s*Plus|X1P|X\s*Elite|X1E|Snapdragon.*X|Oryon') {
+        } elseif ($combined -match '(?i)\bSnapdragon\s+X\b|X1[EP]|Oryon|X\s*(?:Elite|Plus)') {
             $platform = "Snapdragon-X"
             $platformLabel = "Snapdragon X Series (Qualcomm Oryon CPU, Adreno X1 GPU)"
-        } elseif ($combined -match '(?i)Snapdragon.*C\b|SC[0-9]|Snapdragon.*Compute') {
-            $platform = "Snapdragon-C"
-            $platformLabel = "Snapdragon C (Qualcomm Kryo CPU, Adreno A643 GPU)"
-        } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|8180X') {
+        } elseif ($combined -match '(?i)8cx\s*Gen\s*3|SC8280|SQ3') {
             $platform = "Snapdragon-8cxGen3"
             $platformLabel = "Snapdragon 8cx Gen 3 (Kryo Cortex-X1/A78, Adreno 690)"
         } elseif ($combined -match '(?i)8cx\s*Gen\s*2|SQ2') {
             $platform = "Snapdragon-8cxGen2"
             $platformLabel = "Snapdragon 8cx Gen 2 / SQ2 (Kryo 495, Adreno 680)"
-        } elseif ($combined -match '(?i)8cx|SQ1') {
+        } elseif ($combined -match '(?i)8cx|SC8180|SQ1') {
             $platform = "Snapdragon-8cxGen1"
             $platformLabel = "Snapdragon 8cx Gen 1 / SQ1 (Kryo 495, Adreno 675)"
-        } elseif ($combined -match '(?i)850|SD850') {
+        } elseif ($combined -match '(?i)\b850\b|SD850') {
             $platform = "Snapdragon-850"
             $platformLabel = "Snapdragon 850 (Kryo 385, Adreno 630)"
-        } elseif ($combined -match '(?i)\b7c\b') {
+        } elseif ($combined -match '(?i)\b7c\b|SC7[12]80') {
             $platform = "Snapdragon-7cGen2"
             $platformLabel = "Snapdragon 7c Gen 2 (Kryo 468, Adreno 618)"
+        } elseif ($combined -match '(?i)\bSnapdragon\s+C\b|Adreno\s*(?:A)?643') {
+            $platform = "Snapdragon-C"
+            $platformLabel = "Snapdragon C (Qualcomm Kryo CPU, Adreno A643 GPU)"
         } else {
             # Dynamic discovery for new or unlisted ARM64 hardware profiles
             $matchedProfile = $null
@@ -4580,31 +4568,70 @@ if (-not $SkipNetworkDisable) {
 Write-Host "  -> Waiting for system load stabilization (Target: CPU <= $TargetIdleCpuPercent%, GPU <= $TargetIdleGpuPercent% for $IdleStabilitySeconds s)..." -ForegroundColor Gray
 
 $StableCount = 0
-$IdleWatch = [System.Diagnostics.Stopwatch]::StartNew()
+$IdleStabilized = $false
 
-while ($IdleWatch.Elapsed.TotalSeconds -lt $IdleTimeoutSeconds) {
-    $metrics = Get-SystemMetrics
-    $curCpu = $metrics.CpuPercent
-    $curGpu = $metrics.GpuTotalPercent
+do {
+    $IdleWatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-    if ($curCpu -le $TargetIdleCpuPercent -and $curGpu -le $TargetIdleGpuPercent) {
-        $StableCount++
-        Write-Host "     [STABILIZING $StableCount/$IdleStabilitySeconds s] CPU: $curCpu% | GPU: $curGpu%" -ForegroundColor DarkGreen
-        if ($StableCount -ge $IdleStabilitySeconds) {
-            break
+    while ($IdleWatch.Elapsed.TotalSeconds -lt $IdleTimeoutSeconds) {
+        $metrics = Get-SystemMetrics
+        $curCpu = $metrics.CpuPercent
+        $curGpu = $metrics.GpuTotalPercent
+
+        if ($curCpu -le $TargetIdleCpuPercent -and $curGpu -le $TargetIdleGpuPercent) {
+            $StableCount++
+            Write-Host "     [STABILIZING $StableCount/$IdleStabilitySeconds s] CPU: $curCpu% | GPU: $curGpu%" -ForegroundColor DarkGreen
+            if ($StableCount -ge $IdleStabilitySeconds) {
+                $IdleStabilized = $true
+                break
+            }
+        } else {
+            $StableCount = 0
+            Write-Host "     [WAITING FOR IDLE] CPU: $curCpu% (Target: <=$TargetIdleCpuPercent%) | GPU: $curGpu% (Target: <=$TargetIdleGpuPercent%)" -ForegroundColor DarkGray
         }
-    } else {
-        $StableCount = 0
-        Write-Host "     [WAITING FOR IDLE] CPU: $curCpu% (Target: <=$TargetIdleCpuPercent%) | GPU: $curGpu% (Target: <=$TargetIdleGpuPercent%)" -ForegroundColor DarkGray
+        Start-Sleep -Seconds 1
     }
-    Start-Sleep -Seconds 1
-}
 
-if ($StableCount -ge $IdleStabilitySeconds) {
-    Write-Host "  -> System Idle Verified: CPU and GPU stabilized cleanly." -ForegroundColor Green
-} else {
-    Write-Warning "System load did not fully stabilize within $IdleTimeoutSeconds s (Last: CPU $curCpu%, GPU $curGpu%). Proceeding with test."
-}
+    if ($IdleStabilized) {
+        Write-Host "  -> System Idle Verified: CPU and GPU stabilized cleanly." -ForegroundColor Green
+        break
+    }
+
+    # System did not fully stabilize within $IdleTimeoutSeconds
+    $isInteractiveHost = [Environment]::UserInteractive -and ($Host.UI.RawUI -ne $null) -and (-not [Console]::IsInputRedirected)
+    if (-not $isInteractiveHost) {
+        Write-Warning "System load did not fully stabilize within $IdleTimeoutSeconds s (Last: CPU $curCpu%, GPU $curGpu%). Proceeding with test (non-interactive mode)."
+        break
+    }
+
+    Write-Host "`n[WARNING] System load did not fully stabilize within $IdleTimeoutSeconds s." -ForegroundColor Yellow
+    Write-Host "  Current Load : CPU $curCpu% (Target: <=$TargetIdleCpuPercent%) | GPU $curGpu% (Target: <=$TargetIdleGpuPercent%)" -ForegroundColor Yellow
+    Write-Host "  Target State : Stable idle for $IdleStabilitySeconds consecutive seconds" -ForegroundColor Gray
+    Write-Host "`nOptions:" -ForegroundColor White
+    Write-Host "  [W] Wait another $IdleTimeoutSeconds s for system load to stabilize (Recommended)" -ForegroundColor Cyan
+    Write-Host "  [P] Proceed with the benchmark anyway" -ForegroundColor White
+    Write-Host "  [A] Abort benchmark" -ForegroundColor Red
+    Write-Host "Select an option [W/p/a] (Default is 'W'): " -NoNewline -ForegroundColor Cyan
+    $userChoice = Read-Host
+
+    if ($userChoice -match '^\s*(?i)p(roceed)?\s*$') {
+        Write-Warning "System load did not fully stabilize within $IdleTimeoutSeconds s (Last: CPU $curCpu%, GPU $curGpu%). Proceeding with test as requested by user."
+        break
+    } elseif ($userChoice -match '^\s*(?i)a(bort)?\s*$') {
+        Write-Host "`n[BENCHMARK ABORTED] Execution stopped by user due to unstable system load.`n" -ForegroundColor Red
+        Restore-PotPlayerSettings -IniPaths $PotIniTargets
+        if ($OriginalSchemeGuid) {
+            powercfg /setactive $OriginalSchemeGuid
+        }
+        foreach ($adapter in $DisabledAdapters) {
+            Enable-NetAdapter -Name $adapter -Confirm:$false -ErrorAction SilentlyContinue
+        }
+        exit 1
+    } else {
+        Write-Host "  -> Waiting another $IdleTimeoutSeconds s for system load stabilization...`n" -ForegroundColor Cyan
+        $StableCount = 0
+    }
+} while ($true)
 
 # ---------------------------------------------------------
 # STEP 7: RUN TEST & RECORD TELEMETRY

@@ -47,7 +47,7 @@ Benchmarks/
 
 | Script | Version | Purpose | Key Output |
 | :--- | :---: | :--- | :--- |
-| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.6.1` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
+| [`MvToolsBenchmark-Start.ps1`](MvToolsBenchmark-Start.ps1) | `v2.6.5` | Executes an isolated PotPlayer run, configures AviSynth profiles, normalizes system load, and records sub-millisecond ETW pacing & resource telemetry. | `report_*.txt`<br>`presentmon_*.csv`<br>`telemetry_*.csv` |
 | [`MvToolsBenchmarks-Compare.ps1`](MvToolsBenchmarks-Compare.ps1) | `v2.6.0` | Aggregates individual benchmark runs into a side-by-side comparative matrix (Eco vs. Balanced vs. MaxQuality and CPU vs. GPU), or executes the full 3×2 test matrix automatically. | `BenchmarkMatrix_Comparison_<Platform>.md`<br>`BenchmarkMatrix_Comparison_<Platform>.csv`<br>`BenchmarkMatrix_Comparison_Combined.md` |
 | [`MvToolsBenchmark-Headless.ps1`](MvToolsBenchmark-Headless.ps1) | `v1.1.0` | Executes an unconstrained throughput benchmark between baseline and optimized builds, recording render FPS, active physical cores, and CPU time. | `Headless_Comparison_*.md` |
 | [`Benchmark-BigBuckBunny-Fidelity.ps1`](Benchmark-BigBuckBunny-Fidelity.ps1) | `v1.0.0` | Automated 5-scene visual fidelity benchmark across CGI stress scenes, computing exact PSNR, SSIM, render throughput, and CPU load. | `BigBuckBunny_Fidelity_Report.md` |
@@ -59,6 +59,10 @@ Benchmarks/
 ## Reference Baseline Matrices (`Baseline/`)
 
 Verified baseline benchmark reports and comparative matrices across ARM64 Snapdragon SoC generations and Generic x86-64 hardware are preserved under [`Baseline/`](Baseline/):
+
+> [!NOTE]
+> **Benchmarking Scope & Target Resolution:**  
+> Empirical baseline benchmarks for all **x86-64 platforms** (Intel Core, AMD Ryzen, Intel Processor N-series, and Generic x64) are conducted strictly at **1080p 24 fps -> 60 fps**. Due to the wide diversity of x86-64 hardware configurations, 4K 60 fps empirical benchmarking and matrix tracking are focused exclusively on the Windows on ARM64 platform family.
 
 | Platform / SoC | Baseline Report | Tested Chassis / Target Hardware |
 | :--- | :--- | :--- |
@@ -146,7 +150,7 @@ An automated, fully deterministic benchmark harness designed to eliminate noise,
    - Activates Windows High Performance power plan (`8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c`).
    - Quiesces noisy background applications (browsers, Discord, Teams, Slack, Steam).
    - Silences network adapters to suppress background Windows Update / telemetry bursts.
-   - Idles until System CPU load is ≤ 8% and GPU is ≤ 5% for 5 consecutive seconds.
+   - Idles until System CPU load is ≤ 8% and GPU is ≤ 5% for 5 consecutive seconds. If system load does not stabilize within 60 s, prompts the user interactively to wait another 60 s or proceed with the test.
 7. **[7/7] Telemetry Capture & Tear-Down:**
    - Launches PotPlayer and seeks to 00:01:00.
    - Discards initial warmup period (N seconds) to bypass JIT compilation and pipeline fill.

@@ -32,17 +32,6 @@
                            with warning indicators in console output, CSV exports, and Markdown matrices.
     - v2.4.1 (2026-10-25): Added -AutoInstallVcRedist forwarding for unattended matrix benchmarks.
                            Prevents PotPlayer 'AviSynth.dll not found' error caused by missing CRT dependencies.
-    - v2.4.0 (2026-10-24): Dynamic matrix permutation profile forwarding (-Profile $FilterPlatform-$tier).
-                           Dynamic hardware trade-off synthesis (CPU SIMD vs CPU NEON, GPU vendor labels,
-                           platform vs SoC descriptors). Forwarding of -PotPlayerDir and -MvToolsRepo to
-                           child benchmark executions.
-    - v2.3.0 (2026-10-19): Added -AutoDownloadMvTools forwarding for unattended matrix benchmarks.
-    - v2.2.0 (2026-10-19): Added -AutoInstallPotPlayer forwarding for unattended matrix benchmarks.
-    - v2.1.0 (2026-10-19): Added empirical panel scanout support, VSync phase drift discard
-                           classification, dynamic architectural findings, and profile revision audit.
-    - v2.0.0 (2026-10-18): Multi-platform aggregation, architectural trade-offs generator,
-                           memory-constrained detection.
-    - v1.0.0 (2026-10-16): Initial comparison matrix suite.
 #>
 
 [CmdletBinding()]
