@@ -1,9 +1,9 @@
 # ==============================================================================
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 1 (Profile 3: Max Quality)
-# Hardware: Qualcomm Snapdragon 8cx Gen 1 (4x Kryo 495 Gold + 4x Silver, Adreno 680)
+# Hardware: Qualcomm Snapdragon 8cx Gen 1 / Microsoft SQ1 (4x Kryo 495 Gold + 4x Silver, Adreno 675)
 # Target: Highest Achievable Quality within 8cx Thermal Ceiling
-# Revision: 2.3.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, 16x16 Diamond search (search=2, param=2), blend=true, threads=3/4, mem_limit=1536/2048, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
+# Revision: 2.4.0 (2026-11-09)
+# Changelog: Optimized 4K CPU scaling to invariant 64x64 coarse -> 32x32 fine (8,160 blocks), pel=1/sharp=0 and blend=false on 4K, normalized 4K mem_limit=1280 to eliminate page swapping
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -13,32 +13,32 @@
 # ------------------------------------------------------------------------------
 USE_D3D12 = false
 
-# Dynamic parameters adapted to USE_D3D12
-threads     = USE_D3D12 ? 3 : 4     # GPU: 3 threads keeps queue full; CPU: 4 Gold cores
-mem_limit   = USE_D3D12 ? 1536 : 2048
+# PotPlayer video source stream (Offloaded via Adreno 675 hardware decoder)
+src = potplayer_source()
 
-# Dynamic parameter adaptation:
-# GPU DirectCompute: pel=1, single-pass dense 16x16 with search=2, searchparam=2 (Diamond search in 2 dispatches prevents 7 W thermal throttling)
-# CPU NEON: pel=2 half-pixel precision (sharp=1 bicubic), dual-pass 16x16 -> 8x8 micro-blocks, blend=true (sustained 60 fps on 4 Gold cores)
-pel_val     = USE_D3D12 ? 1 : 2
-sharp_mode  = USE_D3D12 ? 0 : 1
-search_alg  = 2
+# Dynamic Resolution Adaptation:
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
+# At 4K, blocks scale by 2x to maintain the exact 8,160 block count invariant (64x64 coarse -> 32x32 fine)
+# and avoid cache/bus thrashing. pel=1 and blend=false on 4K save ALU cycles and eliminate pagefile swapping.
+is_4k       = (src.Width() > 2048)
+threads     = USE_D3D12 ? 3 : 4     # GPU: 3 threads keeps queue full; CPU: 4 Gold cores
+mem_limit   = USE_D3D12 ? 1024 : (is_4k ? 1280 : 1536)
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-# PotPlayer video source stream (Offloaded via Adreno 680 hardware decoder)
-src = potplayer_source()
-
-# Dynamic Resolution Adaptation:
-# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
-# At 4K, blocks scale by 2x (32x32 dense GPU, 32x32 -> 16x16 CPU refinement)
-# to maintain exact 1080p block counts and prevent thermal throttling.
-is_4k      = (src.Width() > 2048)
-blk_dense  = is_4k ? 32 : 16
-blk_refine = is_4k ? 16 : 8
-pad_val    = is_4k ? 16 : 8
+# Dynamic parameter adaptation:
+# GPU DirectCompute: pel=1, single-pass dense blocks with search=2 (Diamond search in 2 dispatches prevents 7 W thermal throttling)
+# CPU NEON: pel=2 on 1080p, pel=1 on 4K; 16x16 -> 8x8 on 1080p, 64x64 -> 32x32 on 4K
+pel_val     = (is_4k || USE_D3D12) ? 1 : 2
+sharp_mode  = (is_4k || USE_D3D12) ? 0 : 1
+blend_mode  = is_4k ? false : true
+blk_dense   = is_4k ? 64 : 16
+blk_refine  = is_4k ? 32 : 8
+pad_val     = is_4k ? 16 : 8
+search_rad  = is_4k ? 1 : 2
+search_alg  = 2
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
@@ -47,28 +47,28 @@ MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
 # levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
-# pel=pel_val: Dynamic based on USE_D3D12 (pel=1 on GPU; pel=2 on CPU)
+# pel=pel_val: Dynamic based on USE_D3D12 and resolution (pel=1 on 4K and GPU; pel=2 on 1080p CPU)
 # pad_val boundary padding stabilizes edge vector calculation
-# sharp=sharp_mode: Bicubic filtering when pel=2 on CPU; unused when pel=1 on GPU
+# sharp=sharp_mode: Bicubic filtering when pel=2 on 1080p CPU; unused when pel=1
 super = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Dense Motion Vector Field Analysis
 # GPU: Evaluates in a single pass of dense blocks (16x16 at 1080p, 32x32 at 4K: 8,160 blocks) using Diamond search (~12 points)
-# CPU: Radius-2 hexagonal coarse pass before micro-block refinement
+# CPU: Radius-1 (4K) or Radius-2 (1080p) coarse pass before micro-block refinement
 # levels=1: Strictly searches base Level 0
-backward_dense = MAnalyse(super, isb=true,  blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_dense  = MAnalyse(super, isb=false, blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_dense = MAnalyse(super, isb=true,  blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=search_rad, chroma=false, levels=1, badrange=(-24))
+forward_dense  = MAnalyse(super, isb=false, blksize=blk_dense, blksizev=blk_dense, search=search_alg, searchparam=search_rad, chroma=false, levels=1, badrange=(-24))
 
 # 3. Motion Vector Refinement (CPU only)
-# GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes micro-block refinement
+# GPU skips MRecalculate to stay within the 7 W thermal envelope; CPU executes micro-block refinement (8,160 blocks)
 backward_vec = USE_D3D12 ? backward_dense : MRecalculate(super, backward_dense, blksize=blk_refine, blksizev=blk_refine, search=2, searchparam=1, chroma=false, divide=0)
 forward_vec  = USE_D3D12 ? forward_dense  : MRecalculate(super, forward_dense,  blksize=blk_refine, blksizev=blk_refine, search=2, searchparam=1, chroma=false, divide=0)
 
 # 4. Dynamic Median Pixel-Flow Motion Interpolation
 # mode=2: Dynamic Median pixel-flow synthesis
-# blend=true: Scene-change fallback blending for camera cuts or occluded regions
+# blend=blend_mode: Scene-change fallback blending (disabled on 4K to conserve ALU bandwidth)
 # thSCD1=320, thSCD2=115: Strict scene-change detection to prevent cross-cut morphing
-MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
+MBlockFps(super, backward_vec, forward_vec, num=60, den=1, mode=2, blend=blend_mode, thSCD1=320, thSCD2=115)
 
 # 5. Core Pinning: 3 threads keeps presentation queue full without mutex starvation
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
