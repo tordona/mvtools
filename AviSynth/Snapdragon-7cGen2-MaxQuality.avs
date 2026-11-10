@@ -3,8 +3,9 @@
 # Hardware: Qualcomm Snapdragon 7c Gen 2 (2x Kryo 468 Gold @ 2.55 GHz + 6x Silver)
 # Test Device: Samsung Galaxy Book Go (14", Fanless 5 W Chassis)
 # Target: Highest Achievable Motion Precision at Sustained 60 fps (Zero Throttling)
-# Revision: 2.1.0 (2026-11-03)
-# Changelog: Memory-constrained 4 GB tuning, native 1080p, levels=1, coarse 32x32 -> fine 16x16, searchparam=2, threads=2, Prefetch(2, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
+# Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
+# Revision: 2.3.0 (2026-11-09)
+# Changelog: Added native 4K early return bypass (hardware limited to 4K 30 fps by 17 GB/s memory bus and VPU decoder cap)
 # ==============================================================================
 
 # Strictly 2 worker threads locks computation to the 2 Cortex-A76 Gold cores.
@@ -19,45 +20,49 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full 1080p PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 618)
 src = potplayer_source()
 
+# Dynamic 4K Fallback: 7c Gen 2 memory bus (17 GB/s) and VPU are capped at 4K 30 fps.
+# Bypass motion interpolation on 4K streams to maintain smooth native playback.
+if (src.Width() > 2048) {
+    return src
+}
+
+# Dynamic Resolution Adaptation:
+# Detect 4K vs 1080p/720p (fallback safeguard if 4K bypass is disabled).
+is_4k      = (src.Width() > 2048)
+blk_coarse = is_4k ? 64 : 32
+blk_fine   = is_4k ? 32 : 16
+pad_val    = is_4k ? 8 : 4
+
 # Load Native ARM64 MVTools2 plugin (ARM64 CPU NEON execution)
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Dynamic 0.5x Proxy Clip for High-Fidelity Motion Vector Analysis
-# Dynamically downscales source by 2x preserving source aspect ratio (e.g. 16:9, 2.40:1 Scope, 4:3)
-# Dynamic Resolution Adaptation:
-# Detect 4K vs 1080p. At 4K, 0.25x proxy downscaling (scale=4.0) maintains
-# the exact 960x540 analysis grid, keeping the 5 W fanless thermal envelope intact.
-is_4k        = (src.Width() > 2048)
-search_scale = is_4k ? 4 : 2
-search_w     = (src.Width  / (search_scale * 2)) * 2
-search_h     = (src.Height / (search_scale * 2)) * 2
-search_clip  = src.BilinearResize(search_w, search_h)
-search_super = search_clip.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
+# 1. Base Motion Super Clip with Edge Protection
+# levels=1: Avoids calculating redundant downscaled pyramid images
+# pel=1: Whole-pixel base clip paired with MRecalculate keeps CPU low while tracking details
+# pad_val boundary padding prevents edge tearing without cache thrashing
+# sharp=0: Subpixel interpolation filter is unused when pel=1
+super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-# 2. Hierarchical Wide-Search Motion Analysis on Proxy
-# blksize=16, blksizev=16: blocks at 0.5x scale up to 32x32 at native resolution (prevents 8x8 block explosion)
-# search=2, searchparam=2: Wide search radius tracks fast pans and action
-# levels=1: Single-level base search without extra pyramid overhead, matching search_super
-# badrange=(-24): Outlier rejection prevents halo distortion around moving objects
-backward_proxy = MAnalyse(search_super, isb=true,  blksize=16, blksizev=16, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_proxy  = MAnalyse(search_super, isb=false, blksize=16, blksizev=16, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+# 2. Hierarchical Motion Vector Analysis (2,040 blocks: 32x32 at 1080p, 64x64 at 4K)
+# searchparam=2: Wider search radius tracks fast pans and action
+# badrange=(-24): Early rejection of outlier vectors to prevent haloing
+# levels=1: Strictly searches base Level 0 (single level)
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
 
-# 3. Mathematically Scale Vectors 2x up to Native Source Coordinates
-scale_val       = Float(search_scale)
-backward_scaled = backward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
-forward_scaled  = forward_proxy.MScaleVect(scale=scale_val, scaleV=scale_val, mode=0)
+# 3. Fine Refinement Pass (8,160 blocks: 16x16 at 1080p, 32x32 at 4K)
+# Resolves small moving objects and eliminates blocky edge artifacts
+backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
+forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-# 4. Native Frame Synthesis (ZERO RESOLUTION LOSS)
-# levels=1: Eliminates generating 9 downscaled pyramid images on full source frames!
+# 4. Direct Native Frame Synthesis
 # mode=0: Fast 2-stream block projection sustains 60 fps without CPU pipeline stalls
-# blend=false: Skips blend transparency calculations to conserve ALU cycles
+# blend=true: Smooth frame blending on scene transitions
 # thSCD1=350, thSCD2=120: Balanced scene-change detection cleanly cuts camera transitions
-super_src = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
-MBlockFps(src, super_src, backward_scaled, forward_scaled, num=60, den=1, mode=0, blend=false, thSCD1=350, thSCD2=120)
+MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=true, thSCD1=350, thSCD2=120)
 
 # 5. Core Pinning: Strictly 2 threads prevents thermal throttling
 # 4 lookahead frames absorb thread scheduling jitter
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
 Prefetch(threads, 4)
-

@@ -3,8 +3,8 @@
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
 # Target: 5 W Fanless Thermal Envelope, Maximum Battery Life, 0 Thermal Throttling
 # Architecture: Native 1080p Single-Super Wide-Block (Zero Resizing Overhead)
-# Revision: 2.1.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, single MSuper, threads=3, Prefetch(3, 4), mem_limit=512, AvsAffinity pinning, dynamic 4K adaptation
+# Revision: 2.2.0 (2026-11-09)
+# Changelog: Added native 4K early return bypass (hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap)
 # ==============================================================================
 
 threads     = 2                   # Strictly 2 worker threads locks to 2 Gold cores
@@ -18,9 +18,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 630)
 src = potplayer_source()
 
+# Dynamic 4K Fallback: Snapdragon 850 memory bus (14.9 GB/s) and VPU are capped at 4K 30 fps.
+# Bypass motion interpolation on 4K streams to maintain smooth native playback.
+if (src.Width() > 2048) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
-# Detect 4K vs 1080p. At 4K, 64x64 blocks maintain ~2,040 block count,
-# keeping memory traffic strictly within the 5 W fanless thermal envelope.
+# Detect 4K vs 1080p (fallback safeguard if 4K bypass is disabled).
 is_4k   = (src.Width() > 2048)
 blk_v   = is_4k ? 64 : 32
 

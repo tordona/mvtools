@@ -3,8 +3,8 @@
 # Hardware: Qualcomm Snapdragon 850 (4x Kryo 385 Gold @ Cortex-A75, Adreno 630)
 # Target: Fluid 1080p 60 fps, Refined 16x16 Edges, Stable Thermal Ceiling
 # Architecture: Native 1080p Coarse-to-Fine Refinement (Zero Resizing Overhead)
-# Revision: 2.1.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, threads=3, Prefetch(3, 4), mem_limit=768, AvsAffinity pinning, dynamic 4K adaptation
+# Revision: 2.2.0 (2026-11-09)
+# Changelog: Added native 4K early return bypass (hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap)
 # ==============================================================================
 
 threads     = 3                   # 3 Kryo 385 Gold cores
@@ -17,10 +17,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 630)
 src = potplayer_source()
 
+# Dynamic 4K Fallback: Snapdragon 850 memory bus (14.9 GB/s) and VPU are capped at 4K 30 fps.
+# Bypass motion interpolation on 4K streams to maintain smooth native playback.
+if (src.Width() > 2048) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
-# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
-# At 4K, 64x64 coarse -> 32x32 fine matches the 1080p 16x16 spatial density (8,160 blocks),
-# preventing Cortex-A75 CPU saturation and eliminating dropped frames.
+# Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p (fallback safeguard if 4K bypass is disabled).
 is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
