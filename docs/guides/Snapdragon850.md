@@ -93,8 +93,8 @@ Converting pixel formats (such as YV12/NV12 to RGB32) on the CPU adds substantia
 ---
 
 > [!NOTE]
-> **Dynamic 4K Resolution Adaptation:**  
-> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = (src.Width() > 2048)`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+> **Native 4K Early Return Bypass:**  
+> Snapdragon 850 hardware is strictly limited to 4K 30 fps by its 14.9 GB/s memory bus and Adreno 630 VPU decoder. All profiles dynamically detect 4K streams (`if (src.Width() > 2048) { return src }`) and immediately bypass motion interpolation to preserve smooth, uninterrupted native playback without buffer starvation or player stutter.
 
 ## Profile Comparison: Snapdragon 850
 

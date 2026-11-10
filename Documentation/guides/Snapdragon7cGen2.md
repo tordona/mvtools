@@ -15,7 +15,7 @@ Under full 1080p video playback, software decoding alone on the 2 Gold cores can
 
 To achieve continuous, sustained 60 fps without thermal throttling:
 1. **Adreno 618 Hardware Decoding:** Offload H.264/HEVC decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back (reducing CPU decode load to 0%).
-2. **Dynamic 0.5x Proxy Analysis (`MScaleVect`):** Perform motion estimation on an aspect-ratio-aware 0.5× proxy plane (cutting 75% of pixel comparisons and DRAM bandwidth), then scale vectors 2× up to native source dimensions.
+2. **Native Single-Super Wide-Block & Refinement (`levels=1`):** Restricts motion estimation to single-level evaluation with zero software image resizing, eliminating duplicate `MSuper` allocations and DRAM bus saturation on budget LPDDR4x memory.
 3. **Direct Frame Synthesis (`MBlockFps mode=0`):** Synthesize new frames directly from the uncompressed source clip, ensuring zero loss of spatial resolution or sharpness.
 4. **Strict Core Pinning (`Prefetch(2)`):** Limit worker threads to 2 so execution stays strictly on the high-performance Kryo 468 Gold cores, completely avoiding stalls from the slow in-order Cortex-A55 Silver cores.
 
@@ -78,15 +78,15 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 ---
 
 > [!NOTE]
-> **Dynamic 4K Resolution Adaptation:**  
-> All profiles automatically detect input resolutions exceeding 1080p (`is_4k = (src.Width() > 2048)`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). This cuts 4K search operations by 75% and prevents GPU execution stalls and memory bus saturation.
+> **Native 4K Early Return Bypass:**  
+> Snapdragon 7c Gen 2 hardware is strictly limited to 4K 30 fps by its 17 GB/s dual-channel memory bus and Adreno 618 / Spectra 255 VPU decoder. All profiles dynamically detect 4K streams (`if (src.Width() > 2048) { return src }`) and immediately bypass motion interpolation to preserve smooth, uninterrupted native playback without buffer starvation or player stutter.
 
 ## Profile Comparison: Snapdragon 7c Gen 2
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Search Block Size** | 32×16 at 540p (64×32 at 1080p) | 16×16 at 540p (32×32 at 1080p) | 16×16 at 540p (32×32 at 1080p) |
-| **Total Blocks** | 510 blocks | 2,040 blocks | 2,040 blocks |
+| **Search Block Size** | Single-level 32×32 | Coarse 32×32 → Fine 16×16 | Coarse 32×32 → Fine 16×16 |
+| **Evaluated Blocks (1080p)** | 2,040 blocks | 2,040 coarse / 8,160 fine | 2,040 coarse / 8,160 fine |
 | **Search Algorithm** | Hexagonal (radius 1) | Hexagonal (radius 1) | Hexagonal (radius 2) |
 | **Pyramid Levels** | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |

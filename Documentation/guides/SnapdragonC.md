@@ -16,7 +16,7 @@ The **Qualcomm Snapdragon C** brings 64-bit Windows on ARM computing to budget-t
 2. **Thermal Budget Preservation via Adreno VPU:** Software decoding of modern codecs (such as AV1 or 10-bit HEVC) would saturate the low-power CPU cores and exhaust the 5 W – 10 W thermal budget. Offloading decode entirely to the Adreno VPU via D3D11 Copy-Back reduces host CPU decode load to 0%, preserving thermal headroom for real-time 60 fps interpolation.
 3. **Memory Bus Protection (25–34 GB/s):** On budget memory architectures, memory allocations are capped between `512 MB` and `1024 MB` (`levels=1`), preventing cache thrashing and DRAM bus saturation.
 4. **Thermal Profile Scaling:**
-   - **Eco (3 W – 5 W):** 0.5x proxy search (`threads = 2`) locked to the Prime and 1 Performance core for silent, cool, extended battery playback.
+   - **Eco (3 W – 5 W):** Native single-super wide-block search (32×32, `threads = 2`) locked to the Prime and 1 Performance core for silent, cool, extended battery playback.
    - **Balanced (6 W – 8 W):** Direct-resolution coarse-to-fine search (`threads = 3`) for smooth 60 fps playback.
    - **MaxQuality (~10 W):** Full saturation of all 4 Performance-tier cores (`threads = 4`) with hexagonal refinement.
 
@@ -95,7 +95,7 @@ The integrated Adreno Video Processing Unit (VPU) includes dedicated hardware de
 
 > [!NOTE]
 > **Dynamic 4K Resolution Adaptation:**  
-> All profiles support source resolutions from 720p to 4K and automatically detect input dimensions exceeding 2048px (`is_4k = (src.Width() > 2048)`). For 4K streams (3840×2160), block search dimensions and edge padding automatically scale to maintain the spatial macro-block count invariant, preserving the 5 W – 10 W fanless thermal envelope.
+> All profiles support source resolutions from 720p to 4K and automatically detect input dimensions exceeding 2048 px (`is_4k = (src.Width() > 2048)`). For 4K streams (3840×2160), block search dimensions automatically scale 2× to maintain the spatial macro-block count invariant (~8,160 blocks). Additionally, synthesis dynamically switches to fast block projection (`mode=0`) and disables alpha blending (`blend=false`) on 4K to eliminate ALU and memory bus saturation, preserving the 5 W – 10 W fanless thermal envelope.
 
 ## Profile Comparison: Snapdragon C
 
@@ -103,10 +103,10 @@ The integrated Adreno Video Processing Unit (VPU) includes dedicated hardware de
 | :--- | :--- | :--- | :--- |
 | **Script File** | [`Snapdragon-C-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Eco.avs) | [`Snapdragon-C-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Balanced.avs) | [`Snapdragon-C-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-MaxQuality.avs) |
 | **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=1` + Dual-pass Refinement |
-| **Block Grid (Base / 4K)** | 0.5x Proxy `16x16 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` |
-| **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2`) |
+| **Block Grid (Base / 4K)** | Single-level `32x32 / 64x64` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` |
+| **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2; 1 on 4K`) |
 | **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Luma only (`chroma=false`) |
-| **Interpolation Mode** | Block Projection (`mode=0`, `blend=false`) | Dynamic Median (`mode=2`, `blend=true`) | Dynamic Median (`mode=2`, `blend=true`) |
+| **Interpolation Mode** | Block Projection (`mode=0`, `blend=false`) | Dynamic Median (`mode=2, blend=true`; `mode=0, blend=false` on 4K) | Dynamic Median (`mode=2, blend=true`; `mode=0, blend=false` on 4K) |
 | **Threading (`Prefetch`)** | `Prefetch(2, 4)` | `Prefetch(3, 4)` | `Prefetch(4, 4)` |
 | **Memory Allocation** | `SetMemoryMax(512)` | `SetMemoryMax(768)` | `SetMemoryMax(1024)` |
 | **Hardware Core Pinning** | `PinWorkerThreads(strictPrime=true)` | `PinWorkerThreads()` | `PinWorkerThreads()` |

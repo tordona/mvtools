@@ -288,8 +288,25 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
        * Boundary padding scales proportionally: `pad_val = is_4k ? (pad_size * 2) : pad_size` (where `pad_size = USE_D3D12 ? 8 : 0`).
        * Overlap scales proportionally: `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`.
        * **Direct3D 12 Zero-Overlap Invariant:** Overlap is strictly prohibited when Direct3D 12 GPU offload is active (`overlap_size = USE_D3D12 ? 0 : 4`). DirectCompute shaders in `flow_warp.hlsl` index vectors via direct coordinate division (`DTid.x / nBlkSizeX`), requiring a non-overlapping block grid. Non-zero overlap causes spatial vector-to-pixel misalignment and severe visual tearing. When targeting MaxQuality on GPU offload, fine vector tracking MUST be achieved via **dual-pass coarse-to-fine refinement with `MRecalculate(divide=0)`** (`overlap = 0`), never by configuring `overlap > 0` on the GPU.
-     * **Proxy-Downscaled Profiles (e.g. Snapdragon 7c Gen 2):**
-       * Scale proxy downsampling: `search_scale = is_4k ? 4 : 2` and `scale_val = Float(search_scale)`. The analysis clip remains invariant at $960 \times 540$ (`2,040` blocks) regardless of input resolution.
+   * **4-Pillar Quantitative 4K 60 fps Feasibility Decision Tree:**
+     When generating profiles for a target platform, the AI assistant must classify 4K feasibility into one of three architectural tiers based on hardware telemetry:
+     * **Pillar 1 (VPU Decoder Throughput):** Hardware decoder must be rated for $\ge 4\text{K } 60\text{ fps}$. If capped at 4K 30 fps (e.g. Snapdragon 7c/7c Gen 2, Snapdragon 850, Braswell/Cherry Trail), 4K interpolation is physically impossible regardless of CPU/GPU speed.
+     * **Pillar 2 (UMA Memory Bandwidth Floor):** At 60 fps, uncompressed 4K NV12 frame presentation consumes $1.5\text{ GB/s}$, while MVTools motion buffers consume $6.0\text{ – }9.0\text{ GB/s}$. Real-time delivery requires $\ge 25\text{ GB/s}$ theoretical peak DRAM bandwidth ($\ge 50\text{ GB/s}$ recommended). Buses $< 20\text{ GB/s}$ (e.g. 2-channel 16-bit LPDDR4x @ $17\text{ GB/s}$ or single-channel DDR4 @ $19.2\text{ GB/s}$) suffer fatal DRAM starvation.
+     * **Pillar 3 (Performance Core Compute):** At 4K with invariant block scaling ($64\times 64 \to 32\times 32$), the engine evaluates $10,200$ blocks per frame = **612,000 block searches per second** within strict $16.6\text{ ms}$ real-time deadlines. This requires $\ge 4$ physical Performance cores (or $\ge 2$ desktop-class cores @ $\ge 4.5\text{ GHz}$). Systems with $\le 2$ mobile Performance cores compute-saturate (> 150% theoretical ceiling).
+     * **Pillar 4 (Sustained Thermal Budget):** Continuous 4K motion search generates $6\text{ – }12\text{ W}$ continuous package power. Fanless chassis with nominal package TDP $\le 5\text{ W}$ will thermally throttle down to ~1.2 GHz within 30–60 s.
+
+     **Classification Action Tiers:**
+     * **Tier A: Fully Supported (`✅ Verified 4K 60 fps`):** VPU $\ge 4\text{K } 60\text{ fps}$, UMA bandwidth $\ge 50\text{ GB/s}$, and $\ge 4$ physical Performance cores. Implement full 4K invariant scaling ($64\times 64$ coarse $\to 32\times 32$ fine, 8,160 blocks). Enforce `pel=1, sharp=0`, `blend=false`, and `mem_limit=1280` on 4K streams to eliminate page swapping.
+     * **Tier B: Constrained / Single-Pass Only (`⏳ Pending / Conditional`):** VPU $\ge 4\text{K } 60\text{ fps}$, UMA bandwidth $25\text{ – }45\text{ GB/s}$ (dual-channel DDR4-3200 or 4-channel LPDDR4x), or 4 E-cores (e.g. Intel N100 / N200 / N250, Snapdragon C 1P+3P). Limit 4K to single-pass coarse blocks ($64\times 64$, 2,040 blocks) in `Eco` and `Balanced` (`mode=0, blend=false`). MaxQuality falls back to single-pass coarse or bypasses 4K.
+     * **Tier C: Physically Infeasible (`❌ Unsupported`):** Fails any pillar (VPU capped at 4K 30 fps, UMA bandwidth $< 20\text{ GB/s}$, or $\le 2$ mobile Performance cores on $\le 7\text{ W}$ TDP). Dynamically bypass 4K streams via early return:
+       ```avisynth
+       if (src.Width() > 2048) {
+           return src
+       }
+       ```
+     * In AviSynth+, `return` is an immediate terminal exit: script evaluation halts instantly, passing the source video directly to the player at its native rate (24 fps / 30 fps) without allocating downstream filter buffers or spawning worker threads.
+     * **Empirical Validation Scope (ARM64-Focused):**
+       Empirical 4K 60 fps hardware benchmarking and PresentMon baseline validation are focused strictly on the Windows on ARM64 platform family. For x86-64 desktop and mobile architectures, real-time 4K 60 fps playback is not empirically tracked, tested, or certified due to the expansive diversity of hardware combinations; x86-64 profiles implement theoretical invariant 4K 2× block scaling syntax strictly as an architectural safeguard, while official empirical baselines remain standardized at 1080p 24 fps $\to$ 60 fps.
    * **Mandatory Variable Ordering Invariant (No Forward References):**
      * AviSynth+ is a strictly sequential, top-to-bottom interpreted language without variable hoisting.
      * **Source Clip First:** The video source clip (`src = potplayer_source()`) **MUST ALWAYS** be instantiated before `is_4k = (src.Width() > 2048)` is called. Calling `Width()` before source acquisition raises a fatal error (`no implicit clip "last"` or `unknown function`).
@@ -355,13 +372,13 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
-   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.11)`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.12)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.11 (2026-11-07)`
-   * `# Changelog: Added NVIDIA RTX Spark (Blackwell RTX GPU) to Direct3D 12 eligible silicon and ARM64 heterogeneous topology guidance`
+   * `# Revision: 2.3.12 (2026-11-09)`
+   * `# Changelog: Removed legacy proxy search downscaling in favor of native single-super wide-block and refinement (levels=1)`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
-   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.11)`.
+   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.12)`.
    - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
    - [ ] `potplayer_source()` is invoked before calling `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
