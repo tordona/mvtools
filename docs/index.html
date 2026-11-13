@@ -2,20 +2,34 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MVTools2 — Real-Time 60 fps Video Motion Interpolation (x86-64 & ARM64)</title>
+  <title>MVTools2 — Real-Time 60 fps Motion Interpolation | Snapdragon Windows & x86-64 Hub</title>
   <link rel="canonical" href="https://tordona.github.io/mvtools/" />
+  <link rel="sitemap" type="application/xml" title="Sitemap" href="https://tordona.github.io/mvtools/sitemap.xml" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-  <meta name="description" content="Documentation and profile hub for MVTools2: Real-time 24 fps → 60 fps video motion interpolation for Daum PotPlayer & AviSynth+. 51 tuned profiles across Windows ARM64 (NEON & Direct3D 12) and x86-64 with PresentMon sub-millisecond benchmarking.">
-  <meta name="keywords" content="MVTools2, AviSynth, PotPlayer, 24fps, 24 fps, 60fps, 60 fps, video interpolation, motion interpolation, Windows on ARM, WoA, Windows ARM64, x86-64, AVX2, NEON, Direct3D 12, PresentMon, AMD Ryzen AI, Intel Core i7, Intel Core i5, Intel N100, Snapdragon X, Snapdragon X2, Snapdragon C, Snapdragon 8cx, RTX Spark">
+  <meta name="description" content="Official documentation and profile hub for MVTools2: Real-time 24 fps → 60 fps video motion interpolation for Daum PotPlayer on Qualcomm Snapdragon Windows laptops and x86-64 PC platforms.">
+  <meta name="keywords" content="MVTools2, AviSynth, PotPlayer, 24fps, 24 fps, 60fps, 60 fps, smooth-motion, video interpolation, motion interpolation, frame interpolation, SVP alternative, free SVP alternative, lightweight video motion interpolation, Windows on ARM, WoA, Windows ARM64, x86-64, AVX2, NEON, Direct3D 12, PresentMon, AMD Ryzen AI, Intel Core i7, Intel Core i5, Intel N100, Snapdragon X, Snapdragon X Elite, Snapdragon X2, Snapdragon C, Snapdragon 8cx, RTX Spark">
 
   <!-- OpenGraph / Social Metadata -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="MVTools2 — Real-Time 60 fps Video Motion Interpolation (x86-64 & ARM64)">
-  <meta property="og:description" content="Real-time 24 fps → 60 fps video motion interpolation for Daum PotPlayer & AviSynth+. 51 tuned profiles across Windows ARM64 (NEON & Direct3D 12) and x86-64 with PresentMon sub-millisecond benchmarking.">
+  <meta property="og:title" content="MVTools2 — Real-Time 60 fps Motion Interpolation | Snapdragon Windows & x86-64 Hub">
+  <meta property="og:description" content="Real-time 24 fps → 60 fps video motion interpolation for Daum PotPlayer on Qualcomm Snapdragon Windows laptops and x86-64 PC platforms.">
   <meta property="og:image" content="https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/Documentation/images/social-preview-flat.jpg">
   <meta property="og:url" content="https://tordona.github.io/mvtools/">
   <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Structured Data: SoftwareApplication JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MVTools2",
+    "operatingSystem": "Windows 11 (ARM64, x86-64)",
+    "applicationCategory": "MultimediaApplication",
+    "url": "https://tordona.github.io/mvtools/",
+    "description": "Real-time 24 fps to 60 fps video motion interpolation for Daum PotPlayer and AviSynth+ utilizing native Qualcomm Snapdragon NEON vector instructions and Direct3D 12 GPU compute shaders."
+  }
+  </script>
 
   <!-- Structured Data: FAQPage JSON-LD -->
   <script type="application/ld+json">
@@ -37,6 +51,46 @@
         "acceptedAnswer": {
           "@type": "Answer",
           "text": "By compiling mvtools2.dll and AviSynth.dll natively for ARM64 using 128-bit NEON vector SIMD instructions and experimental Direct3D 12 GPU compute shaders, motion vector search and frame synthesis execute directly on ARM64 silicon without translation lag or architecture mismatch errors."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How does MVTools2 motion interpolation compare to external solutions like SVP?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Unlike external background service daemons such as SmoothVideo Project (SVP) that pass frames through inter-process communication (IPC) shared memory, MVTools2 executes directly inside the Daum PotPlayer process memory address space via native AviSynth+ filter chaining (mvtools2.dll). This eliminates IPC buffer duplication latency, requires no background licensing service, runs natively on ARM64 NEON and x86-64 AVX2, and is distributed under the open-source GPL-2.0 license."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can low-power x86-64 processors like Intel Processor N100 or Intel Iris Xe sustain 60 fps video interpolation?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. By utilizing Rev 3.0.0 single-level geometry (levels=1) and coarse block sizes (32x32), Gaussian image pyramid downsampling is eliminated, reducing memory bus read/write traffic by over 60%. This enables 1080p 24 fps to 60 fps real-time interpolation on bandwidth-constrained 6 W to 15 W fanless systems and integrated GPUs without thermal throttling or dropped frames."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can 4K 24 fps video be interpolated to 60 fps in real time?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Real-time 4K 60 fps motion interpolation requires meeting quantitative hardware feasibility thresholds: a memory bus exceeding 60 GB/s, AVX2 or NEON SIMD vector hardware, and at least 4 physical performance cores. MVTools2 profiles enforce an invariant screen-proportion block scaling rule (64x64 coarse to 32x32 fine), reducing evaluated block count by 75% compared to non-adapted scripts to sustain real-time 4K frame delivery."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is there a native ARM64 motion interpolation plugin for PotPlayer on Windows?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. While legacy releases of AviSynth+ and MVTools2 were restricted to x86-64 and required x64 emulation under Microsoft Prism, this repository provides native ARM64 builds of mvtools2.dll and AviSynth.dll. Using 128-bit ARM64 NEON vector SIMD instructions and experimental Direct3D 12 GPU compute offload, it achieves real-time 24 fps to 60 fps motion interpolation directly on Qualcomm Snapdragon silicon without Prism emulation overhead."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do you have to run PotPlayer under x64 Prism emulation for AviSynth+ motion interpolation on Snapdragon?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Running x64 plugins under Prism emulation introduces translation latency, instruction cache thrashing, and memory overhead that causes frame drops. This repository provides natively compiled ARM64 AviSynth+ binaries and 51 hardware-tailored profiles that execute directly on ARM64 CPU NEON cores and Adreno GPUs."
         }
       }
     ]
@@ -102,8 +156,8 @@
 <body>
   <div id="app">
     <header>
-      <h1>MVTools2 — Real-Time 60 fps Video Motion Interpolation Documentation Hub</h1>
-      <p>Native ARM64 NEON and Direct3D 12 GPU video motion interpolation in Daum PotPlayer &amp; AviSynth+ on Windows on ARM (Qualcomm Snapdragon X, X2, C, 8cx) and x86-64 (AMD Ryzen AI, Intel Core).</p>
+      <h1>MVTools2 — Real-Time 60 fps Video Motion Interpolation for Snapdragon Windows &amp; x86-64</h1>
+      <p>Native Qualcomm Snapdragon NEON SIMD and Direct3D 12 GPU video motion interpolation in Daum PotPlayer &amp; AviSynth+ on Windows (Snapdragon X, X2, C, 8cx) and x86-64 hardware.</p>
     </header>
     <main>
       <h2>Verified 60 fps Hardware Guides &amp; Profiles</h2>
