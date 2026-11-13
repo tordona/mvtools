@@ -152,14 +152,19 @@ void FlowWarpCS(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint3 
     float2 warpedCoordB = (pixelCenter + dispB * (1.0f - time)) * invDims;
 
     // Subpixel bilinear motion-compensated samples (evaluated in min16float)
-    min16float pMCF = (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
-    min16float pMCB = (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
+    // Zero-MV fast path: exact texel center needs only a 1-tap Load instead of 4-tap bilinear SampleLevel
+    bool zeroF = (rawMvF.x == 0.0f && rawMvF.y == 0.0f);
+    bool zeroB = (rawMvB.x == 0.0f && rawMvB.y == 0.0f);
     min16float halfTime = (min16float)time;
 
     min16float finalVal;
     [branch]
     if (maskMode == 0)
     {
+        min16float pMCF = zeroF ? (min16float)g_SrcPlane.Load(int3(DTid.xy, 0))
+                                : (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
+        min16float pMCB = zeroB ? (min16float)g_RefPlane.Load(int3(DTid.xy, 0))
+                                : (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
         // Mode 0: Pure motion-compensated blend (bypasses static plane texture loads)
         finalVal = lerp(pMCF, pMCB, halfTime);
     }
@@ -168,6 +173,8 @@ void FlowWarpCS(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, uint3 
         // Uncompensated static samples at current pixel (x, y)
         min16float staticF = (min16float)g_SrcPlane.Load(int3(DTid.xy, 0));
         min16float staticB = (min16float)g_RefPlane.Load(int3(DTid.xy, 0));
+        min16float pMCF = zeroF ? staticF : (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0);
+        min16float pMCB = zeroB ? staticB : (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0);
 
         if (maskMode == 1)
         {
@@ -251,21 +258,21 @@ void FlowWarpChromaCS(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, 
     float2 warpedCoordF = (pixelCenter + dispF * time) * invDims;
     float2 warpedCoordB = (pixelCenter + dispB * (1.0f - time)) * invDims;
 
-    // Sample U and V planes simultaneously into packed FP16 vector2
-    min16float2 pMCF = min16float2(
-        (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0),
-        (min16float)g_SrcPlaneV.SampleLevel(g_LinearClamp, warpedCoordF, 0)
-    );
-    min16float2 pMCB = min16float2(
-        (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0),
-        (min16float)g_RefPlaneV.SampleLevel(g_LinearClamp, warpedCoordB, 0)
-    );
+    // Sample U and V planes simultaneously into packed FP16 vector2 (zero-MV uses 1-tap Load)
+    bool zeroF = (rawMvF.x == 0.0f && rawMvF.y == 0.0f);
+    bool zeroB = (rawMvB.x == 0.0f && rawMvB.y == 0.0f);
     min16float halfTime = (min16float)time;
 
     min16float2 finalUV;
     [branch]
     if (maskMode == 0)
     {
+        min16float2 pMCF = zeroF
+            ? min16float2((min16float)g_SrcPlane.Load(int3(DTid.xy, 0)), (min16float)g_SrcPlaneV.Load(int3(DTid.xy, 0)))
+            : min16float2((min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0), (min16float)g_SrcPlaneV.SampleLevel(g_LinearClamp, warpedCoordF, 0));
+        min16float2 pMCB = zeroB
+            ? min16float2((min16float)g_RefPlane.Load(int3(DTid.xy, 0)), (min16float)g_RefPlaneV.Load(int3(DTid.xy, 0)))
+            : min16float2((min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0), (min16float)g_RefPlaneV.SampleLevel(g_LinearClamp, warpedCoordB, 0));
         finalUV = lerp(pMCF, pMCB, halfTime);
     }
     else
@@ -277,6 +284,14 @@ void FlowWarpChromaCS(uint3 DTid : SV_DispatchThreadID, uint3 Gid : SV_GroupID, 
         min16float2 staticB = min16float2(
             (min16float)g_RefPlane.Load(int3(DTid.xy, 0)),
             (min16float)g_RefPlaneV.Load(int3(DTid.xy, 0))
+        );
+        min16float2 pMCF = zeroF ? staticF : min16float2(
+            (min16float)g_SrcPlane.SampleLevel(g_LinearClamp, warpedCoordF, 0),
+            (min16float)g_SrcPlaneV.SampleLevel(g_LinearClamp, warpedCoordF, 0)
+        );
+        min16float2 pMCB = zeroB ? staticB : min16float2(
+            (min16float)g_RefPlane.SampleLevel(g_LinearClamp, warpedCoordB, 0),
+            (min16float)g_RefPlaneV.SampleLevel(g_LinearClamp, warpedCoordB, 0)
         );
 
         if (maskMode == 1)

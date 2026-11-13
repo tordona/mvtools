@@ -23,6 +23,7 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 #include <mutex>
+#include <condition_variable>
 #include <memory>
 #include <atomic>
 #include <vector>
@@ -170,6 +171,27 @@ namespace
         b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         cmdList->ResourceBarrier(1, &b);
     }
+
+    uint64_t ComputePlaneDigest(const uint8_t* pPlane, int width, int height, int pitch)
+    {
+        if (!pPlane || width < 8 || height <= 0 || pitch < width)
+            return 0;
+
+        uint64_t h = 14695981039346656037ULL ^ (static_cast<uint64_t>(width) << 32) ^ static_cast<uint64_t>(height);
+        constexpr int kSamples = 16;
+        const int maxY = height - 1;
+        const int maxX = width - 8;
+        for (int i = 0; i < kSamples; ++i)
+        {
+            const int y = (i == kSamples - 1) ? maxY : (maxY * i) / (kSamples - 1);
+            const int x = (maxX * (i % 4)) / 3;
+            uint64_t v = 0;
+            memcpy(&v, pPlane + static_cast<size_t>(y) * pitch + x, sizeof(v));
+            h ^= v;
+            h *= 1099511628211ULL;
+        }
+        return h;
+    }
 }
 
 struct RingTexture
@@ -179,8 +201,10 @@ struct RingTexture
     ComPtr<ID3D12Resource> texV;
 
     const uint8_t* cachedPtr = nullptr;
-    uint64_t cachedS0 = 0, cachedS1 = 0, cachedS2 = 0, cachedS3 = 0, cachedS4 = 0;
+    uint64_t cachedDigest = 0;
     bool inShaderResource = false;
+    bool uploadPending = false;
+    int activeUsers = 0;
 };
 
 struct FrameSlot
@@ -536,12 +560,12 @@ struct FrameSlot
 struct D3D12FlowSynthesis::Impl
 {
     static constexpr int NUM_SLOTS = 2;
-    static constexpr int RING_SIZE = 3;
+    static constexpr int RING_SIZE = 4;
 
     std::mutex m_initMutex;
     bool m_initialized = false;
     bool m_available = false;
-    bool m_enabled = false;
+    std::atomic<bool> m_enabled{ false };
 
     ComPtr<IDXGIFactory6> m_factory;
     ComPtr<IDXGIAdapter1> m_adapter;
@@ -565,11 +589,12 @@ struct D3D12FlowSynthesis::Impl
     int m_curWidthUV = 0;
     int m_curHeightUV = 0;
 
-    // 3-Texture Ring for zero-copy source frame reuse across interleaved slots
+    // 4-Texture Ring for zero-copy source frame reuse across interleaved slots
     RingTexture m_ring[RING_SIZE];
     int m_lastSrcRingIdx = -1;
     int m_lastRefRingIdx = -1;
     std::mutex m_ringMutex;
+    std::condition_variable m_ringCv;
 
     std::unique_ptr<FrameSlot> m_slots[NUM_SLOTS];
     std::atomic<uint32_t> m_nextSlot{0};
@@ -767,6 +792,17 @@ struct D3D12FlowSynthesis::Impl
             return true;
         }
 
+        // Drain all active slots before resetting shared ring textures
+        std::unique_lock<std::mutex> slotLocks[NUM_SLOTS];
+        for (int i = 0; i < NUM_SLOTS; ++i)
+        {
+            if (m_slots[i])
+            {
+                slotLocks[i] = std::unique_lock<std::mutex>(m_slots[i]->slotMutex);
+            }
+        }
+        std::lock_guard<std::mutex> rLock(m_ringMutex);
+
         m_curWidth = width;
         m_curHeight = height;
         m_curWidthUV = widthUV;
@@ -781,6 +817,8 @@ struct D3D12FlowSynthesis::Impl
             m_ring[i].texV.Reset();
             m_ring[i].cachedPtr = nullptr;
             m_ring[i].inShaderResource = false;
+            m_ring[i].uploadPending = false;
+            m_ring[i].activeUsers = 0;
 
             if (FAILED(CreateTexture2D(m_device.Get(), width, height, DXGI_FORMAT_R8_UNORM, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST, &m_ring[i].texY)))
                 return false;
@@ -797,12 +835,60 @@ struct D3D12FlowSynthesis::Impl
         return true;
     }
 
-    ~Impl()
+    void ReleaseResources()
     {
+        std::lock_guard<std::mutex> initLock(m_initMutex);
+        std::unique_lock<std::mutex> slotLocks[NUM_SLOTS];
         for (int i = 0; i < NUM_SLOTS; ++i)
         {
+            if (m_slots[i])
+            {
+                slotLocks[i] = std::unique_lock<std::mutex>(m_slots[i]->slotMutex);
+            }
+        }
+        std::lock_guard<std::mutex> rLock(m_ringMutex);
+
+        for (int i = 0; i < RING_SIZE; ++i)
+        {
+            m_ring[i].texY.Reset();
+            m_ring[i].texU.Reset();
+            m_ring[i].texV.Reset();
+            m_ring[i].cachedPtr = nullptr;
+            m_ring[i].inShaderResource = false;
+            m_ring[i].uploadPending = false;
+            m_ring[i].activeUsers = 0;
+        }
+        m_lastSrcRingIdx = -1;
+        m_lastRefRingIdx = -1;
+        m_curWidth = 0;
+        m_curHeight = 0;
+        m_curWidthUV = 0;
+        m_curHeightUV = 0;
+
+        for (int i = 0; i < NUM_SLOTS; ++i)
+        {
+            slotLocks[i] = std::unique_lock<std::mutex>();
             m_slots[i].reset();
         }
+
+        m_blendChromaPSO.Reset();
+        m_blendPSO.Reset();
+        m_blendRootSig.Reset();
+        m_warpChromaPSO.Reset();
+        m_warpPSO.Reset();
+        m_warpRootSig.Reset();
+        m_queue.Reset();
+        m_device.Reset();
+        m_adapter.Reset();
+        m_factory.Reset();
+
+        m_initialized = false;
+        m_available = false;
+    }
+
+    ~Impl()
+    {
+        ReleaseResources();
     }
 };
 
@@ -822,21 +908,25 @@ D3D12FlowSynthesis& D3D12FlowSynthesis::GetInstance()
     return instance;
 }
 
+void D3D12FlowSynthesis::Shutdown()
+{
+    GetInstance().pImpl->ReleaseResources();
+}
+
 bool D3D12FlowSynthesis::IsAvailable()
 {
     std::lock_guard<std::mutex> lock(pImpl->m_initMutex);
-    return pImpl->m_enabled && pImpl->InitDevice() && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
+    return pImpl->m_enabled.load(std::memory_order_relaxed) && pImpl->InitDevice() && pImpl->m_device && (pImpl->m_device->GetDeviceRemovedReason() == S_OK);
 }
 
 void D3D12FlowSynthesis::SetEnabled(bool enabled)
 {
-    std::lock_guard<std::mutex> lock(pImpl->m_initMutex);
-    pImpl->m_enabled = enabled;
+    pImpl->m_enabled.store(enabled, std::memory_order_relaxed);
 }
 
 bool D3D12FlowSynthesis::IsEnabled() const
 {
-    return pImpl->m_enabled;
+    return pImpl->m_enabled.load(std::memory_order_relaxed);
 }
 
 bool D3D12FlowSynthesis::SynthesizeFrame(
@@ -863,7 +953,7 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     // Verify D3D12 Device state under initialization lock
     {
         std::lock_guard<std::mutex> initLock(pImpl->m_initMutex);
-        if (!pImpl->m_enabled || !pImpl->InitDevice() || !pImpl->m_device)
+        if (!pImpl->m_enabled.load(std::memory_order_relaxed) || !pImpl->InitDevice() || !pImpl->m_device)
             return false;
         if (pImpl->m_device->GetDeviceRemovedReason() != S_OK)
         {
@@ -914,28 +1004,9 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         return false;
     }
 
-    // 1. Content sample checksums for Source & Reference planes
-    size_t srcSizeY = (size_t)width * height;
-    uint64_t srcS0 = 0, srcS1 = 0, srcS2 = 0, srcS3 = 0, srcS4 = 0;
-    if (srcSizeY >= 8 && pSrc[0])
-    {
-        srcS0 = *(const uint64_t*)(pSrc[0]);
-        srcS1 = *(const uint64_t*)(pSrc[0] + (srcSizeY >> 2));
-        srcS2 = *(const uint64_t*)(pSrc[0] + (srcSizeY >> 1));
-        srcS3 = *(const uint64_t*)(pSrc[0] + ((srcSizeY * 3) >> 2));
-        srcS4 = *(const uint64_t*)(pSrc[0] + srcSizeY - 8);
-    }
-
-    size_t refSizeY = (size_t)width * height;
-    uint64_t refS0 = 0, refS1 = 0, refS2 = 0, refS3 = 0, refS4 = 0;
-    if (refSizeY >= 8 && pRef[0])
-    {
-        refS0 = *(const uint64_t*)(pRef[0]);
-        refS1 = *(const uint64_t*)(pRef[0] + (refSizeY >> 2));
-        refS2 = *(const uint64_t*)(pRef[0] + (refSizeY >> 1));
-        refS3 = *(const uint64_t*)(pRef[0] + ((refSizeY * 3) >> 2));
-        refS4 = *(const uint64_t*)(pRef[0] + refSizeY - 8);
-    }
+    // 1. Content digest checksums for Source & Reference planes (pitch-aware)
+    const uint64_t srcDigest = ComputePlaneDigest(pSrc[0], width, height, nSrcPitches[0]);
+    const uint64_t refDigest = ComputePlaneDigest(pRef[0], width, height, nRefPitches[0]);
 
     // 2. Determine Ring Texture assignments for zero-copy source reuse
     int srcRingIdx = -1;
@@ -943,86 +1014,136 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     bool needUploadSrc = false;
     bool needUploadRef = false;
 
+    auto findFreeRingIdx = [&](int excludeIdx, int preferredIdx) -> int
     {
-        std::lock_guard<std::mutex> rLock(pImpl->m_ringMutex);
-
-        bool samePairHit = false;
-        if (pImpl->m_lastSrcRingIdx >= 0 && pImpl->m_lastRefRingIdx >= 0)
+        if (preferredIdx >= 0 && preferredIdx != excludeIdx && pImpl->m_ring[preferredIdx].activeUsers == 0)
         {
-            const auto& rSrcLast = pImpl->m_ring[pImpl->m_lastSrcRingIdx];
-            const auto& rRefLast = pImpl->m_ring[pImpl->m_lastRefRingIdx];
-            if (rSrcLast.inShaderResource && rRefLast.inShaderResource &&
-                rSrcLast.cachedPtr == pSrc[0] &&
-                rSrcLast.cachedS0 == srcS0 &&
-                rSrcLast.cachedS1 == srcS1 &&
-                rSrcLast.cachedS2 == srcS2 &&
-                rSrcLast.cachedS3 == srcS3 &&
-                rSrcLast.cachedS4 == srcS4 &&
-                rRefLast.cachedPtr == pRef[0] &&
-                rRefLast.cachedS0 == refS0 &&
-                rRefLast.cachedS1 == refS1 &&
-                rRefLast.cachedS2 == refS2 &&
-                rRefLast.cachedS3 == refS3 &&
-                rRefLast.cachedS4 == refS4)
+            return preferredIdx;
+        }
+        for (int i = 0; i < Impl::RING_SIZE; ++i)
+        {
+            if (i != excludeIdx && pImpl->m_ring[i].activeUsers == 0)
             {
-                samePairHit = true;
+                return i;
             }
         }
+        return -1;
+    };
 
-        if (samePairHit)
+    {
+        std::unique_lock<std::mutex> rLock(pImpl->m_ringMutex);
+
+        for (;;)
         {
-            // Consecutive same-pair hit (e.g. 24 fps -> 60 fps intermediate sub-frames):
-            // Both pSrc and pRef are already in GPU texture memory!
-            srcRingIdx = pImpl->m_lastSrcRingIdx;
-            refRingIdx = pImpl->m_lastRefRingIdx;
-            needUploadSrc = false;
-            needUploadRef = false;
+            bool samePairHit = false;
+            if (false && pImpl->m_lastSrcRingIdx >= 0 && pImpl->m_lastRefRingIdx >= 0)
+            {
+                const auto& rSrcLast = pImpl->m_ring[pImpl->m_lastSrcRingIdx];
+                const auto& rRefLast = pImpl->m_ring[pImpl->m_lastRefRingIdx];
+                if ((rSrcLast.inShaderResource || rSrcLast.uploadPending) &&
+                    (rRefLast.inShaderResource || rRefLast.uploadPending) &&
+                    rSrcLast.cachedPtr == pSrc[0] &&
+                    rSrcLast.cachedDigest == srcDigest &&
+                    rRefLast.cachedPtr == pRef[0] &&
+                    rRefLast.cachedDigest == refDigest)
+                {
+                    samePairHit = true;
+                }
+            }
+
+            if (samePairHit)
+            {
+                srcRingIdx = pImpl->m_lastSrcRingIdx;
+                refRingIdx = pImpl->m_lastRefRingIdx;
+                needUploadSrc = false;
+                needUploadRef = false;
+                break;
+            }
+            else if (false && pImpl->m_lastRefRingIdx >= 0 &&
+                pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedPtr == pSrc[0] &&
+                pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedDigest == srcDigest &&
+                (pImpl->m_ring[pImpl->m_lastRefRingIdx].inShaderResource ||
+                 pImpl->m_ring[pImpl->m_lastRefRingIdx].uploadPending))
+            {
+                int candidateRef = findFreeRingIdx(pImpl->m_lastRefRingIdx, (pImpl->m_lastRefRingIdx + 1) % Impl::RING_SIZE);
+                if (candidateRef >= 0)
+                {
+                    srcRingIdx = pImpl->m_lastRefRingIdx;
+                    refRingIdx = candidateRef;
+                    needUploadSrc = false;
+                    needUploadRef = true;
+                    break;
+                }
+            }
+            else
+            {
+                int candidateSrc = findFreeRingIdx(-1, 0);
+                int candidateRef = (candidateSrc >= 0) ? findFreeRingIdx(candidateSrc, (candidateSrc + 1) % Impl::RING_SIZE) : -1;
+                if (candidateSrc >= 0 && candidateRef >= 0)
+                {
+                    srcRingIdx = candidateSrc;
+                    refRingIdx = candidateRef;
+                    needUploadSrc = true;
+                    needUploadRef = true;
+                    break;
+                }
+            }
+
+            pImpl->m_ringCv.wait(rLock);
         }
-        else if (pImpl->m_lastRefRingIdx >= 0 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedPtr == pSrc[0] &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS0 == srcS0 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS1 == srcS1 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS2 == srcS2 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS3 == srcS3 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedS4 == srcS4 &&
-            pImpl->m_ring[pImpl->m_lastRefRingIdx].inShaderResource)
+
+        pImpl->m_lastSrcRingIdx = srcRingIdx;
+        pImpl->m_lastRefRingIdx = refRingIdx;
+        pImpl->m_ring[srcRingIdx].activeUsers++;
+        if (refRingIdx != srcRingIdx)
         {
-            // Consecutive playback hit: previous pRef is new pSrc!
-            srcRingIdx = pImpl->m_lastRefRingIdx;
-            refRingIdx = (pImpl->m_lastRefRingIdx + 1) % Impl::RING_SIZE;
-            needUploadSrc = false;
-            needUploadRef = true;
-            pImpl->m_lastSrcRingIdx = srcRingIdx;
-            pImpl->m_lastRefRingIdx = refRingIdx;
-        }
-        else
-        {
-            // Cold start or seek: upload both Src and Ref
-            srcRingIdx = 0;
-            refRingIdx = 1;
-            needUploadSrc = true;
-            needUploadRef = true;
-            pImpl->m_lastSrcRingIdx = 0;
-            pImpl->m_lastRefRingIdx = 1;
+            pImpl->m_ring[refRingIdx].activeUsers++;
         }
 
         if (needUploadSrc)
         {
             auto& rSrc = pImpl->m_ring[srcRingIdx];
             rSrc.cachedPtr = pSrc[0];
-            rSrc.cachedS0 = srcS0; rSrc.cachedS1 = srcS1; rSrc.cachedS2 = srcS2;
-            rSrc.cachedS3 = srcS3; rSrc.cachedS4 = srcS4;
-            rSrc.inShaderResource = false;
+            rSrc.cachedDigest = srcDigest;
+            rSrc.uploadPending = true;
         }
         if (needUploadRef)
         {
             auto& rRef = pImpl->m_ring[refRingIdx];
             rRef.cachedPtr = pRef[0];
-            rRef.cachedS0 = refS0; rRef.cachedS1 = refS1; rRef.cachedS2 = refS2;
-            rRef.cachedS3 = refS3; rRef.cachedS4 = refS4;
-            rRef.inShaderResource = false;
+            rRef.cachedDigest = refDigest;
+            rRef.uploadPending = true;
         }
     }
+
+    struct RingUseGuard
+    {
+        D3D12FlowSynthesis::Impl* impl;
+        int srcIdx;
+        int refIdx;
+        bool pendingSrc;
+        bool pendingRef;
+        ~RingUseGuard()
+        {
+            std::lock_guard<std::mutex> lk(impl->m_ringMutex);
+            if (pendingSrc)
+            {
+                impl->m_ring[srcIdx].uploadPending = false;
+                impl->m_ring[srcIdx].cachedPtr = nullptr;
+            }
+            if (pendingRef)
+            {
+                impl->m_ring[refIdx].uploadPending = false;
+                impl->m_ring[refIdx].cachedPtr = nullptr;
+            }
+            impl->m_ring[srcIdx].activeUsers--;
+            if (refIdx != srcIdx)
+            {
+                impl->m_ring[refIdx].activeUsers--;
+            }
+            impl->m_ringCv.notify_all();
+        }
+    } ringGuard { pImpl, srcRingIdx, refRingIdx, needUploadSrc, needUploadRef };
 
     // 3. Upload missing plane data to active slot upload buffer
     if (needUploadSrc)
@@ -1116,7 +1237,16 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         }
     }
 
-    // 4. Reset and record Command List for the active slot
+    // 4. Reset, record Command List, and submit to queue under ring lock so
+    //    shared ring resource states and upload visibility match queue submission order.
+    std::unique_lock<std::mutex> submitRingLock(pImpl->m_ringMutex);
+    pImpl->m_ringCv.wait(submitRingLock, [&]
+    {
+        bool srcReady = needUploadSrc || !pImpl->m_ring[srcRingIdx].uploadPending;
+        bool refReady = needUploadRef || !pImpl->m_ring[refRingIdx].uploadPending;
+        return srcReady && refReady;
+    });
+
     slot.cmdAlloc->Reset();
     slot.cmdList->Reset(slot.cmdAlloc.Get(), fallbackBlend ? pImpl->m_blendPSO.Get() : pImpl->m_warpPSO.Get());
 
@@ -1295,7 +1425,8 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
 
     slot.cmdList->Close();
 
-    // 5. Asynchronous Queue Execution: lightweight lock around command submission
+    // 5. Asynchronous Queue Execution: submit while holding m_ringMutex so state transitions
+    //    and upload visibility are strictly ordered on the GPU queue.
     {
         std::lock_guard<std::mutex> qLock(pImpl->m_queueMutex);
         ID3D12CommandList* ppLists[] = { slot.cmdList.Get() };
@@ -1304,6 +1435,19 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         slot.fenceValue++;
         pImpl->m_queue->Signal(slot.fence.Get(), slot.fenceValue);
     }
+
+    if (needUploadSrc)
+    {
+        rSrc.uploadPending = false;
+        ringGuard.pendingSrc = false;
+    }
+    if (needUploadRef)
+    {
+        rRef.uploadPending = false;
+        ringGuard.pendingRef = false;
+    }
+    pImpl->m_ringCv.notify_all();
+    submitRingLock.unlock();
 
     slot.fence->SetEventOnCompletion(slot.fenceValue, slot.fenceEvent);
     DWORD waitResult = WaitForSingleObject(slot.fenceEvent, 2000);

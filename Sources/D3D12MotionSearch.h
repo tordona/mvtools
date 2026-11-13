@@ -63,6 +63,7 @@ class D3D12MotionSearch
 {
 public:
     static D3D12MotionSearch& GetInstance();
+    static void Shutdown();
 
     bool IsAvailable();
     void SetEnabled(bool enabled);

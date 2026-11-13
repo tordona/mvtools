@@ -66,6 +66,8 @@
 void __cdecl Shutdown_AvstpFallbackPool(void* user_data, IScriptEnvironment* env)
 {
   AvstpFallbackPool::shutdown();
+  D3D12FlowSynthesis::Shutdown();
+  D3D12MotionSearch::Shutdown();
 }
 
 AVSValue __cdecl Create_MIsD3D12Available(AVSValue args, void*, IScriptEnvironment* env)

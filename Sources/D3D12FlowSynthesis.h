@@ -11,6 +11,7 @@ class D3D12FlowSynthesis
 {
 public:
     static D3D12FlowSynthesis& GetInstance();
+    static void Shutdown();
 
     bool IsAvailable();
     void SetEnabled(bool enabled);
