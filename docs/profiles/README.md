@@ -22,7 +22,7 @@ Instead of relying on deep pyramid levels for macro-motion tracking, Rev 3.0.0 u
 2. **Fine Refinement Pass (`MRecalculate`):** Refines vector boundaries down to smaller blocks (`blksize=16` or `8`), resolving fine edges and moving foreground objects without halo tearing.
 
 ### 3. CPU Core Pinning & Asymmetric Topology Tuning (`AvsAffinity.dll`)
-Modern chipsets feature heterogeneous CPU topologies (e.g. Intel Alder/Raptor Lake P+E, AMD Zen 4c/5c, and Qualcomm Snapdragon Cortex-X1/A78/A55). On these architectures, the Windows thread scheduler can migrate compute-intensive video worker threads onto low-IPC Efficiency cores, causing 1% low frame latency spikes and presentation stutter.
+Modern chipsets feature heterogeneous CPU topologies (e.g. Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, and NVIDIA RTX Spark N1X). On these architectures, the Windows thread scheduler can migrate compute-intensive video worker threads across clock domains or onto low-IPC Efficiency cores, causing 1% low frame latency spikes and presentation stutter.
 
 All hybrid profiles chain the companion **`AvsAffinity.dll`** clip filter immediately before `Prefetch`:
 ```avisynth
@@ -31,7 +31,7 @@ Prefetch(threads)
 ```
 * **Worker Thread Isolation:** `PinWorkerThreads()` pins only the AviSynth+ worker threads to Performance cores via Win32 `SetThreadAffinityMask` during `GetFrame()` traversal.
 * **Zero Host Blast Radius:** Host media player threads—including audio decoding, DXVA video acceleration, and Direct3D swapchain presentation—remain unconstrained and free to run on Efficiency cores.
-* **Homogeneous Processor Bypass:** On processors with uniform core efficiency (e.g. Snapdragon X Elite/Plus, Intel N100, standard AMD Ryzen CCDs), the filter automatically detects uniform core efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`).
+* **Homogeneous Processor Bypass:** On processors with uniform core efficiency (e.g. 1st-Gen Qualcomm Oryon on Snapdragon X Elite/Plus, Intel N-series N100/N200, standard AMD Ryzen desktop CCDs), the filter automatically detects uniform core efficiency (`minClass == maxClass`) and executes a safe no-op (`mask = 0x0`).
 * **Core Budget Allocations:**
   * **RTX Spark N1X (9–10x Cortex-X925 + 9–10x Cortex-A725):** Pinned strictly to Cortex-X925 Prime cores.
   * **Snapdragon X2 Series (6–12x Prime + 4–6x Perf Oryon):** Pinned strictly to 3rd-Gen Oryon Prime cores.

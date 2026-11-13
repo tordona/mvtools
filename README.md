@@ -38,7 +38,7 @@ This repository provides **51 hardware-tailored real-time profiles** across **x8
 ### Plugin Binaries & Architecture
 
 * **`mvtools2.dll`**: Unified canonical binary containing the production native CPU SIMD vector engine (AVX2/AVX-512 on x86-64, NEON on ARM64) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
-* **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake, AMD Zen 4c/5c, Qualcomm Snapdragon), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
+* **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake/Core Ultra, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, NVIDIA RTX Spark), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
