@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.18 (2026-11-09)
+# Revision: 2.3.21 (2026-11-13)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.20
+    2.3.21
 .DATE
-    2026-11-09
+    2026-11-13
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
+    - v2.3.21 (2026-11-13): Updated thread allocation invariants in Copy-AiAgentHardwarePrompt to explicitly budget ARM heterogeneous SoCs (RTX Spark N1X, Snapdragon X2/C/8cx) against Prime/Performance cores.
     - v2.3.20 (2026-11-09): Added 4-pillar quantitative 4K 60 fps feasibility classification rules to prompt generation.
     - v2.3.19 (2026-11-09): Added 4K early return bypass invariant to Copy-AiAgentHardwarePrompt for entry-tier ARM64 SoCs.
-    - v2.3.18 (2026-11-09): Fixed Snapdragon 7c Gen 2 detection regression and tightened ARM64 matching rules.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.18"
+$Script:InstallerVersion = "2.3.21"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -2282,7 +2282,7 @@ $pluginRule
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse and MRecalculate (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
 6. Frame Synthesis: MUST use ``last = MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` (assign to 'last' so PotPlayer receives the interpolated clip; never assign to an unused variable like 'out ='; DO NOT use MFlowFps for real-time 60 fps interpolation). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
 7. Direct3D 12 Zero-Overlap Invariant: Direct3D 12 GPU offload (USE_D3D12=true) strictly requires zero block overlap (overlap=0). Shaders in flow_warp.hlsl index vectors via direct coordinate division (DTid.x / nBlkSizeX); non-zero overlap causes coordinate misalignment and severe image tearing. When USE_D3D12=true, MaxQuality MUST use dual-pass coarse-to-fine refinement with ``MRecalculate(divide=0)`` and zero overlap (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with overlap=0). Overlap is ONLY permitted on CPU SIMD fallback (``overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)``).
-8. Thread Allocation & P-Core Budgeting: MUST size worker threads to match available physical Performance cores without exceeding them (``threads <= physical_p_cores``; for hybrid Intel P+E or AMD Zen 5/5c CPUs, budget threads strictly against P-cores, never total physical cores or E-cores; e.g. 4P+8E -> threads=3 to 4, 6P+8E -> threads=3 to 5), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
+8. Thread Allocation & P-Core / Prime Budgeting: MUST size worker threads to match available physical Performance or Prime cores without exceeding them (``threads <= physical_p_cores`` or ``threads <= prime_cores``). On hybrid Intel P+E, AMD Zen 4c/5c, or ARM heterogeneous processors (RTX Spark N1X, Snapdragon X2, Snapdragon C, Snapdragon 8cx), budget threads strictly against Performance/Prime cores, never total physical cores or E-cores (e.g. 4P+8E -> threads=3 to 4; 10 Prime + 10 Perf -> threads=4 to 8; 1 Prime + 3 Perf + 4 Eff -> threads=2 to 3), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
 9. Dynamic 4K Resolution Adaptation & Feasibility Classification: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Classify 4K feasibility:
    - Tier A (Supported: VPU >= 4K 60 fps, UMA >= 50 GB/s, P-Cores >= 4): Scale block sizes by 2x (coarse 64x64 -> fine 32x32, 8,160 blocks) to preserve macroblock count invariance. On 4K, force pel=1, sharp=0, blend=false, and size mem_limit=1280.
    - Tier B (Constrained: 25-45 GB/s or 4 E-cores): Limit 4K to single-pass coarse blocks (blk_sz = is_4k ? 64 : 32, mode=0, blend=false).

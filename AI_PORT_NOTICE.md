@@ -80,10 +80,10 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Wiener 6-Tap Filter Subplane Vectorization (`MSuper`)**: Subpixel plane generation for `pel=2, sharp=2` in [`Interpolation.cpp`](Sources/Interpolation.cpp) and [`MVPlane.cpp`](Sources/MVPlane.cpp) was vectorized via `VerticalWiener_neon` and `HorizontalWiener_neon`, utilizing `vrhaddq_u8`, `vextq_u8`, and `vqmovun_s16` for high-throughput 6-tap FIR filtering.
 
 ### G. Companion Plugin Integration: CPU Core Affinity Isolation (`AvsAffinity.dll`)
-- **Architectural Motivation**: On hybrid CPU topologies (Qualcomm Snapdragon 8cx/850/7c with Cortex-X1/A76 + A55, Intel Alder/Raptor Lake P+E, AMD Zen 4c/5c), the Windows thread scheduler can migrate compute-intensive video worker threads onto low-IPC Efficiency cores. In real-time 60 fps interpolation, this introduces frame presentation jitter, high 1% low frame latency, and pipeline starvation.
+- **Architectural Motivation**: On hybrid CPU topologies (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, and NVIDIA RTX Spark N1X), the Windows thread scheduler can migrate compute-intensive video worker threads across clock domains or onto low-IPC Efficiency cores. In real-time 60 fps interpolation, this introduces frame presentation jitter, high 1% low frame latency, and pipeline starvation.
 - **Clip Filter Architecture**: Rather than applying whole-process affinity masks (which restrict host audio decoding, UI, and D3D11 swapchain presentation), the companion `AvsAffinity.dll` filter (`PinWorkerThreads`) intercepts `GetFrame()` and invokes Win32 `SetThreadAffinityMask` using thread-local caching, isolating only AviSynth+ worker threads to Performance cores.
 - **Submodule & Solution Mapping**: Attached as a Git submodule (`AvsAffinity/`) and mapped into `mvtools.sln` across x64 and ARM64 platforms, outputting `AvsAffinity.dll` directly alongside `mvtools2.dll`.
-- **Homogeneous Bypass**: Automatically detects uniform CPU architectures (Qualcomm Oryon, Intel N100, standard AMD Ryzen CCDs) via `minClass == maxClass` and evaluates to a safe no-op (`mask = 0x0`).
+- **Homogeneous Bypass**: Automatically detects uniform CPU architectures (1st-Gen Qualcomm Oryon on Snapdragon X Elite/Plus, Intel N-series N100/N200, standard AMD Ryzen desktop CCDs) via `minClass == maxClass` and evaluates to a safe no-op (`mask = 0x0`).
 
 ---
 
