@@ -1023,17 +1023,22 @@ func_sad[make_tuple(x, y, 8, USE_SSE2)] = Sad_sse2<x,y>;
 
 SADx4Function* get_sad_x4_function(int BlockX, int BlockY, int bits_per_pixel, arch_t arch)
 {
-#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__) || defined(INTEL_INTRINSICS)
     if (bits_per_pixel != 8)
         return nullptr;
 
     using std::make_tuple;
     std::map<std::tuple<int, int, int, arch_t>, SADx4Function*> func_sad_x4;
 
+#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(__aarch64__)
 #define MAKE_SAD_X4_FN(x, y) \
     func_sad_x4[make_tuple(x, y, 8, USE_SSE2)] = Sad_x4_neon_v8<x, y>; \
     func_sad_x4[make_tuple(x, y, 8, USE_NEON)] = Sad_x4_neon_v8<x, y>; \
     func_sad_x4[make_tuple(x, y, 8, USE_SSE41)] = Sad_x4_neon_dotprod<x, y>;
+#else
+#define MAKE_SAD_X4_FN(x, y) \
+    func_sad_x4[make_tuple(x, y, 8, USE_SSE2)] = Sad_x4_sse2<x, y>;
+#endif
 
     MAKE_SAD_X4_FN(64, 64)
     MAKE_SAD_X4_FN(64, 48)

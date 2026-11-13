@@ -794,6 +794,89 @@ unsigned int Sad_sse2(const uint8_t* pSrc, int nSrcPitch8, const uint8_t* pRef, 
 }
 #endif
 
+#ifdef INTEL_INTRINSICS
+#include <emmintrin.h>
+#include <cstring>
+
+template<int nBlkWidth, int nBlkHeight>
+static void Sad_x4_sse2(
+  const uint8_t *pSrc, int nSrcPitch,
+  const uint8_t *pRef0, const uint8_t *pRef1,
+  const uint8_t *pRef2, const uint8_t *pRef3,
+  int nRefPitch, sad_t *out_sads)
+{
+  __m128i acc0 = _mm_setzero_si128();
+  __m128i acc1 = _mm_setzero_si128();
+  __m128i acc2 = _mm_setzero_si128();
+  __m128i acc3 = _mm_setzero_si128();
+
+  constexpr int w16 = (nBlkWidth / 16) * 16;
+  constexpr int rem = nBlkWidth - w16;
+
+  auto load_tail = [](const uint8_t *p) -> __m128i {
+    if constexpr (rem == 8) {
+      return _mm_loadl_epi64(reinterpret_cast<const __m128i *>(p));
+    }
+    else if constexpr (rem == 12) {
+      __m128i lo = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(p));
+      int32_t hi = 0;
+      memcpy(&hi, p + 8, 4);
+      return _mm_unpacklo_epi64(lo, _mm_cvtsi32_si128(hi));
+    }
+    else if constexpr (rem == 4) {
+      int32_t v = 0;
+      memcpy(&v, p, 4);
+      return _mm_cvtsi32_si128(v);
+    }
+    else if constexpr (rem == 6) {
+      int32_t lo = 0;
+      int16_t hi = 0;
+      memcpy(&lo, p, 4);
+      memcpy(&hi, p + 4, 2);
+      return _mm_set_epi32(0, 0, static_cast<uint16_t>(hi), lo);
+    }
+    else {
+      return _mm_setzero_si128();
+    }
+  };
+
+  for (int y = 0; y < nBlkHeight; ++y)
+  {
+    for (int x = 0; x < w16; x += 16)
+    {
+      const __m128i s = _mm_loadu_si128(reinterpret_cast<const __m128i *>(pSrc + x));
+      acc0 = _mm_add_epi64(acc0, _mm_sad_epu8(s, _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef0 + x))));
+      acc1 = _mm_add_epi64(acc1, _mm_sad_epu8(s, _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef1 + x))));
+      acc2 = _mm_add_epi64(acc2, _mm_sad_epu8(s, _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef2 + x))));
+      acc3 = _mm_add_epi64(acc3, _mm_sad_epu8(s, _mm_loadu_si128(reinterpret_cast<const __m128i *>(pRef3 + x))));
+    }
+    if constexpr (rem > 0)
+    {
+      const __m128i s = load_tail(pSrc + w16);
+      acc0 = _mm_add_epi64(acc0, _mm_sad_epu8(s, load_tail(pRef0 + w16)));
+      acc1 = _mm_add_epi64(acc1, _mm_sad_epu8(s, load_tail(pRef1 + w16)));
+      acc2 = _mm_add_epi64(acc2, _mm_sad_epu8(s, load_tail(pRef2 + w16)));
+      acc3 = _mm_add_epi64(acc3, _mm_sad_epu8(s, load_tail(pRef3 + w16)));
+    }
+    pSrc += nSrcPitch;
+    pRef0 += nRefPitch;
+    pRef1 += nRefPitch;
+    pRef2 += nRefPitch;
+    pRef3 += nRefPitch;
+  }
+
+  auto hsum = [](__m128i acc) -> sad_t {
+    acc = _mm_add_epi32(acc, _mm_srli_si128(acc, 8));
+    return static_cast<sad_t>(_mm_cvtsi128_si32(acc));
+  };
+
+  out_sads[0] = hsum(acc0);
+  out_sads[1] = hsum(acc1);
+  out_sads[2] = hsum(acc2);
+  out_sads[3] = hsum(acc3);
+}
+#endif
+
  // SAD routines are same for SADFunctions.h and SADFunctions_avx.cpp
  // put it into a common h
 #ifdef INTEL_INTRINSICS

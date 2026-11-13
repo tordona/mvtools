@@ -85,19 +85,8 @@ static int count_affinity_cores (DWORD_PTR mask)
 }
 #endif
 
-// Concurrency tracking: counts active dispatchers in flight and distinct caller threads
+// Concurrency tracking: counts active dispatchers in flight
 std::atomic <int> g_active_dispatchers { 0 };
-std::atomic <int> g_distinct_caller_threads { 0 };
-thread_local bool s_thread_seen = false;
-
-static void register_caller_thread ()
-{
-	if (! s_thread_seen)
-	{
-		s_thread_seen = true;
-		g_distinct_caller_threads.fetch_add (1, std::memory_order_relaxed);
-	}
-}
 
 // One per avstp_TaskDispatcher: counts the tasks of that batch still
 // outstanding, so wait_completion() can block until it reaches zero.
@@ -121,10 +110,10 @@ class Pool
 {
 public:
 
-	explicit Pool (unsigned long long affinity_mask)
+	Pool (int nbr_threads, unsigned long long affinity_mask)
 		: _affinity_mask (affinity_mask)
 	{
-		const int      n = AvstpFallbackPool::get_nbr_threads ();
+		const int      n = (std::max) (1, nbr_threads);
 		_workers.reserve (n);
 		for (int i = 0; i < n; ++i)
 		{
@@ -229,29 +218,21 @@ Pool *		g_pool_ptr = 0;
 
 int	AvstpFallbackPool::get_nbr_threads ()
 {
-	register_caller_thread ();
+	// When multiple dispatchers are concurrently in flight (e.g. AviSynth+ Prefetch),
+	// throttle internal horizontal slicing to 1 to prevent nested N x N thread
+	// over-subscription; frame-level MT already saturates available cores.
+	if (g_active_dispatchers.load (std::memory_order_relaxed) > 1)
+	{
+		return 1;
+	}
 
 #ifdef _WIN32
 	DWORD_PTR aff_mask  = query_effective_affinity_mask ();
 	DWORD_PTR proc_mask = 0;
 	DWORD_PTR sys_mask  = 0;
-	GetProcessAffinityMask (GetCurrentProcess (), &proc_mask, &sys_mask);
-
-	// Detect if worker threads are pinned to a specific core set (e.g. AvsAffinity on hybrid Zen 5/5c or P/E)
-	const bool is_affinity_pinned = (aff_mask != 0 && sys_mask != 0 && aff_mask != sys_mask);
-
-	// Detect if AviSynth+ frame-level multi-threading (Prefetch) is active
-	const bool is_frame_mt_active = (g_active_dispatchers.load (std::memory_order_relaxed) > 0)
-	                             || (g_distinct_caller_threads.load (std::memory_order_relaxed) > 1);
-
-	// When AviSynth+ frame MT is active or thread affinity pinning is in effect:
-	// Multi-threaded horizontal slicing causes severe thread over-subscription and breaks
-	// motion predictor causality across horizontal slice boundaries. Throttling to 1
-	// sequential slice per frame guarantees bit-exact motion search with zero tearing,
-	// while Prefetch handles 100% linear core utilization across frames.
-	if (is_affinity_pinned || is_frame_mt_active)
+	if (aff_mask == 0)
 	{
-		return 1;
+		GetProcessAffinityMask (GetCurrentProcess (), &proc_mask, &sys_mask);
 	}
 
 	const int p_cores = count_affinity_cores (aff_mask != 0 ? aff_mask : proc_mask);
@@ -271,7 +252,6 @@ int	AvstpFallbackPool::get_nbr_threads ()
 
 avstp_TaskDispatcher *	AvstpFallbackPool::create_dispatcher ()
 {
-	register_caller_thread ();
 	g_active_dispatchers.fetch_add (1, std::memory_order_acq_rel);
 
 	return (reinterpret_cast <avstp_TaskDispatcher *> (new Dispatcher));
@@ -297,13 +277,11 @@ int	AvstpFallbackPool::enqueue_task (avstp_TaskDispatcher *td_ptr, avstp_TaskPtr
 	}
 	else
 	{
-		register_caller_thread ();
-
-		// When operating in single-slice mode (e.g. under AviSynth+ MT or AvsAffinity),
+		// When operating in single-slice mode (e.g. under concurrent Prefetch or 1-core affinity),
 		// execute the task inline in the caller's thread. This eliminates queue overhead,
-		// thread context switches, and condition variable latency, while keeping execution
-		// strictly on the caller's pinned Performance core.
-		if (get_nbr_threads () == 1)
+		// thread context switches, and condition variable latency.
+		const int nbr_threads = get_nbr_threads ();
+		if (nbr_threads == 1)
 		{
 			task_ptr (td_ptr, user_data_ptr);
 			return (avstp_Err_OK);
@@ -326,7 +304,7 @@ int	AvstpFallbackPool::enqueue_task (avstp_TaskDispatcher *td_ptr, avstp_TaskPtr
 #ifdef _WIN32
 			aff_mask = static_cast <unsigned long long> (query_effective_affinity_mask ());
 #endif
-			g_pool_ptr = new Pool (aff_mask);
+			g_pool_ptr = new Pool (nbr_threads, aff_mask);
 		}
 		g_pool_ptr->submit (job);
 	}
