@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.100`**.
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.101`**.
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
@@ -66,12 +66,16 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Unified Memory Architecture (UMA) Fast Path**: Leverages Snapdragon's shared physical LPDDR4x/LPDDR5x memory subsystem between CPU and Adreno GPU, eliminating PCIe transfer overhead and enabling zero-copy host-visible readback.
 - **Dual-Pass Search Offload**: Accelerates both coarse motion vector search (`MAnalyse`) and fine block refinement (`MRecalculate`).
 - **Substantial CPU Load Reduction**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
+- **Zero-MV Sampling Fast Path**: In [`flow_warp.hlsl`](Sources/shaders/flow_warp.hlsl), stationary vectors (`rawMv == (0, 0)`) bypass 4-tap bilinear filtering via a 1-tap `Load()` instruction, reducing sampler load on static scenes and letterboxed content.
+- **Early-Exit Cost Bounding**: In [`motion_search_cs.hlsl`](Sources/shaders/motion_search_cs.hlsl), search candidate evaluation applies early-exit SAD cost bounding (`sadLimit`) and distance penalty gating to abort unviable search points before issuing global VRAM fetches.
+- **Explicit Device & Singleton Teardown**: Integrated explicit `Shutdown()` hooks in `Interface.cpp` for `D3D12FlowSynthesis` and `D3D12MotionSearch` to ensure complete GPU resource, queue, and descriptor heap reclamation during script reload cycles.
 - **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsD3D12Available()` and `MEnableD3D12(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
 
 ### E. Multi-Threading & Thread Pool Architecture (`AvstpFallbackPool` & `MTSlicer`)
 - **Native Thread Pool Fallback**: On Windows on ARM64 systems, `avstp.dll` is often absent or unavailable as a native ARM64 binary. Historically, MVTools fell back to single-threaded slice execution when `avstp.dll` could not be dynamically loaded via `LoadLibrary`.
 - **Windows Threadpool API Integration**: Implemented [`Sources/AvstpFallbackPool.h`](Sources/AvstpFallbackPool.h) and [`Sources/AvstpFallbackPool.cpp`](Sources/AvstpFallbackPool.cpp), providing an in-process thread pool using the Win32 Threadpool API (`CreateThreadpoolWork`, `SubmitThreadpoolWork`, `WaitForThreadpoolWorkCallbacks`).
 - **Zero-Dependency Slice Multi-Threading**: Restores deterministic multi-threaded slice processing across `MTSlicer` in `MVFlowFps` and `MVBlockFps` without requiring external helper binaries, saturating Qualcomm Oryon and Cortex-X1 cores efficiently.
+- **Frame-MT Concurrency Throttling & Inline Tasking**: In [`Sources/AvstpFallbackPool.cpp`](Sources/AvstpFallbackPool.cpp), internal horizontal slicing is throttled to 1 slice when concurrent active dispatchers exceed 1 (e.g. under multi-frame `Prefetch()`), preventing nested $N \times N$ thread over-subscription. Single-slice tasks execute inline on the caller thread, eliminating threadpool queue latency and context switching.
 
 ### F. Advanced NEON Micro-Architecture Optimizations
 - **Predictor Array Batching (`CheckMV0_x4`)**: In `PseudoEPZSearch` ([`PlaneOfBlocks.cpp`](Sources/PlaneOfBlocks.cpp)), spatial and temporal motion vector predictor candidates are evaluated four at a time via `Sad_x4_neon_dotprod` ([`SADFunctions.h`](Sources/SADFunctions.h)). Utilizing 4-wide NEON dot-product instructions reduces predictor evaluation latency by up to 3.8x.
@@ -79,9 +83,9 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Compensation Overlap SIMD Vectorization (`COMP`)**: Overlapped block blending routines in [`overlap.cpp`](Sources/overlap.cpp) and [`overlap.h`](Sources/overlap.h) were vectorized using native 128-bit NEON intrinsics (`Overlaps_uint8_t_neon`, `Overlaps_uint16_t_neon`, and `Short2Bytes_neon`), dispatched directly by `MVBlockFps` and `MVCompensate`.
 - **Wiener 6-Tap Filter Subplane Vectorization (`MSuper`)**: Subpixel plane generation for `pel=2, sharp=2` in [`Interpolation.cpp`](Sources/Interpolation.cpp) and [`MVPlane.cpp`](Sources/MVPlane.cpp) was vectorized via `VerticalWiener_neon` and `HorizontalWiener_neon`, utilizing `vrhaddq_u8`, `vextq_u8`, and `vqmovun_s16` for high-throughput 6-tap FIR filtering.
 
-### G. Companion Plugin Integration: CPU Core Affinity Isolation (`AvsAffinity.dll`)
+### G. Companion Plugin Integration: CPU Core Affinity Isolation (`AvsAffinity.dll` v1.1.0)
 - **Architectural Motivation**: On hybrid CPU topologies (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, and NVIDIA RTX Spark N1X), the Windows thread scheduler can migrate compute-intensive video worker threads across clock domains or onto low-IPC Efficiency cores. In real-time 60 fps interpolation, this introduces frame presentation jitter, high 1% low frame latency, and pipeline starvation.
-- **Clip Filter Architecture**: Rather than applying whole-process affinity masks (which restrict host audio decoding, UI, and D3D11 swapchain presentation), the companion `AvsAffinity.dll` filter (`PinWorkerThreads`) intercepts `GetFrame()` and invokes Win32 `SetThreadAffinityMask` using thread-local caching, isolating only AviSynth+ worker threads to Performance cores.
+- **Clip Filter Architecture**: Rather than applying whole-process affinity masks (which restrict host audio decoding, UI, and D3D11 swapchain presentation), the companion `AvsAffinity.dll` filter (`PinWorkerThreads`) intercepts `GetFrame()` and invokes Win32 `SetThreadAffinityMask` once per worker thread per filter instance (restoring prior masks on teardown), isolating only AviSynth+ worker threads to Performance cores.
 - **Submodule & Solution Mapping**: Attached as a Git submodule (`AvsAffinity/`) and mapped into `mvtools.sln` across x64 and ARM64 platforms, outputting `AvsAffinity.dll` directly alongside `mvtools2.dll`.
 - **Homogeneous Bypass**: Automatically detects uniform CPU architectures (1st-Gen Qualcomm Oryon on Snapdragon X Elite/Plus, Intel N-series N100/N200, standard AMD Ryzen desktop CCDs) via `minClass == maxClass` and evaluates to a safe no-op (`mask = 0x0`).
 
@@ -108,6 +112,12 @@ Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hard
   - [`Snapdragon-X-Balanced.avs`](AviSynth/Snapdragon-X-Balanced.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` pixel-flow synthesis, `Prefetch(6)`. Smooth 60 fps target.
   - [`Snapdragon-X-MaxQuality.avs`](AviSynth/Snapdragon-X-MaxQuality.avs): Subpixel `pel=2` Wiener interpolation, `16x16` → `8x8` micro-blocks, Diamond motion search (`search=2, searchparam=2`), `Prefetch(8)`. Maximum fidelity for plugged-in operation.
   - Guide: [`Documentation/guides/SnapdragonX.md`](Documentation/guides/SnapdragonX.md).
+
+- **Snapdragon C (1x Prime + 3x Performance + 4x Efficiency Kryo Cores, Adreno A643 GPU, 5 W – 10 W)**:
+  - [`Snapdragon-C-Eco.avs`](AviSynth/Snapdragon-C-Eco.avs): `pel=1`, `32x32` coarse blocks, `mode=0` block projection, `Prefetch(2, 4)`. Pure ARM64 CPU NEON execution with `strictPrime=true` core pinning.
+  - [`Snapdragon-C-Balanced.avs`](AviSynth/Snapdragon-C-Balanced.avs): Single-pass `16x16` fine blocks, `AvsAffinity` Prime/Perf core pinning, `Prefetch(3, 4)`. Fluid 60 fps target.
+  - [`Snapdragon-C-MaxQuality.avs`](AviSynth/Snapdragon-C-MaxQuality.avs): Dual-pass `32x32` → `16x16` refinement (`MRecalculate`), `mode=2` on 1080p, `Prefetch(3, 4)`.
+  - Guide: [`Documentation/guides/SnapdragonC.md`](Documentation/guides/SnapdragonC.md).
 
 - **Snapdragon 8cx Gen 3 / Microsoft SQ3 (4x Cortex-X1 + 4x Cortex-A78, Adreno 690, 7 W – 15 W)**:
   - [`Snapdragon-8cxGen3-Eco.avs`](AviSynth/Snapdragon-8cxGen3-Eco.avs): `pel=1`, `32x32` blocks, `mode=0` block projection, `Prefetch(4)`. Ultra-low power and cool operating thermals.

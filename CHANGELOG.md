@@ -1,4 +1,28 @@
 Change log
+- 2.7.48.101 (20261113)
+  - Direct3D 12 DirectCompute Optimizations & Host Management:
+    - Implemented zero-MV fast path in flow_warp.hlsl using 1-tap Load() instead of 4-tap bilinear SampleLevel() for stationary blocks.
+    - Added early-exit SAD cost bounding (sadLimit) and distance penalty gating in motion_search_cs.hlsl.
+    - Added explicit singleton Shutdown() hooks in Interface.cpp for D3D12FlowSynthesis and D3D12MotionSearch to ensure complete GPU resource reclamation during script reloads.
+    - Added 64-bit frame plane digest hashing for input caching and synchronization.
+    - Bumped core engine version to 2.7.48.101 in Sources/version.h.
+  - CPU SIMD Kernels & Concurrency Controls:
+    - Added 4-way parallel Block SAD kernel (Sad_x4_sse2) with unaligned tail processing for x86 SSE2 architectures.
+    - Enhanced AvstpFallbackPool concurrency control: throttles horizontal slicing to 1 slice when concurrent active dispatchers exceed 1, preventing nested N x N thread over-subscription during multi-frame Prefetch().
+    - Implemented inline execution for single-slice tasks to eliminate queue condition variable latency and thread context switching.
+  - Bundled AvsAffinity v1.1.0 Integration:
+    - Bundled AvsAffinity.dll v1.1.0 across both ARM64 and x64 release packages.
+    - Expanded hardware topology recognition to Intel Core Ultra, AMD Zen 5/5c, Qualcomm Snapdragon X2, Snapdragon C, and NVIDIA RTX Spark N1X.
+    - Retained automatic homogeneous core bypass (mask = 0x0) for uniform architectures.
+  - 4K Motion Interpolation & Profile Standardization:
+    - Standardized invariant screen-proportion block scaling (64x64 coarse -> 32x32 fine) across 51 hardware profiles, cutting evaluated block count by 75% on 4K video.
+    - Validated real-time 4K 60 fps playback on Qualcomm Snapdragon X Series, Snapdragon X2 Series, and Snapdragon 8cx Gen 1–3.
+    - Enforced native 4K early return bypass on Snapdragon 7c Gen 2 and Snapdragon 850.
+  - Tooling & Web Documentation:
+    - Bumped Install-MvToolsPotPlayer.ps1 to v2.3.21, aligning Copy-AiAgentHardwarePrompt thread budgeting with Prime/Performance core limits.
+    - Registered Schema.org SoftwareApplication and expanded FAQPage JSON-LD schemas in docs/index.html.
+    - Synchronized docs/sitemap.xml timestamps to 2026-11-13 and added HTML sitemap discovery tags.
+
 - 2.7.48.100 (20261103)
   - Core Upstream 2.7.48 Synchronization:
     - Rebased fork onto upstream AviSynth MVTools 2.7.48 core.
