@@ -194,6 +194,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    USE_D3D12  = false                    # MANDATORY DEFAULT: Always false (CPU SIMD production baseline). User flips to true for GPU offload
    threads    = USE_D3D12 ? <T_GPU> : <T_CPU>  # GPU queue depth (2 for Eco, 3 for Balanced, 4 for MaxQuality) vs CPU cores
    mem_limit  = USE_D3D12 ? <M_GPU> : <M_CPU>
+   target_fps = 60                           # Target output frame rate (e.g. 60 or 120)
    pel_val    = USE_D3D12 ? 1 : <P_CPU>
    sharp_mode = USE_D3D12 ? 0 : <S_CPU>
    pad_size   = USE_D3D12 ? 8 : 0
@@ -208,32 +209,40 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    SetFilterMTMode("DEFAULT_MT_MODE", 2) # MT_MULTI_INSTANCE required
 
    # 2. PotPlayer Video Source Stream (DXVA / Hardware Decoded)
-   # CRITICAL: MUST precede all resolution queries; establishes the clip object for Width()
+   # CRITICAL: MUST precede all resolution and frame rate queries; establishes the clip object
    src = potplayer_source()              # or potplayer_source() for implicit 'last'
 
-   # 3. Dynamic Resolution Adaptation (MUST Immediately Follow Source Initialization)
-   # CRITICAL: is_4k must be defined before any blk_* or pad_* expression reads it
+   # 3. Dynamic Resolution & Target-FPS Guard (MUST Immediately Follow Source Initialization)
+   # CRITICAL: is_4k must be defined before target_fps cap, blk_*, or pad_* expressions read it
    is_4k      = (src.Width() > 2048)
+   target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+   # Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance, e.g. 59.94 fps for 60 fps)
+   if (src.FrameRate() >= (target_fps * 0.96)) {
+       return src
+   }
+
    blk_coarse = is_4k ? 64 : 32          # (or blk_sz = is_4k ? (<B> * 2) : <B>)
    blk_fine   = is_4k ? 32 : 16
    pad_val    = is_4k ? (pad_size * 2) : pad_size
+   levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)
 
    # 4. Load Plugin & Configure Direct3D 12 Engine
    LoadPlugin("mvtools2.dll")
    MEnableD3D12(USE_D3D12)               # MANDATORY: Must ALWAYS be called whenever USE_D3D12 is declared
    try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-   # 5. Base Motion Super Clip (Single-Level Geometry)
-   # levels=1: Single-level eliminates redundant multi-level pyramid generation
-   super = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
+   # 5. Base Motion Super Clip (Tiered Pyramid Geometry)
+   # levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
+   super = src.MSuper(levels=levels_val, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
    # 6. Motion Vector Search (MAnalyse & MRecalculate)
-   backward_vec = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
-   forward_vec  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, chroma=false, levels=1)
+   backward_vec = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, plevel=0, chroma=false, levels=levels_val)
+   forward_vec  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=<Rad>, plevel=0, chroma=false, levels=levels_val)
 
    # 7. Direct Native 60 fps Frame Synthesis (MBlockFps)
    # Directly warps native frames with 1:1 pixel accuracy; MUST assign to 'last' (or call bare) so PotPlayer receives the interpolated clip (never 'out = MBlockFps')
-   last = MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=synth_mode, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
+   last = MBlockFps(src, super, backward_vec, forward_vec, num=target_fps, den=1, mode=synth_mode, blend=<Blend>, thSCD1=<Th1>, thSCD2=<Th2>)
 
    # 8. Hardware Thread Affinity & Lookahead Buffer
    last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -257,7 +266,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      * **Intel Hybrid (P+E Cores):** Budget worker threads strictly against high-performance P-cores (`threads <= p_cores`; e.g. on 4P+8E `i7-1260P`, set `threads = 3` for Eco, `threads = 4` for Balanced/MaxQuality; on 6P+8E `Ultra 7 155H`, set `threads = 3` for Eco, `threads = 4` for Balanced, `threads = 5` or `6` for MaxQuality). Never allocate thread counts based on total physical cores or allow worker threads to spill into low-throughput E-cores where the slowest thread stalls the frame presentation deadline.
      * **AMD Zen 5 + Zen 5c (Kraken Point / Strix Point):** Both Zen 5 and Zen 5c share the unified 16 MB L3 cache with full AVX-512 support. Set `threads = 3` (Eco, P-cores only), `threads = 4` (Balanced), `threads = 6` (MaxQuality, all physical cores).
      * **ARM Heterogeneous Cores (RTX Spark N1X, Snapdragon X2 Series, Snapdragon C, Snapdragon 8cx Gen 3):** Budget worker threads strictly against high-IPC Prime cores (`threads <= prime_cores`; e.g. on 10 Prime + 10 Perf `RTX Spark N1X`, set `threads = 4` for Eco, `threads = 6` for Balanced, `threads = 8` for MaxQuality; on Snapdragon X2 Series, set `threads = 4` for Eco, `threads = 6` for Balanced/MaxQuality; on 1 Prime + 3 Perf + 4 Eff `Snapdragon C`, set `threads = 2` for Eco with `strictPrime=true`, `threads = 3` for Balanced/MaxQuality pinned to Prime/Perf). `AvsAffinity.dll` (`PinWorkerThreads()`) programmatically confines threads to the Prime/Performance cluster, leaving secondary cores free for NVDEC/DXVA decode, audio, and presentation swapchains.
-      * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 3` (Eco), `threads = 4` (Balanced & MaxQuality).
+      * **Ultra-Low-Power E-Core Clusters (e.g. Intel N100 4C/4T Gracemont):** `threads = 2` (Eco), `threads = 3` (Balanced & MaxQuality, leaving 1 core free for DXVA decode and DWM).
 
 4. **Lookahead Queue Sizing (`Prefetch(threads, Lookahead)`):**
    * **Eco Tier:** `Prefetch(threads, 4)` (4 lookahead frames).
@@ -265,7 +274,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
    * A deeper lookahead queue (6–8 frames) absorbs transient Windows DWM/audio scheduling spikes, locking 1% Low frame rates above **52.0–55.5 fps**.
 
 5. **Lean Memory Ceiling (`SetMemoryMax`):**
-   * Because single-level search (`levels=1`) eliminates redundant pyramid buffers, memory requirements are streamlined to preserve UMA DRAM bandwidth for integrated graphics:
+   * When `USE_D3D12 = true`, single-level search (`levels=1`) avoids CPU pyramid staging overhead; on CPU (`USE_D3D12 = false`), `levels = is_4k ? 2 : 0` with `plevel = 0` limits 4K pyramid depth while keeping `1080p` panning smooth across all tiers:
      * **Eco:** `mem_limit = 512`
      * **Balanced:** `mem_limit = 768` (or `1024` on 32 GB systems)
      * **MaxQuality:** `mem_limit = 1024` (or `1536` on 8-core systems)
@@ -333,26 +342,26 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 #### Tier 1: Eco Profile (`<Platform>-Eco.avs`)
 * **Objective:** Sub-8 W to 10 W package power, low-thermal battery playback, 0 dropped frames.
-* **MSuper:** `levels=1` (single-level restriction), `pel=1` (integer-pixel precision), `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0` (bilinear).
-* **MAnalyse:** Coarse 32x32 blocks (`blksize=blk_sz, blksizev=blk_sz`, approx. 2,040 coarse blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=1`.
+* **MSuper:** `levels=levels_val` (`levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)`, or `is_4k ? 2 : 0` on CPU-only), `pel=1` (integer-pixel precision), `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0` (bilinear).
+* **MAnalyse:** Coarse 32x32 blocks (`blksize=blk_sz, blksizev=blk_sz`, approx. 2,040 coarse blocks total), `search=2, searchparam=1` (tight radius-1 hexagonal search), `plevel=0` (constant spatial coherence across pyramid levels), `chroma=false` (luma-only vector search cuts computation by 50%), `levels=levels_val`.
 * **MBlockFps:** `mode=0` (fast 2-stream block projection mandatory across BOTH GPU and CPU; never set mode=2 on Eco), `blend=false` (skips transparency blending), `thSCD1=400, thSCD2=130` (robust scene cut protection).
 * **Lookahead:** `Prefetch(threads, 4)`.
 * **Expected CPU Load:** Typically **3.8% to 12.9%** on modern processors (or < 3% with Direct3D 12 GPU offload).
 
 #### Tier 2: Balanced Profile (`<Platform>-Balanced.avs`)
 * **Objective:** Recommended primary profile. High-density 16x16 vector grid (8,160 blocks; 4x density of 32x32), fine-grained vector tracking, zero optical flow latency bubbles, 0 dropped frames.
-* **MSuper:** `levels=1`, `pel=1`, `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0`.
-* **MAnalyse:** High-density 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `chroma=false`, `levels=1`.
+* **MSuper:** `levels=levels_val` (`levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)`, or `is_4k ? 2 : 0` on CPU-only), `pel=1`, `hpad=pad_val, vpad=pad_val` (where `pad_size = USE_D3D12 ? 8 : 0`), `sharp=0`.
+* **MAnalyse:** High-density 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz`), `search=2, searchparam=2` (radius-2 hexagonal search captures rapid motion pans), `plevel=0` (constant spatial coherence across pyramid levels), `chroma=false`, `levels=levels_val`.
 * **MBlockFps:** `mode=0` (direct native block projection mandatory across BOTH GPU and CPU), `blend=false`, `thSCD1=380, thSCD2=125`.
 * **Lookahead:** `Prefetch(threads, 6)`.
 * **Expected CPU Load:** Typically **4.5% to 20.8%** on modern processors.
 
 #### Tier 3: MaxQuality Profile (`<Platform>-MaxQuality.avs`)
 * **Objective:** Highest visual fidelity, dense sub-block vector grid, directional alpha blending across complex motion and scene cuts.
-* **MSuper:** `levels=1`, `pel=pel_val` (`pel_val = USE_D3D12 ? 1 : <pel>` strictly adhering to Step 1.7), `hpad=pad_val, vpad=pad_val`, `sharp=sharp_mode` (`sharp_mode = USE_D3D12 ? 0 : <sharp>`).
+* **MSuper:** `levels=levels_val` (`levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)`, or `is_4k ? 2 : 0` on CPU-only), `pel=pel_val` (`pel_val = USE_D3D12 ? 1 : <pel>` strictly adhering to Step 1.7), `hpad=pad_val, vpad=pad_val`, `sharp=sharp_mode` (`sharp_mode = USE_D3D12 ? 0 : <sharp>`).
 * **Motion Vector Architecture:**
   * **Direct3D 12 GPU Offload (`USE_D3D12 = true`):** Dual-pass coarse-to-fine refinement with zero overlap (`overlap = 0`). Start with coarse 32x32 `MAnalyse` (`blk_coarse = is_4k ? 64 : 32`, `search=2, searchparam=2`), followed by fine 16x16 `MRecalculate` (`blk_fine = is_4k ? 32 : 16`, `divide=0`, `overlap=0`, `search=2, searchparam=2`, `chroma=false`). Direct3D 12 `FlowWarpCS` requires non-overlapping blocks; `overlap > 0` causes spatial coordinate misalignment and severe image tearing.
-  * **CPU SIMD Fallback (`USE_D3D12 = false`):** Overlapping 16x16 blocks (`blksize=blk_sz, blksizev=blk_sz, overlap=overlap_val, overlapv=overlap_val` with `overlap_size = USE_D3D12 ? 0 : 4`), eliminating block boundary discontinuities via CPU vector interpolation.
+  * **CPU SIMD Fallback (`USE_D3D12 = false`):** Overlapping 16x16 blocks (`blksize=blk_fine, blksizev=blk_fine, overlap=overlap_val, overlapv=overlap_val` with `overlap_size = USE_D3D12 ? 0 : 4` and `overlap_val = is_4k ? (overlap_size * 2) : overlap_size`), eliminating block boundary discontinuities via CPU vector interpolation.
 * **MBlockFps:** `mode=synth_mode` (`synth_mode = USE_D3D12 ? 2 : 0` — mode 2 Dynamic Median with occlusion masking on GPU; fast projection mode 0 on CPU fallback), `blend=true` (directional alpha blending smooths occlusion/disocclusion edges), `thSCD1=350, thSCD2=115`.
 * **Lookahead:** `Prefetch(threads, 6)` (or `8` on 8-core CPUs).
 * **Expected CPU Load:** Typically **6.5% to 28.1%** on modern processors.
@@ -372,15 +381,16 @@ For the requested platform, output:
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
    * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
-   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.12)`
+   * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.16)`
    * `# Target: <Core Design Goal>`
-   * `# Revision: 2.3.12 (2026-11-09)`
-   * `# Changelog: Removed legacy proxy search downscaling in favor of native single-super wide-block and refinement (levels=1)`
+   * `# Revision: 2.3.16 (2026-11-17)`
+   * `# Changelog: Unified pyramid level rule to levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0) (or is_4k ? 2 : 0 on CPU-only) with plevel=0 across all tiers`
 3. **Execution Order & Variable Integrity Checklist:**
    Before outputting any profile, verify strictly:
-   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.12)`.
+   - [ ] Standard header includes `# Generator: <Model> (AIAgentProfileGuide Rev 2.3.16)`.
    - [ ] `USE_D3D12` is set to `false` by default (`USE_D3D12 = false`); never emit `USE_D3D12 = true` as the default.
-   - [ ] `potplayer_source()` is invoked before calling `Width()`.
+   - [ ] `potplayer_source()` is invoked before calling `FrameRate()` or `Width()`.
+   - [ ] `is_4k = (src.Width() > 2048)` and `target_fps = (is_4k && target_fps > 60) ? 60 : target_fps` precede `if (src.FrameRate() >= (target_fps * 0.96)) { return src }`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
    - [ ] `MEnableD3D12(USE_D3D12)` is invoked immediately after `LoadPlugin("mvtools2.dll")` whenever `USE_D3D12` is declared.
    - [ ] `MBlockFps` is assigned to `last` (e.g. `last = MBlockFps(...)`) or called bare so PotPlayer receives the interpolated clip (never assign to an unused variable like `out =`).

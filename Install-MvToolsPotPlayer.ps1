@@ -2,7 +2,7 @@
 # MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
-# Revision: 2.3.21 (2026-11-13)
+# Revision: 2.3.27 (2026-11-17)
 # ==============================================================================
 <#
 .SYNOPSIS
@@ -41,15 +41,15 @@
     Automatically launches PotPlayer after setup completes.
 
 .VERSION
-    2.3.21
+    2.3.27
 .DATE
-    2026-11-13
+    2026-11-17
 .NOTES
     Format: SemVer (MAJOR.MINOR.PATCH)
     Revision History:
-    - v2.3.21 (2026-11-13): Updated thread allocation invariants in Copy-AiAgentHardwarePrompt to explicitly budget ARM heterogeneous SoCs (RTX Spark N1X, Snapdragon X2/C/8cx) against Prime/Performance cores.
-    - v2.3.20 (2026-11-09): Added 4-pillar quantitative 4K 60 fps feasibility classification rules to prompt generation.
-    - v2.3.19 (2026-11-09): Added 4K early return bypass invariant to Copy-AiAgentHardwarePrompt for entry-tier ARM64 SoCs.
+    - v2.3.27 (2026-11-17): Unified pyramid level rule to levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0) (or is_4k ? 2 : 0 on CPU-only) with plevel=0 across all tiers in Copy-AiAgentHardwarePrompt and AIAgentProfileGuide.
+    - v2.3.26 (2026-11-17): Added 4K target_fps cap (target_fps = (is_4k && target_fps > 60) ? 60 : target_fps) before the frame rate bypass across Copy-AiAgentHardwarePrompt and AIAgentProfileGuide.
+    - v2.3.25 (2026-11-17): Parameterized target_fps (default 60) and updated frame rate bypass to compare src.FrameRate() >= (target_fps * 0.96) across Copy-AiAgentHardwarePrompt and AIAgentProfileGuide.
 #>
 
 [CmdletBinding()]
@@ -63,7 +63,7 @@ param(
 )
 
 # Installer Semantic Revision
-$Script:InstallerVersion = "2.3.21"
+$Script:InstallerVersion = "2.3.23"
 
 # ---------------------------------------------------------
 # GLOBAL SECURITY & ENCODING SETUP
@@ -720,10 +720,33 @@ function Stop-PotPlayerProcesses {
 function Get-PotPlayerInstallPath {
     param([string]$ExplicitDir = "")
 
-    if (-not [string]::IsNullOrWhiteSpace($ExplicitDir) -and (Test-Path $ExplicitDir)) {
-        if ((Test-Path (Join-Path $ExplicitDir "PotPlayer64.exe")) -or (Test-Path (Join-Path $ExplicitDir "PotPlayerMini64.exe"))) {
-            return (Resolve-Path $ExplicitDir).Path
+    $resolvePotDir = {
+        param([string]$RawValue, [switch]$IsFilePath)
+        if ([string]::IsNullOrWhiteSpace($RawValue)) { return $null }
+        foreach ($segment in ($RawValue -split ';')) {
+            $cleaned = $segment.Trim(" `t`r`n`"'\0")
+            if ($cleaned -match '^"([^"]+)"') {
+                $cleaned = $Matches[1]
+            } elseif ($IsFilePath -and $cleaned -match '^(.*?\.exe)\b') {
+                $cleaned = $Matches[1]
+            }
+            $cleaned = $cleaned.Trim(" `t`r`n`"'\0")
+            if ([string]::IsNullOrWhiteSpace($cleaned)) { continue }
+            try {
+                $dir = if ($IsFilePath) { [System.IO.Path]::GetDirectoryName($cleaned) } else { $cleaned }
+                if (-not [string]::IsNullOrWhiteSpace($dir) -and (Test-Path -LiteralPath $dir)) {
+                    if ((Test-Path -LiteralPath (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path -LiteralPath (Join-Path $dir "PotPlayerMini64.exe"))) {
+                        return (Resolve-Path -LiteralPath $dir).Path
+                    }
+                }
+            } catch {}
         }
+        return $null
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitDir)) {
+        $found = & $resolvePotDir $ExplicitDir
+        if ($found) { return $found }
     }
 
     # 1. Registry Daum / PotPlayer keys
@@ -739,16 +762,12 @@ function Get-PotPlayerInstallPath {
         if (Test-Path $regKey) {
             $props = Get-ItemProperty $regKey -ErrorAction SilentlyContinue
             if ($props.ProgramFolder) {
-                $f = $props.ProgramFolder.Trim('"')
-                if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
-                    return (Resolve-Path $f).Path
-                }
+                $found = & $resolvePotDir $props.ProgramFolder
+                if ($found) { return $found }
             }
             if ($props.ProgramPath) {
-                $dir = [System.IO.Path]::GetDirectoryName($props.ProgramPath.Trim('"'))
-                if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
-                    return (Resolve-Path $dir).Path
-                }
+                $found = & $resolvePotDir $props.ProgramPath -IsFilePath
+                if ($found) { return $found }
             }
         }
     }
@@ -762,16 +781,12 @@ function Get-PotPlayerInstallPath {
         if (Test-Path $ap) {
             $props = Get-ItemProperty $ap -ErrorAction SilentlyContinue
             if ($props.Path) {
-                $f = $props.Path.Trim('"')
-                if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
-                    return (Resolve-Path $f).Path
-                }
+                $found = & $resolvePotDir $props.Path
+                if ($found) { return $found }
             }
             if ($props.'(default)') {
-                $dir = [System.IO.Path]::GetDirectoryName($props.'(default)'.Trim('"'))
-                if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
-                    return (Resolve-Path $dir).Path
-                }
+                $found = & $resolvePotDir $props.'(default)' -IsFilePath
+                if ($found) { return $found }
             }
         }
     }
@@ -785,16 +800,12 @@ function Get-PotPlayerInstallPath {
     $uninstalls = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match "PotPlayer" }
     foreach ($u in $uninstalls) {
         if ($u.InstallLocation) {
-            $f = $u.InstallLocation.Trim('"')
-            if ((Test-Path (Join-Path $f "PotPlayer64.exe")) -or (Test-Path (Join-Path $f "PotPlayerMini64.exe"))) {
-                return (Resolve-Path $f).Path
-            }
+            $found = & $resolvePotDir $u.InstallLocation
+            if ($found) { return $found }
         }
         if ($u.UninstallString) {
-            $dir = [System.IO.Path]::GetDirectoryName($u.UninstallString.Trim('"'))
-            if ($dir -and ((Test-Path (Join-Path $dir "PotPlayer64.exe")) -or (Test-Path (Join-Path $dir "PotPlayerMini64.exe")))) {
-                return (Resolve-Path $dir).Path
-            }
+            $found = & $resolvePotDir $u.UninstallString -IsFilePath
+            if ($found) { return $found }
         }
     }
 
@@ -1422,8 +1433,8 @@ function Get-MvToolsLatestReleaseAsset {
     )
 
     $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetPotPlayerDir
-    if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
-        $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    if ([string]::IsNullOrWhiteSpace($RepoSlug)) {
+        $RepoSlug = "tordona/mvtools"
     }
     if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
         $ReleaseTag = "latest"
@@ -1591,8 +1602,8 @@ function Install-MvToolsRelease {
     } catch {}
 
     $targetArch = Get-TargetBinaryArchitecture -TargetPotPlayerDir $TargetDir
-    if ([string]::IsNullOrWhiteSpace($RepoSlug) -or ($RepoSlug -eq "tordona/mvtools" -and $targetArch -eq "x64")) {
-        $RepoSlug = if ($targetArch -eq "x64") { "pinterf/mvtools" } else { "tordona/mvtools" }
+    if ([string]::IsNullOrWhiteSpace($RepoSlug)) {
+        $RepoSlug = "tordona/mvtools"
     }
     if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
         $ReleaseTag = "latest"
@@ -1793,7 +1804,8 @@ function Install-MvToolsRelease {
 
         try {
             Copy-Item -Path $cpuDll.FullName -Destination (Join-Path $deployDir "mvtools2.dll") -Force -ErrorAction Stop
-            Write-Host ("  -> Deployed unified mvtools2.dll ({0} CPU NEON & D3D12 GPU) to: {1}" -f $archLabel, $deployDir) -ForegroundColor Green
+            $simdLabel = if ($targetArch -eq "x64") { "x64 CPU AVX2/SSE2" } else { "ARM64 CPU NEON" }
+            Write-Host ("  -> Deployed unified mvtools2.dll ({0} & D3D12 GPU) to: {1}" -f $simdLabel, $deployDir) -ForegroundColor Green
 
             if ($depanDll) {
                 Copy-Item -Path $depanDll.FullName -Destination (Join-Path $deployDir "DePan.dll") -Force -ErrorAction Stop
@@ -2278,17 +2290,17 @@ Mandatory Architecture & AviSynth+ 3.x Rules:
 1. Multi-Threading: MUST declare ``SetMemoryMax()`` and ``SetFilterMTMode("DEFAULT_MT_MODE", 2)`` at the top BEFORE calling ``potplayer_source()`` (NEVER use legacy ``SetMTMode``).
 $pluginRule
 3. Function Naming: MUST spell MVTools functions as ``MAnalyse`` (with 's') and specify ``isb=true`` on the backward vector search.
-4. Single-Level Geometry & Quantitative Subpixel Rules: MUST use ``levels=1`` in both MSuper and MAnalyse (``pel=1, hpad=pad_val, vpad=pad_val, sharp=0`` with ``pad_size = USE_D3D12 ? 8 : 0``). For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
+4. Pyramid Geometry & Quantitative Subpixel Rules: Use ``levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)`` (or ``levels_val = is_4k ? 2 : 0`` on CPU-only profiles) across Eco, Balanced, and MaxQuality in MSuper, MAnalyse (with ``plevel=0`` for constant pan coherence), and MRecalculate to eliminate panning tearing without deep 4K pyramid bloat (``levels=1`` is reserved for USE_D3D12=true because D3D12 offloads Level 0 only). Use ``pel=1, hpad=pad_val, vpad=pad_val, sharp=0`` with ``pad_size = USE_D3D12 ? 8 : 0``. For MaxQuality: use ``pel=1, sharp=1`` by default; set ``pel=2, sharp=2`` (Wiener filter) ONLY if platform meets ALL quantitative criteria: >= 8 physical homogeneous cores (or >= 6 Performance cores on hybrid), sustained TDP >= 35 W, and dual-channel memory; otherwise strictly default to ``pel=1, sharp=1`` (when USE_D3D12=true, strictly pel=1 with hardware bilinear sampler).
 5. Vector Computation: MUST use ``chroma=false`` in MAnalyse and MRecalculate (luma-only search cuts vector compute in half and is required for D3D12 compute offload).
-6. Frame Synthesis: MUST use ``last = MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=<Mode>, blend=<Blend>)`` (assign to 'last' so PotPlayer receives the interpolated clip; never assign to an unused variable like 'out ='; DO NOT use MFlowFps for real-time 60 fps interpolation). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
+6. Frame Synthesis: MUST declare ``target_fps = 60`` at the top of the script and use ``last = MBlockFps(src, super, backward_vec, forward_vec, num=target_fps, den=1, mode=<Mode>, blend=<Blend>)`` (assign to 'last' so PotPlayer receives the interpolated clip; never assign to an unused variable like 'out ='; DO NOT use MFlowFps for real-time 60 fps interpolation). Mode gating: Eco (Profile 1) and Balanced (Profile 2) MUST set ``mode=0`` across BOTH GPU and CPU (never mode=2 on Eco/Balanced). MaxQuality (Profile 3) sets ``mode=2`` (GPU Dynamic Median with occlusion masking) when USE_D3D12=true, and ``mode=0`` on CPU fallback (USE_D3D12 ? 2 : 0).
 7. Direct3D 12 Zero-Overlap Invariant: Direct3D 12 GPU offload (USE_D3D12=true) strictly requires zero block overlap (overlap=0). Shaders in flow_warp.hlsl index vectors via direct coordinate division (DTid.x / nBlkSizeX); non-zero overlap causes coordinate misalignment and severe image tearing. When USE_D3D12=true, MaxQuality MUST use dual-pass coarse-to-fine refinement with ``MRecalculate(divide=0)`` and zero overlap (coarse 32x32 MAnalyse -> fine 16x16 MRecalculate with overlap=0). Overlap is ONLY permitted on CPU SIMD fallback (``overlap_sz = USE_D3D12 ? 0 : (is_4k ? 8 : 4)``).
 8. Thread Allocation & P-Core / Prime Budgeting: MUST size worker threads to match available physical Performance or Prime cores without exceeding them (``threads <= physical_p_cores`` or ``threads <= prime_cores``). On hybrid Intel P+E, AMD Zen 4c/5c, or ARM heterogeneous processors (RTX Spark N1X, Snapdragon X2, Snapdragon C, Snapdragon 8cx), budget threads strictly against Performance/Prime cores, never total physical cores or E-cores (e.g. 4P+8E -> threads=3 to 4; 10 Prime + 10 Perf -> threads=4 to 8; 1 Prime + 3 Perf + 4 Eff -> threads=2 to 3), chaining ``last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last`` immediately prior to ``Prefetch(threads, 4 for Eco, 6 for Balanced/MaxQuality)``. When USE_D3D12=true, thread count represents GPU queue lookahead depth (threads=2 for Eco, 3 for Balanced, 4 for MaxQuality).
-9. Dynamic 4K Resolution Adaptation & Feasibility Classification: MUST declare ``is_4k = (src.Width() > 2048)`` strictly AFTER ``src = potplayer_source()`` and BEFORE any block size calculations. Classify 4K feasibility:
+9. Target-Relative FPS Bypass & Dynamic 4K Resolution Adaptation: Immediately after ``src = potplayer_source()``, MUST declare ``is_4k = (src.Width() > 2048)``, cap ``target_fps`` on 4K via ``target_fps = (is_4k && target_fps > 60) ? 60 : target_fps``, and bypass interpolation when the source is already at or above ``target_fps`` (with 4% NTSC tolerance) via ``if (src.FrameRate() >= (target_fps * 0.96)) { return src }``. Classify 4K feasibility:
    - Tier A (Supported: VPU >= 4K 60 fps, UMA >= 50 GB/s, P-Cores >= 4): Scale block sizes by 2x (coarse 64x64 -> fine 32x32, 8,160 blocks) to preserve macroblock count invariance. On 4K, force pel=1, sharp=0, blend=false, and size mem_limit=1280.
    - Tier B (Constrained: 25-45 GB/s or 4 E-cores): Limit 4K to single-pass coarse blocks (blk_sz = is_4k ? 64 : 32, mode=0, blend=false).
-   - Tier C (Unsupported: VPU capped at 4K 30 fps, UMA < 20 GB/s, or <= 2 P-Cores on <= 7 W TDP): Dynamically bypass 4K streams via ``if (src.Width() > 2048) { return src }`` immediately after ``potplayer_source()`` to preserve smooth native playback. NEVER place resolution-dependent expressions above ``potplayer_source()``.
+   - Tier C (Unsupported: VPU capped at 4K 30 fps, UMA < 20 GB/s, or <= 2 P-Cores on <= 7 W TDP): Dynamically bypass 4K streams via ``if (is_4k) { return src }`` immediately after the frame rate check to preserve smooth native playback. NEVER place resolution-dependent expressions above ``potplayer_source()``.
 10. Clean Script Formatting: MUST emit standard AviSynth+ syntax with one statement per line. Never collapse multiple statements onto a single line without linebreaks.
-11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model> (AIAgentProfileGuide Rev 2.3.12)`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity).
+11. Standard Header & AI Provenance: MUST format every profile header with standard metadata comments including ``# Generator: <Agent Name & Model> (AIAgentProfileGuide Rev 2.3.16)`` (e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity).
 
 Generate the complete 3-tier profile set following these exact rules:
 - Profile 1 (Eco): Coarse blocks (``blk_sz = is_4k ? 64 : 32, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, mode=0, blend=false``), lowest package power.
