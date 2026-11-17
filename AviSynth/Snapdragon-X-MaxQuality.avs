@@ -5,8 +5,8 @@
 # Architecture: ARM64 NEON / Direct3D 12 GPU Offload (mvtools2.dll)
 # Generator: Google Antigravity (AIAgentProfileGuide Rev 2.3.10)
 # Target: Highest Visual Fidelity, Diamond Motion Search, Sustained 60 fps
-# Revision: 2.5.0 (2026-11-06)
-# Changelog: Series-wide Snapdragon X rename (X Elite + X Plus), removed 1080p phrasing, updated comments, D3D12 toggle
+# Revision: 2.5.4 (2026-11-17)
+# Changelog: Parameterized target_fps (default 60, capped at 60 fps on 4K) with target-relative frame rate bypass; Replaced unconditional levels=1 with tiered pyramid levels_val (levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)) and plevel=0 for tear-free panning
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -22,6 +22,7 @@ use_chroma  = USE_D3D12 ? false : true
 # GPU offload executes on command queue (4 threads optimal); CPU uses 8 Oryon cores
 threads     = USE_D3D12 ? 4 : 8
 mem_limit   = USE_D3D12 ? 2048 : 4096
+target_fps  = 60                  # Target output frame rate (e.g. 60 or 120)
 
 # Subpixel, Block & Search Parameters:
 # pel_val: pel=1 on GPU avoids CPU scalar subplane generation (FlowWarpCS performs subpixel bilinear sampling on GPU); pel=2 on CPU
@@ -39,10 +40,18 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance, e.g. 59.94 fps for 60 fps)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic Resolution Adaptation (720p through 4K):
 # At 4K, block sizes scale by 2x to maintain spatial grid density (2,040 coarse / 8,160 fine),
 # eliminating the 40,560 block explosion while preserving maximal visual detail.
-is_4k       = (src.Width() > 2048)
+levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)
 blk_coarse  = USE_D3D12 ? (is_4k ? 64 : 32) : (is_4k ? 32 : 16)
 blk_fine    = USE_D3D12 ? (is_4k ? 32 : 16) : (is_4k ? 16 : 8)
 
@@ -56,7 +65,7 @@ MEnableD3D12(USE_D3D12)
 # hpad, vpad: Boundary padding (8 px on GPU, 16 px on CPU)
 # sharp=sharp_mode: 6-tap Wiener interpolation when pel=2 on CPU; unused when pel=1 on GPU
 pad_val = is_4k ? (pad_size * 2) : pad_size
-super   = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
+super   = src.MSuper(levels=levels_val, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Diamond Coarse Motion Vector Field Analysis
 # blksize=blk_coarse: 32x32 on GPU (2,040 blocks), 16x16 on CPU (8,160 blocks)
@@ -64,8 +73,8 @@ super   = src.MSuper(levels=1, pel=pel_val, hpad=pad_val, vpad=pad_val, sharp=sh
 # chroma=use_chroma: Luma-only on GPU; luma + chroma on CPU
 # levels=1: Strictly searches base Level 0
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, plevel=0, levels=levels_val, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, plevel=0, levels=levels_val, badrange=(-24))
 
 # 3. Micro-Block Refinement (MRecalculate)
 # blksize=blk_fine: 16x16 on GPU (8,160 blocks), 8x8 on CPU (32,640 blocks)
@@ -79,7 +88,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=2: Dynamic Median synthesis with occlusion masking
 # blend=true: Scene-change fallback blending without edge tearing
 # thSCD1=320, thSCD2=115: Strict scene-change detection to isolate camera cuts
-last = MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
+last = MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 
 # 5. Thread Pool (adapted dynamically to USE_D3D12)
 Prefetch(threads)

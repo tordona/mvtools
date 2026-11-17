@@ -4,8 +4,8 @@
 # Memory: 16 GB – 32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / Direct3D 12 GPU Offload (mvtools2.dll)
 # Target: High-Fidelity 60 fps Presentation, Coarse-to-Fine 16x16 Vectors with Occlusion Masking, 20 W Envelope
-# Revision: 2.3.0 (2026-11-04)
-# Changelog: Direct3D 12 GPU offload toggle (USE_D3D12), MEnableD3D12, dynamic thread/memory budget, MRecalculate fine pass, GPU Dynamic Median (mode=2), blend=true, AvsAffinity hardware pinning, dynamic 4K adaptation
+# Revision: 2.3.4 (2026-11-17)
+# Changelog: Parameterized target_fps (default 60, capped at 60 fps on 4K) with target-relative frame rate bypass; Replaced unconditional levels=1 with tiered pyramid levels_val (levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)) and plevel=0 for tear-free panning
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -19,6 +19,7 @@ USE_D3D12 = false
 # GPU offload executes on direct command queue (4 threads optimal); CPU uses all 6 physical cores
 threads     = USE_D3D12 ? 4 : 6
 mem_limit   = USE_D3D12 ? 1536 : 1024 # Ample cache allocation for GPU ring buffers and vector grids
+target_fps  = 60                  # Target output frame rate (e.g. 60 or 120)
 sharp_mode  = USE_D3D12 ? 0 : 1       # Bicubic on CPU; hardware texture sampler on GPU
 pad_size    = USE_D3D12 ? 8 : 16      # Boundary padding stabilizes edge motion vectors
 fine_rad    = USE_D3D12 ? 2 : 1       # Radius-2 refinement on GPU; local grid on CPU
@@ -31,11 +32,19 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (AMD VCN hardware decoded via Radeon 840M)
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance, e.g. 59.94 fps for 60 fps)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, block sizes scale by 2x to maintain 1080p spatial grid density (2,040 coarse / 8,160 fine),
 # eliminating the 32,400 block explosion while preserving maximal visual detail.
-is_4k      = (src.Width() > 2048)
+levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? (pad_size * 2) : pad_size
@@ -50,7 +59,7 @@ try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 # pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes motion vectors near frame borders
 # sharp=sharp_mode: Bicubic interpolation on CPU; unused when pel=1 on GPU
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
+super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=sharp_mode)
 
 # 2. Coarse Motion Vector Field Analysis
 # 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
@@ -58,8 +67,8 @@ super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=sharp_mode
 # chroma=false: Luma-only search required for D3D12 compute offload, cuts vector compute by 50%
 # levels=1: Strictly searches base Level 0
 # badrange=(-24): Outlier vector suppression for CPU search path
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
 # Refines to 8,160 blocks (16x16 at 1080p, 32x32 at 4K) using 2x2 bilinear coarse predictors
@@ -73,7 +82,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=synth_mode: GPU Dynamic Median (mode=2) with occlusion masking when USE_D3D12=true; fast projection (mode=0) on CPU
 # blend=true: Directional alpha blending smooths occlusion boundaries and disocclusion edges
 # thSCD1=350, thSCD2=115: High-sensitivity scene-change threshold prevents cut distortion
-MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=synth_mode, blend=true, thSCD1=350, thSCD2=115)
+MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=synth_mode, blend=true, thSCD1=350, thSCD2=115)
 
 # 5. Hardware Thread Affinity & Core Pinning: Multi-Threading adapted dynamically to USE_D3D12
 # Keeps worker threads within high-IPC Zen 5 P-core domain, preventing Zen 5c latency stalls

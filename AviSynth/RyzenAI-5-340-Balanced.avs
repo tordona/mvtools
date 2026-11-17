@@ -4,8 +4,8 @@
 # Memory: 16 GB – 32 GB Dual-Channel LPDDR5x-7500 (120 GB/s Unified Bandwidth)
 # Architecture: Native 1080p x86-64 AVX-512 / Direct3D 12 GPU Offload (mvtools2.dll)
 # Target: Fluid 1080p 60 fps, Crisp Native 16x16 Vectors (8,160 Blocks), 15 W Envelope
-# Revision: 2.3.0 (2026-11-04)
-# Changelog: Direct3D 12 GPU offload toggle (USE_D3D12), MEnableD3D12, dynamic thread/memory budget, levels=1, crisp 16x16, boundary guard, AvsAffinity hardware pinning, dynamic 4K adaptation
+# Revision: 2.3.4 (2026-11-17)
+# Changelog: Parameterized target_fps (default 60, capped at 60 fps on 4K) with target-relative frame rate bypass; Replaced unconditional levels=1 with tiered pyramid levels_val (levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)) and plevel=0 for tear-free panning
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -19,6 +19,7 @@ USE_D3D12 = false
 # GPU offload executes on direct command queue (3 threads optimal); CPU uses 4 Zen 5 physical cores
 threads     = USE_D3D12 ? 3 : 4
 mem_limit   = USE_D3D12 ? 1024 : 768  # Headroom for GPU staging textures and 1080p 16x16 vector search
+target_fps  = 60                  # Target output frame rate (e.g. 60 or 120)
 pad_size    = USE_D3D12 ? 8 : 0       # 8 px boundary padding on GPU stabilizes edge motion vectors
 
 # Memory allocation and multi-threading filter mode
@@ -28,11 +29,19 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (AMD VCN hardware decoded via Radeon 840M)
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance, e.g. 59.94 fps for 60 fps)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, 32x32 blocks maintain the exact 8,160 block count of 1080p 16x16,
 # preserving single-pass high-throughput execution without cache thrashing.
-is_4k   = (src.Width() > 2048)
+levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)
 blk_sz  = is_4k ? 32 : 16
 pad_val = is_4k ? (pad_size * 2) : pad_size
 
@@ -46,7 +55,7 @@ try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 # levels=1: Eliminates redundant multi-level pyramid generation
 # pad_val: Boundary padding stabilizes edge vector calculation on wide camera pans
 # sharp=0: Fast bilinear interpolation for minimal ALU load
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Native 1080p Fine Motion Vector Search (No Proxy / Zero Downscale)
 # blksize=blk_sz, blksizev=blk_sz: 16x16 blocks at native 1080p (~8,160 blocks total)
@@ -55,15 +64,15 @@ super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 # chroma=false: Luma-only search required for D3D12 compute offload, cuts vector compute by 50%
 # levels=1: Single-level search matching super's levels=1
 # badrange=(-24): Outlier vector suppression for CPU fallback search path
-backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 
 # 3. Direct Native 60 fps Frame Synthesis
 # Directly warps source frames with 1:1 pixel accuracy
 # mode=0: Fast 2-stream block projection (sustains 60 fps without CPU pipeline stalls)
 # blend=false: Clean block projection avoiding blur on fast motion
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
-MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
+MBlockFps(src, super, backward_vec, forward_vec, num=target_fps, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
 # 4. Hardware Thread Affinity & Core Pinning: Multi-Threading adapted dynamically to USE_D3D12
 # Keeps worker threads within high-IPC Zen 5 P-core domain, preventing Zen 5c latency stalls
