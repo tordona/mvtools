@@ -52,9 +52,6 @@ StructuredBuffer<int2> g_TemporalPredBuffer : register(t3);
 // Output motion vectors buffer: 12 bytes per block (x: int32, y: int32, sad: uint32)
 RWByteAddressBuffer g_OutBuffer : register(u0);
 
-// Bank-conflict-free groupshared cache for source block (up to 64 uints = 256 pixels per thread, e.g. 16x16 or 4K 32x16)
-groupshared uint gs_SrcCache[64][65];
-
 // Helper: load 4 bytes with arbitrary byte alignment from ByteAddressBuffer
 uint Load4Bytes(ByteAddressBuffer buf, uint byteOffset)
 {
@@ -92,39 +89,8 @@ uint Sad4(uint a, uint b)
     return diff0 + diff1 + diff2 + diff3;
 }
 
-// Preload source block into gs_SrcCache[gi] once per thread when it fits (<= 64 uints, byteTail == 0)
-void PreloadSrcBlock(uint gi, uint x_src, uint y_src, uint wordCount, uint rowStride, uint maxSrcY)
-{
-    uint cacheIdx = 0;
-    for (uint dy = 0; dy < nBlkSizeY; dy += rowStride)
-    {
-        uint currSrcY = min(y_src + dy, maxSrcY);
-        uint srcRowByte = currSrcY * nSrcPitch + x_src;
-        uint srcAligned = srcRowByte & ~3;
-        uint srcShift = (srcRowByte & 3) * 8;
-
-        if (srcShift == 0)
-        {
-            for (uint w = 0; w < wordCount; w++)
-            {
-                gs_SrcCache[gi][cacheIdx++] = g_SrcPlane.Load(srcAligned + (w << 2));
-            }
-        }
-        else
-        {
-            uint prev = g_SrcPlane.Load(srcAligned);
-            for (uint w = 0; w < wordCount; w++)
-            {
-                uint next = g_SrcPlane.Load(srcAligned + ((w + 1) << 2));
-                gs_SrcCache[gi][cacheIdx++] = (prev >> srcShift) | (next << (32 - srcShift));
-                prev = next;
-            }
-        }
-    }
-}
-
 // Computes Block SAD for displacement (vx, vy) in pel units with optional early-out threshold
-uint ComputeBlockSAD(uint gi, bool useSrcCache, uint x_src, uint y_src, int vx, int vy, uint sadLimit)
+uint ComputeBlockSAD(uint x_src, uint y_src, int vx, int vy, uint sadLimit)
 {
     uint sad = 0;
     uint subplaneOffset = 0;
@@ -165,7 +131,6 @@ uint ComputeBlockSAD(uint gi, bool useSrcCache, uint x_src, uint y_src, int vx, 
     uint rowShift = (extendedWidth > 2048 && nBlkSizeY >= 16) ? 1u : 0u;
     uint rowStride = 1u << rowShift;
     uint unscaledLimit = (sadLimit == 0xFFFFFFFFu) ? 0xFFFFFFFFu : ((sadLimit + rowStride - 1u) >> rowShift);
-    uint cacheIdx = 0;
     uint rowCounter = 0;
 
     for (uint dy = 0; dy < nBlkSizeY; dy += rowStride)
@@ -176,89 +141,61 @@ uint ComputeBlockSAD(uint gi, bool useSrcCache, uint x_src, uint y_src, int vx, 
         uint srcRowByte = currSrcY * nSrcPitch + x_src;
         uint refRowByte = subplaneOffset + currRefY * nRefPitch + (uint)clamped_ref_base_x;
 
+        uint srcAligned = srcRowByte & ~3;
+        uint srcShift = (srcRowByte & 3) * 8;
         uint refAligned = refRowByte & ~3;
         uint refShift = (refRowByte & 3) * 8;
 
-        if (useSrcCache)
+        if (srcShift == 0 && refShift == 0)
         {
-            if (refShift == 0)
+            for (uint w = 0; w < wordCount; w++)
             {
-                for (uint w = 0; w < wordCount; w++)
-                {
-                    uint sBytes = gs_SrcCache[gi][cacheIdx++];
-                    uint rBytes = g_RefPlane.Load(refAligned + (w << 2));
-                    sad += Sad4(sBytes, rBytes);
-                }
-            }
-            else
-            {
-                uint prevRef = g_RefPlane.Load(refAligned);
-                for (uint w = 0; w < wordCount; w++)
-                {
-                    uint sBytes = gs_SrcCache[gi][cacheIdx++];
-                    uint nextRef = g_RefPlane.Load(refAligned + ((w + 1) << 2));
-                    uint rBytes = (prevRef >> refShift) | (nextRef << (32 - refShift));
-                    prevRef = nextRef;
-                    sad += Sad4(sBytes, rBytes);
-                }
+                uint sBytes = g_SrcPlane.Load(srcAligned + (w << 2));
+                uint rBytes = g_RefPlane.Load(refAligned + (w << 2));
+                sad += Sad4(sBytes, rBytes);
             }
         }
         else
         {
-            uint srcAligned = srcRowByte & ~3;
-            uint srcShift = (srcRowByte & 3) * 8;
-
-            if (srcShift == 0 && refShift == 0)
+            uint prevSrc = g_SrcPlane.Load(srcAligned);
+            uint prevRef = g_RefPlane.Load(refAligned);
+            for (uint w = 0; w < wordCount; w++)
             {
-                for (uint w = 0; w < wordCount; w++)
+                uint sBytes;
+                if (srcShift == 0)
                 {
-                    uint sBytes = g_SrcPlane.Load(srcAligned + (w << 2));
-                    uint rBytes = g_RefPlane.Load(refAligned + (w << 2));
-                    sad += Sad4(sBytes, rBytes);
+                    sBytes = g_SrcPlane.Load(srcAligned + (w << 2));
                 }
+                else
+                {
+                    uint nextSrc = g_SrcPlane.Load(srcAligned + ((w + 1) << 2));
+                    sBytes = (prevSrc >> srcShift) | (nextSrc << (32 - srcShift));
+                    prevSrc = nextSrc;
+                }
+
+                uint rBytes;
+                if (refShift == 0)
+                {
+                    rBytes = g_RefPlane.Load(refAligned + (w << 2));
+                }
+                else
+                {
+                    uint nextRef = g_RefPlane.Load(refAligned + ((w + 1) << 2));
+                    rBytes = (prevRef >> refShift) | (nextRef << (32 - refShift));
+                    prevRef = nextRef;
+                }
+                sad += Sad4(sBytes, rBytes);
             }
-            else
-            {
-                uint prevSrc = g_SrcPlane.Load(srcAligned);
-                uint prevRef = g_RefPlane.Load(refAligned);
-                for (uint w = 0; w < wordCount; w++)
-                {
-                    uint sBytes;
-                    if (srcShift == 0)
-                    {
-                        sBytes = g_SrcPlane.Load(srcAligned + (w << 2));
-                    }
-                    else
-                    {
-                        uint nextSrc = g_SrcPlane.Load(srcAligned + ((w + 1) << 2));
-                        sBytes = (prevSrc >> srcShift) | (nextSrc << (32 - srcShift));
-                        prevSrc = nextSrc;
-                    }
+        }
 
-                    uint rBytes;
-                    if (refShift == 0)
-                    {
-                        rBytes = g_RefPlane.Load(refAligned + (w << 2));
-                    }
-                    else
-                    {
-                        uint nextRef = g_RefPlane.Load(refAligned + ((w + 1) << 2));
-                        rBytes = (prevRef >> refShift) | (nextRef << (32 - refShift));
-                        prevRef = nextRef;
-                    }
-                    sad += Sad4(sBytes, rBytes);
-                }
-            }
-
-            // Process remaining tail bytes if block width is not a multiple of 4
-            if (byteTail != 0)
+        // Process remaining tail bytes if block width is not a multiple of 4
+        if (byteTail != 0)
+        {
+            for (uint t = 0; t < byteTail; t++)
             {
-                for (uint t = 0; t < byteTail; t++)
-                {
-                    uint sVal = Load1Byte(g_SrcPlane, srcRowByte + (wordCount << 2) + t);
-                    uint rVal = Load1Byte(g_RefPlane, refRowByte + (wordCount << 2) + t);
-                    sad += (uint)abs((int)sVal - (int)rVal);
-                }
+                uint sVal = Load1Byte(g_SrcPlane, srcRowByte + (wordCount << 2) + t);
+                uint rVal = Load1Byte(g_RefPlane, refRowByte + (wordCount << 2) + t);
+                sad += (uint)abs((int)sVal - (int)rVal);
             }
         }
 
@@ -290,7 +227,7 @@ uint EvalCost(int vx, int vy, uint sad, int predX, int predY, int penalty)
 }
 
 [numthreads(8, 8, 1)]
-void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
+void CSMain(uint3 id : SV_DispatchThreadID)
 {
     uint blkx = id.x;
     uint blky = id.y;
@@ -305,19 +242,6 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
     // Block upper-left coordinate in extended frame
     uint x_src = nHPadding + blkx * (nBlkSizeX - nOverlapX);
     uint y_src = nVPadding + blky * (nBlkSizeY - nOverlapY);
-
-    // Preload source block into groupshared cache once if it fits (<= 64 uints, byteTail == 0)
-    uint wordCount = nBlkSizeX >> 2;
-    uint byteTail = nBlkSizeX & 3;
-    uint rowShift = (extendedWidth > 2048 && nBlkSizeY >= 16) ? 1u : 0u;
-    uint rowStride = 1u << rowShift;
-    uint evalRows = (nBlkSizeY + rowStride - 1u) >> rowShift;
-    bool useSrcCache = (byteTail == 0) && ((evalRows * wordCount) <= 64u);
-    if (useSrcCache)
-    {
-        uint maxSrcY = (extendedHeight > 0) ? (extendedHeight - 1u) : 0u;
-        PreloadSrcBlock(GI, x_src, y_src, wordCount, rowStride, maxSrcY);
-    }
 
     // Compute search bounds in pel units
     int nHPaddingScaled = (int)(nHPadding >> nLogScale);
@@ -338,7 +262,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
     int2 zeroMV = int2(0, fieldShift);
     zeroMV.x = clamp(zeroMV.x, nDxMin, nDxMax);
     zeroMV.y = clamp(zeroMV.y, nDyMin, nDyMax);
-    uint sadZero = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, zeroMV.x, zeroMV.y, 0xFFFFFFFFu);
+    uint sadZero = ComputeBlockSAD(x_src, y_src, zeroMV.x, zeroMV.y, 0xFFFFFFFFu);
     uint costZero = sadZero + (uint)((pzero * (int)sadZero) >> 8);
     bestMV = zeroMV;
     bestSAD = sadZero;
@@ -351,7 +275,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
     if (globMV.x != zeroMV.x || globMV.y != zeroMV.y)
     {
         uint sadLimitG = (pglobal >= 0) ? minCost : 0xFFFFFFFFu;
-        uint sadG = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, globMV.x, globMV.y, sadLimitG);
+        uint sadG = ComputeBlockSAD(x_src, y_src, globMV.x, globMV.y, sadLimitG);
         uint costG = sadG + (uint)((pglobal * (int)sadG) >> 8);
         if (costG < minCost)
         {
@@ -422,7 +346,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
             (upperPred.x != zeroMV.x || upperPred.y != zeroMV.y))
         {
             uint sadLimitU = (pnew >= 0) ? minCost : 0xFFFFFFFFu;
-            uint sadU = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, upperPred.x, upperPred.y, sadLimitU);
+            uint sadU = ComputeBlockSAD(x_src, y_src, upperPred.x, upperPred.y, sadLimitU);
             uint costU = EvalCost(upperPred.x, upperPred.y, sadU, upperPred.x, upperPred.y, pnew);
             if (costU < minCost)
             {
@@ -446,7 +370,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
             if (pnew < 0 || distCostT < minCost)
             {
                 uint sadLimitT = (pnew >= 0) ? (minCost - distCostT) : 0xFFFFFFFFu;
-                uint sadT = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, tempPred.x, tempPred.y, sadLimitT);
+                uint sadT = ComputeBlockSAD(x_src, y_src, tempPred.x, tempPred.y, sadLimitT);
                 uint costT = EvalCost(tempPred.x, tempPred.y, sadT, bestMV.x, bestMV.y, pnew);
                 if (costT < minCost)
                 {
@@ -491,7 +415,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
                     uint distCost = EvalDistCost(cx, cy, predictor.x, predictor.y);
                     if (pnew >= 0 && distCost >= minCost) continue;
                     uint sadLimit = (pnew >= 0) ? (minCost - distCost) : 0xFFFFFFFFu;
-                    uint sad = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, cx, cy, sadLimit);
+                    uint sad = ComputeBlockSAD(x_src, y_src, cx, cy, sadLimit);
                     uint cost = EvalCost(cx, cy, sad, predictor.x, predictor.y, pnew);
                     if (cost < minCost)
                     {
@@ -528,7 +452,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
                 uint distCost = EvalDistCost(cx, cy, predictor.x, predictor.y);
                 if (pnew >= 0 && distCost >= minCost) continue;
                 uint sadLimit = (pnew >= 0) ? (minCost - distCost) : 0xFFFFFFFFu;
-                uint sad = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, cx, cy, sadLimit);
+                uint sad = ComputeBlockSAD(x_src, y_src, cx, cy, sadLimit);
                 uint cost = EvalCost(cx, cy, sad, predictor.x, predictor.y, pnew);
                 if (cost < minCost)
                 {
@@ -561,7 +485,7 @@ void CSMain(uint3 id : SV_DispatchThreadID, uint GI : SV_GroupIndex)
             uint distCost = EvalDistCost(cx, cy, predictor.x, predictor.y);
             if (pnew >= 0 && distCost >= minCost) continue;
             uint sadLimit = (pnew >= 0) ? (minCost - distCost) : 0xFFFFFFFFu;
-            uint sad = ComputeBlockSAD(GI, useSrcCache, x_src, y_src, cx, cy, sadLimit);
+            uint sad = ComputeBlockSAD(x_src, y_src, cx, cy, sadLimit);
             uint cost = EvalCost(cx, cy, sad, predictor.x, predictor.y, pnew);
             if (cost < minCost)
             {

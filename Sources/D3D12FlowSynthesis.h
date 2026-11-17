@@ -32,7 +32,9 @@ public:
         int maskMode = 2,
         int blkSizeX = 16,
         int blkSizeY = 16,
-        int flowMode = 0
+        int flowMode = 0,
+        int srcFrameIdx = -1,
+        int refFrameIdx = -1
     );
 
 private:

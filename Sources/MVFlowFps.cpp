@@ -596,7 +596,8 @@ PVideoFrame __stdcall MVFlowFps::GetFrame(int n, IScriptEnvironment* env)
         mvClipB, mvClipF,
         maskmode,
         mvClipB.nBlkSizeX, mvClipB.nBlkSizeY,
-        1 // flowMode = 1 (MFlowFps continuous gather flow)
+        1, // flowMode = 1 (MFlowFps continuous gather flow)
+        nleft, nright
       );
 
       if (gpuSuccess)

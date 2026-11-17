@@ -172,23 +172,46 @@ namespace
         cmdList->ResourceBarrier(1, &b);
     }
 
-    uint64_t ComputePlaneDigest(const uint8_t* pPlane, int width, int height, int pitch)
+    uint64_t ComputeFrameDigest(
+        const uint8_t* const pPlanes[3], const int pitches[3],
+        int width, int height, int widthUV, int heightUV, int planecount)
     {
-        if (!pPlane || width < 8 || height <= 0 || pitch < width)
+        if (!pPlanes || !pPlanes[0] || width < 8 || height <= 0 || pitches[0] < width)
             return 0;
 
         uint64_t h = 14695981039346656037ULL ^ (static_cast<uint64_t>(width) << 32) ^ static_cast<uint64_t>(height);
-        constexpr int kSamples = 16;
+        constexpr int kSamplesY = 16;
         const int maxY = height - 1;
         const int maxX = width - 8;
-        for (int i = 0; i < kSamples; ++i)
+        for (int i = 0; i < kSamplesY; ++i)
         {
-            const int y = (i == kSamples - 1) ? maxY : (maxY * i) / (kSamples - 1);
-            const int x = (maxX * (i % 4)) / 3;
+            const int y = (i == kSamplesY - 1) ? maxY : (maxY * i) / (kSamplesY - 1);
+            const int x = (maxX > 0) ? (maxX * ((i * 7 + 3) & 15)) / 15 : 0;
             uint64_t v = 0;
-            memcpy(&v, pPlane + static_cast<size_t>(y) * pitch + x, sizeof(v));
+            memcpy(&v, pPlanes[0] + static_cast<size_t>(y) * pitches[0] + x, sizeof(v));
             h ^= v;
             h *= 1099511628211ULL;
+        }
+
+        if (planecount > 1 && widthUV >= 8 && heightUV > 0)
+        {
+            constexpr int kSamplesUV = 4;
+            const int maxYUV = heightUV - 1;
+            const int maxXUV = widthUV - 8;
+            for (int p = 1; p < 3; ++p)
+            {
+                if (!pPlanes[p] || pitches[p] < widthUV)
+                    continue;
+                for (int i = 0; i < kSamplesUV; ++i)
+                {
+                    const int y = (i == kSamplesUV - 1) ? maxYUV : (maxYUV * i) / (kSamplesUV - 1);
+                    const int x = (maxXUV > 0) ? (maxXUV * ((i * 3 + p) & 3)) / 3 : 0;
+                    uint64_t v = 0;
+                    memcpy(&v, pPlanes[p] + static_cast<size_t>(y) * pitches[p] + x, sizeof(v));
+                    h ^= v;
+                    h *= 1099511628211ULL;
+                }
+            }
         }
         return h;
     }
@@ -202,6 +225,9 @@ struct RingTexture
 
     const uint8_t* cachedPtr = nullptr;
     uint64_t cachedDigest = 0;
+    int cachedFrameIdx = -1;
+    int cachedFlowMode = -1;
+    uint64_t lastUsedTick = 0;
     bool inShaderResource = false;
     bool uploadPending = false;
     int activeUsers = 0;
@@ -591,6 +617,7 @@ struct D3D12FlowSynthesis::Impl
 
     // 4-Texture Ring for zero-copy source frame reuse across interleaved slots
     RingTexture m_ring[RING_SIZE];
+    uint64_t m_ringTick = 0;
     int m_lastSrcRingIdx = -1;
     int m_lastRefRingIdx = -1;
     std::mutex m_ringMutex;
@@ -807,6 +834,7 @@ struct D3D12FlowSynthesis::Impl
         m_curHeight = height;
         m_curWidthUV = widthUV;
         m_curHeightUV = heightUV;
+        m_ringTick = 0;
         m_lastSrcRingIdx = -1;
         m_lastRefRingIdx = -1;
 
@@ -816,6 +844,10 @@ struct D3D12FlowSynthesis::Impl
             m_ring[i].texU.Reset();
             m_ring[i].texV.Reset();
             m_ring[i].cachedPtr = nullptr;
+            m_ring[i].cachedDigest = 0;
+            m_ring[i].cachedFrameIdx = -1;
+            m_ring[i].cachedFlowMode = -1;
+            m_ring[i].lastUsedTick = 0;
             m_ring[i].inShaderResource = false;
             m_ring[i].uploadPending = false;
             m_ring[i].activeUsers = 0;
@@ -854,10 +886,15 @@ struct D3D12FlowSynthesis::Impl
             m_ring[i].texU.Reset();
             m_ring[i].texV.Reset();
             m_ring[i].cachedPtr = nullptr;
+            m_ring[i].cachedDigest = 0;
+            m_ring[i].cachedFrameIdx = -1;
+            m_ring[i].cachedFlowMode = -1;
+            m_ring[i].lastUsedTick = 0;
             m_ring[i].inShaderResource = false;
             m_ring[i].uploadPending = false;
             m_ring[i].activeUsers = 0;
         }
+        m_ringTick = 0;
         m_lastSrcRingIdx = -1;
         m_lastRefRingIdx = -1;
         m_curWidth = 0;
@@ -944,7 +981,9 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
     int maskMode,
     int blkSizeX,
     int blkSizeY,
-    int flowMode
+    int flowMode,
+    int srcFrameIdx,
+    int refFrameIdx
 )
 {
     if (!pSrc || !pRef || !pDst || width <= 0 || height <= 0 || nBlkX <= 0 || nBlkY <= 0)
@@ -1004,25 +1043,33 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         return false;
     }
 
-    // 1. Content digest checksums for Source & Reference planes (pitch-aware)
-    const uint64_t srcDigest = ComputePlaneDigest(pSrc[0], width, height, nSrcPitches[0]);
-    const uint64_t refDigest = ComputePlaneDigest(pRef[0], width, height, nRefPitches[0]);
+    // 1. Content digest checksums for Source & Reference frames (multi-plane, pitch-aware)
+    const uint64_t srcDigest = ComputeFrameDigest(pSrc, nSrcPitches, width, height, widthUV, heightUV, planecount);
+    const uint64_t refDigest = ComputeFrameDigest(pRef, nRefPitches, width, height, widthUV, heightUV, planecount);
 
-    // 2. Determine Ring Texture assignments for zero-copy source reuse
+    // 2. Determine Ring Texture assignments for thread-safe LRU source/reference reuse
     int srcRingIdx = -1;
     int refRingIdx = -1;
     bool needUploadSrc = false;
     bool needUploadRef = false;
 
-    auto findFreeRingIdx = [&](int excludeIdx, int preferredIdx) -> int
+    auto findCachedRingIdx = [&](int frameIdx, uint64_t digest, const uint8_t* ptr, int excludeIdx) -> int
     {
-        if (preferredIdx >= 0 && preferredIdx != excludeIdx && pImpl->m_ring[preferredIdx].activeUsers == 0)
-        {
-            return preferredIdx;
-        }
         for (int i = 0; i < Impl::RING_SIZE; ++i)
         {
-            if (i != excludeIdx && pImpl->m_ring[i].activeUsers == 0)
+            if (i == excludeIdx)
+                continue;
+            const auto& r = pImpl->m_ring[i];
+            if (!(r.inShaderResource || r.uploadPending))
+                continue;
+            if (r.cachedFlowMode != flowMode || r.cachedDigest != digest)
+                continue;
+            if (frameIdx >= 0)
+            {
+                if (r.cachedFrameIdx == frameIdx)
+                    return i;
+            }
+            else if (r.cachedPtr == ptr)
             {
                 return i;
             }
@@ -1030,55 +1077,70 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         return -1;
     };
 
+    auto findFreeLruRingIdx = [&](int excludeIdx1, int excludeIdx2) -> int
+    {
+        int bestIdx = -1;
+        uint64_t bestTick = UINT64_MAX;
+        for (int i = 0; i < Impl::RING_SIZE; ++i)
+        {
+            if (i == excludeIdx1 || i == excludeIdx2)
+                continue;
+            if (pImpl->m_ring[i].activeUsers == 0)
+            {
+                if (pImpl->m_ring[i].lastUsedTick < bestTick)
+                {
+                    bestTick = pImpl->m_ring[i].lastUsedTick;
+                    bestIdx = i;
+                }
+            }
+        }
+        return bestIdx;
+    };
+
     {
         std::unique_lock<std::mutex> rLock(pImpl->m_ringMutex);
 
         for (;;)
         {
-            bool samePairHit = false;
-            if (false && pImpl->m_lastSrcRingIdx >= 0 && pImpl->m_lastRefRingIdx >= 0)
-            {
-                const auto& rSrcLast = pImpl->m_ring[pImpl->m_lastSrcRingIdx];
-                const auto& rRefLast = pImpl->m_ring[pImpl->m_lastRefRingIdx];
-                if ((rSrcLast.inShaderResource || rSrcLast.uploadPending) &&
-                    (rRefLast.inShaderResource || rRefLast.uploadPending) &&
-                    rSrcLast.cachedPtr == pSrc[0] &&
-                    rSrcLast.cachedDigest == srcDigest &&
-                    rRefLast.cachedPtr == pRef[0] &&
-                    rRefLast.cachedDigest == refDigest)
-                {
-                    samePairHit = true;
-                }
-            }
+            const int hitSrc = findCachedRingIdx(srcFrameIdx, srcDigest, pSrc[0], -1);
+            const int hitRef = findCachedRingIdx(refFrameIdx, refDigest, pRef[0], hitSrc);
 
-            if (samePairHit)
+            if (hitSrc >= 0 && hitRef >= 0)
             {
-                srcRingIdx = pImpl->m_lastSrcRingIdx;
-                refRingIdx = pImpl->m_lastRefRingIdx;
+                srcRingIdx = hitSrc;
+                refRingIdx = hitRef;
                 needUploadSrc = false;
                 needUploadRef = false;
                 break;
             }
-            else if (false && pImpl->m_lastRefRingIdx >= 0 &&
-                pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedPtr == pSrc[0] &&
-                pImpl->m_ring[pImpl->m_lastRefRingIdx].cachedDigest == srcDigest &&
-                (pImpl->m_ring[pImpl->m_lastRefRingIdx].inShaderResource ||
-                 pImpl->m_ring[pImpl->m_lastRefRingIdx].uploadPending))
+            else if (hitSrc >= 0)
             {
-                int candidateRef = findFreeRingIdx(pImpl->m_lastRefRingIdx, (pImpl->m_lastRefRingIdx + 1) % Impl::RING_SIZE);
+                const int candidateRef = findFreeLruRingIdx(hitSrc, -1);
                 if (candidateRef >= 0)
                 {
-                    srcRingIdx = pImpl->m_lastRefRingIdx;
+                    srcRingIdx = hitSrc;
                     refRingIdx = candidateRef;
                     needUploadSrc = false;
                     needUploadRef = true;
                     break;
                 }
             }
+            else if (hitRef >= 0)
+            {
+                const int candidateSrc = findFreeLruRingIdx(hitRef, -1);
+                if (candidateSrc >= 0)
+                {
+                    srcRingIdx = candidateSrc;
+                    refRingIdx = hitRef;
+                    needUploadSrc = true;
+                    needUploadRef = false;
+                    break;
+                }
+            }
             else
             {
-                int candidateSrc = findFreeRingIdx(-1, 0);
-                int candidateRef = (candidateSrc >= 0) ? findFreeRingIdx(candidateSrc, (candidateSrc + 1) % Impl::RING_SIZE) : -1;
+                const int candidateSrc = findFreeLruRingIdx(-1, -1);
+                const int candidateRef = (candidateSrc >= 0) ? findFreeLruRingIdx(candidateSrc, -1) : -1;
                 if (candidateSrc >= 0 && candidateRef >= 0)
                 {
                     srcRingIdx = candidateSrc;
@@ -1095,16 +1157,20 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
         pImpl->m_lastSrcRingIdx = srcRingIdx;
         pImpl->m_lastRefRingIdx = refRingIdx;
         pImpl->m_ring[srcRingIdx].activeUsers++;
+        pImpl->m_ring[srcRingIdx].lastUsedTick = ++pImpl->m_ringTick;
         if (refRingIdx != srcRingIdx)
         {
             pImpl->m_ring[refRingIdx].activeUsers++;
         }
+        pImpl->m_ring[refRingIdx].lastUsedTick = ++pImpl->m_ringTick;
 
         if (needUploadSrc)
         {
             auto& rSrc = pImpl->m_ring[srcRingIdx];
             rSrc.cachedPtr = pSrc[0];
             rSrc.cachedDigest = srcDigest;
+            rSrc.cachedFrameIdx = srcFrameIdx;
+            rSrc.cachedFlowMode = flowMode;
             rSrc.uploadPending = true;
         }
         if (needUploadRef)
@@ -1112,6 +1178,8 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             auto& rRef = pImpl->m_ring[refRingIdx];
             rRef.cachedPtr = pRef[0];
             rRef.cachedDigest = refDigest;
+            rRef.cachedFrameIdx = refFrameIdx;
+            rRef.cachedFlowMode = flowMode;
             rRef.uploadPending = true;
         }
     }
@@ -1130,11 +1198,15 @@ bool D3D12FlowSynthesis::SynthesizeFrame(
             {
                 impl->m_ring[srcIdx].uploadPending = false;
                 impl->m_ring[srcIdx].cachedPtr = nullptr;
+                impl->m_ring[srcIdx].cachedFrameIdx = -1;
+                impl->m_ring[srcIdx].cachedFlowMode = -1;
             }
             if (pendingRef)
             {
                 impl->m_ring[refIdx].uploadPending = false;
                 impl->m_ring[refIdx].cachedPtr = nullptr;
+                impl->m_ring[refIdx].cachedFrameIdx = -1;
+                impl->m_ring[refIdx].cachedFlowMode = -1;
             }
             impl->m_ring[srcIdx].activeUsers--;
             if (refIdx != srcIdx)
