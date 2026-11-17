@@ -1,4 +1,12 @@
 Change log
+- 2.7.48.102 (20261114)
+  - Direct3D 12 Flow Synthesis Ring-Cache Refactor (`D3D12FlowSynthesis`):
+    - Added explicit `srcFrameIdx` (`nleft`) and `refFrameIdx` (`nright`) keys to `D3D12FlowSynthesis::SynthesizeFrame` (`MVFlowFps.cpp`, `MVBlockFps.cpp`) so cached ring slots match `(cachedFrameIdx, cachedFlowMode, cachedDigest)` instead of recycled buffer pointers alone.
+    - Replaced `ComputePlaneDigest` with multi-plane `ComputeFrameDigest` (16 dispersed luma samples plus 4 `U` and 4 `V` chroma samples).
+    - Replaced single-pair `m_lastSrcRingIdx` / `m_lastRefRingIdx` reuse with a 4-slot associative lookup (`findCachedRingIdx`) and Least-Recently-Used eviction (`findFreeLruRingIdx`), synchronized under `m_ringMutex` and `m_ringCv` until `uploadPending` clears.
+    - Verified deterministic, bit-exact `Prefetch(2)` output and measured +2.0% to +5.4% headless D3D12 throughput gains over `2.7.48.101` across 1080p and 4K `MBlockFps` / `MFlowFps`.
+    - Bumped core engine version to 2.7.48.102 in `Sources/version.h`.
+
 - 2.7.48.101 (20261113)
   - Direct3D 12 DirectCompute Optimizations & Host Management:
     - Implemented zero-MV fast path in flow_warp.hlsl using 1-tap Load() instead of 4-tap bilinear SampleLevel() for stationary blocks.

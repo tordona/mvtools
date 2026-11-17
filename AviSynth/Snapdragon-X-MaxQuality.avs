@@ -60,7 +60,7 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip
-# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # pel=pel_val: Integer grid on GPU (paired with hardware bilinear texture warp); half-pel on CPU
 # hpad, vpad: Boundary padding (8 px on GPU, 16 px on CPU)
 # sharp=sharp_mode: 6-tap Wiener interpolation when pel=2 on CPU; unused when pel=1 on GPU
@@ -71,7 +71,7 @@ super   = src.MSuper(levels=levels_val, pel=pel_val, hpad=pad_val, vpad=pad_val,
 # blksize=blk_coarse: 32x32 on GPU (2,040 blocks), 16x16 on CPU (8,160 blocks)
 # search=2, searchparam=2: Diamond/Logarithmic search (~12 points) providing high tracking fidelity with low computational overhead
 # chroma=use_chroma: Luma-only on GPU; luma + chroma on CPU
-# levels=1: Strictly searches base Level 0
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, plevel=0, levels=levels_val, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, plevel=0, levels=levels_val, badrange=(-24))

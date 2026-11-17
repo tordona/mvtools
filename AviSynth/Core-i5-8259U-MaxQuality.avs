@@ -43,7 +43,7 @@ LoadPlugin("mvtools2.dll")
 
 # 1. Native 1080p Super Clip with Bicubic Subpixel Interpolation
 # sharp=1: Bicubic subpixel interpolation enhances fine detail edge contrast
-# levels=1: Single-level eliminates redundant pyramid levels
+# levels_val: is_4k ? 2 : 0 (full pyramid at 1080p, 2 levels at 4K)
 # hpad=0, vpad=0: Native pitch alignment
 super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=1)
 
@@ -52,7 +52,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=1)
 # Overlap eliminates block boundary discontinuities along fast-moving contours
 # search=2, searchparam=2: Radius-2 hexagonal search captures rapid motion
 # chroma=false: Luma-only search cuts vector computation by 50%
-# levels=1: Single-level search matching super's levels=1
+# levels_val: is_4k ? 2 : 0 (full pyramid at 1080p, 2 levels at 4K)
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val)
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, overlap=4, overlapv=4, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val)
 

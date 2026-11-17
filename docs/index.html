@@ -66,7 +66,7 @@
         "name": "Can low-power x86-64 processors like Intel Processor N100 or Intel Iris Xe sustain 60 fps video interpolation?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. By utilizing Rev 3.0.0 single-level geometry (levels=1) and coarse block sizes (32x32), Gaussian image pyramid downsampling is eliminated, reducing memory bus read/write traffic by over 60%. This enables 1080p 24 fps to 60 fps real-time interpolation on bandwidth-constrained 6 W to 15 W fanless systems and integrated GPUs without thermal throttling or dropped frames."
+          "text": "Yes. By utilizing tiered pyramid geometry (levels=0 at 1080p and levels=2 at 4K with plevel=0 on CPU, reserving levels=1 for Direct3D 12 GPU offload) and invariant block sizing (32x32 Eco / 16x16 Balanced), MVTools2 avoids unnecessary 4K pyramid bloat while maintaining smooth panning. This enables 1080p 24 fps to 60 fps real-time interpolation on 6 W to 15 W systems and integrated GPUs without thermal throttling or dropped frames."
         }
       },
       {
@@ -90,7 +90,7 @@
         "name": "Do you have to run PotPlayer under x64 Prism emulation for AviSynth+ motion interpolation on Snapdragon?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "No. Running x64 plugins under Prism emulation introduces translation latency, instruction cache thrashing, and memory overhead that causes frame drops. This repository provides natively compiled ARM64 AviSynth+ binaries and 51 hardware-tailored profiles that execute directly on ARM64 CPU NEON cores and Adreno GPUs."
+          "text": "No. Running x64 plugins under Prism emulation introduces translation latency, instruction cache thrashing, and memory overhead that causes frame drops. This repository provides natively compiled ARM64 AviSynth+ binaries and 54 hardware-tailored profiles that execute directly on ARM64 CPU NEON cores and Adreno GPUs."
         }
       }
     ]
@@ -163,7 +163,7 @@
       <h2>Verified 60 fps Hardware Guides &amp; Profiles</h2>
       <ul>
         <li><a href="#/quickstart">Quick Start Setup Guide (PotPlayer 60 fps in 3 Minutes)</a></li>
-        <li><a href="#/profiles/README">AviSynth+ Profile Library (51 Hardware-Tailored Profiles)</a></li>
+        <li><a href="#/profiles/README">AviSynth+ Profile Library (54 Hardware-Tailored Profiles)</a></li>
         <li><a href="#/benchmarks/README">PresentMon Sub-Millisecond Benchmark Suite &amp; Pacing Telemetry</a></li>
         <li><a href="#/guides/SnapdragonX">Qualcomm Snapdragon X Series Setup Guide</a></li>
         <li><a href="#/guides/SnapdragonX2">Qualcomm Snapdragon X2 Series Setup Guide</a></li>

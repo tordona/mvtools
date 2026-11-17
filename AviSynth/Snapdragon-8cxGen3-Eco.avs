@@ -47,7 +47,7 @@ try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
-# levels=levels_val: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 # pel=1: Whole-pixel estimation for minimal ALU and memory overhead
 # hpad=0, vpad=0: No padding overhead to minimize cache pressure
 # sharp=0: Fast bilinear interpolation for minimal load

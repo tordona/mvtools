@@ -55,8 +55,8 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
-# levels=1: Eliminates redundant multi-level pyramid generation
+# 1. Native 1080p Super Clip (Tiered Pyramid, Integer Pixel Precision)
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # pel=1: Full-pixel precision only (D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware)
 # pad_val: 8 px boundary padding on GPU stabilizes edge motion vectors on camera pans
 # sharp=0: Fast bilinear interpolation for minimal ALU load
@@ -66,7 +66,7 @@ super = src.MSuper(levels=levels_val, pel=pel_val, hpad=pad_val, vpad=pad_val, s
 # blksize=blk_sz, blksizev=blk_sz: 16x16 blocks at native 1080p (32x32 at 4K; ~8,160 blocks total)
 # search=2, searchparam=2: Radius-2 hexagonal search captures rapid motion pans
 # chroma=false: Luma-only search required for D3D12 compute offload, cuts vector compute by 50%
-# levels=1: Single-level search matching super's levels=1
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))

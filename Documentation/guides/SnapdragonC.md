@@ -14,7 +14,7 @@ The **Qualcomm Snapdragon C** brings 64-bit Windows on ARM computing to budget-t
 
 1. **Heterogeneous Kryo Topology & Thread Pinning:** The processor combines 1 Prime core (up to 3.0 GHz), 3 Performance cores (up to 2.6 GHz), and 4 Efficiency cores (up to 2.0 GHz). Because the Efficiency cores possess low IPC, compute-heavy motion vector threads must be isolated to the Performance/Prime cores via `AvsAffinity.dll` (`PinWorkerThreads`). This keeps the 4 Efficiency cores free for hardware video decoding, audio rendering, and Direct3D 11 swapchain presentation.
 2. **Thermal Budget Preservation via Adreno VPU:** Software decoding of modern codecs (such as AV1 or 10-bit HEVC) would saturate the low-power CPU cores and exhaust the 5 W – 10 W thermal budget. Offloading decode entirely to the Adreno VPU via D3D11 Copy-Back reduces host CPU decode load to 0%, preserving thermal headroom for real-time 60 fps interpolation.
-3. **Memory Bus Protection (25–34 GB/s):** On budget memory architectures, memory allocations are capped between `512 MB` and `1024 MB` (`levels=1`), preventing cache thrashing and DRAM bus saturation.
+3. **Memory Bus Protection (25–34 GB/s):** On budget memory architectures, memory allocations are capped between `512 MB` and `1024 MB` while using `levels=0` with `plevel=0` for tear-free panning without DRAM bus saturation.
 4. **Thermal Profile Scaling:**
    - **Eco (3 W – 5 W):** Native single-super wide-block search (32×32, `threads = 2`) locked to the Prime and 1 Performance core for silent, cool, extended battery playback.
    - **Balanced (6 W – 8 W):** Direct-resolution coarse-to-fine search (`threads = 3`) for smooth 60 fps playback.
@@ -103,7 +103,7 @@ The integrated Adreno Video Processing Unit (VPU) includes dedicated hardware de
 | :--- | :--- | :--- | :--- |
 | **Script File** | [`Snapdragon-C-Eco.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Eco.avs) | [`Snapdragon-C-Balanced.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Balanced.avs) | [`Snapdragon-C-MaxQuality.avs`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-MaxQuality.avs) |
 | **Motion Precision** | `pel=1` (Integer pixel) | `pel=1` + Dual-pass Refinement | `pel=1` + Dual-pass Refinement |
-| **Block Grid (Base / 4K)** | Single-level `32x32 / 64x64` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` |
+| **Block Grid (Base / 4K)** | Wide-block `32x32 / 64x64` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` | Dual-pass `32x32 → 16x16 / 64x64 → 32x32` |
 | **Search Pattern** | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=1`) | Hexagonal (`search=2, searchparam=2; 1 on 4K`) |
 | **Chroma Tracking** | Luma only (`chroma=false`) | Luma only (`chroma=false`) | Luma only (`chroma=false`) |
 | **Interpolation Mode** | Block Projection (`mode=0`, `blend=false`) | Dynamic Median (`mode=2, blend=true`; `mode=0, blend=false` on 4K) | Dynamic Median (`mode=2, blend=true`; `mode=0, blend=false` on 4K) |

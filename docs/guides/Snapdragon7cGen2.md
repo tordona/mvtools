@@ -15,7 +15,7 @@ Under full 1080p video playback, software decoding alone on the 2 Gold cores can
 
 To achieve continuous, sustained 60 fps without thermal throttling:
 1. **Adreno 618 Hardware Decoding:** Offload H.264/HEVC decode entirely to the Adreno VPU via D3D11 / DXVA2 Copy-Back (reducing CPU decode load to 0%).
-2. **Native Single-Super Wide-Block & Refinement (`levels=1`):** Restricts motion estimation to single-level evaluation with zero software image resizing, eliminating duplicate `MSuper` allocations and DRAM bus saturation on budget LPDDR4x memory.
+2. **Native Single-Super Wide-Block & Refinement (`levels=0`, `plevel=0`):** Uses full coarse-to-fine pyramid search on a single `MSuper` clip with zero software image resizing, preventing panning tearing while avoiding duplicate `MSuper` allocations.
 3. **Direct Frame Synthesis (`MBlockFps mode=0`):** Synthesize new frames directly from the uncompressed source clip, ensuring zero loss of spatial resolution or sharpness.
 4. **Strict Core Pinning (`Prefetch(2)`):** Limit worker threads to 2 so execution stays strictly on the high-performance Kryo 468 Gold cores, completely avoiding stalls from the slow in-order Cortex-A55 Silver cores.
 
@@ -85,10 +85,10 @@ To achieve continuous, sustained 60 fps without thermal throttling:
 
 | Feature | Eco Profile | Balanced Profile *(Recommended)* | MaxQuality Profile |
 | :--- | :--- | :--- | :--- |
-| **Search Block Size** | Single-level 32×32 | Coarse 32×32 → Fine 16×16 | Coarse 32×32 → Fine 16×16 |
+| **Search Block Size** | Wide-block 32×32 | Coarse 32×32 → Fine 16×16 | Coarse 32×32 → Fine 16×16 |
 | **Evaluated Blocks (1080p)** | 2,040 blocks | 2,040 coarse / 8,160 fine | 2,040 coarse / 8,160 fine |
-| **Search Algorithm** | Hexagonal (radius 1) | Hexagonal (radius 1) | Hexagonal (radius 2) |
-| **Pyramid Levels** | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) | `levels=1` (Level 0 only) |
+| **Search Algorithm** | Hexagonal (radius 1) | Hexagonal (radius 1) | Hexagonal (radius 1) |
+| **Pyramid Levels** | `levels=0`, `plevel=0` (Full pyramid) | `levels=0`, `plevel=0` (Full pyramid) | `levels=0`, `plevel=0` (Full pyramid) |
 | **Outlier Filter** | Off | Off | `badrange=(-24)` |
 | **Frame Synthesis** | Direct `mode=0` | Direct `mode=0` | Direct `mode=0` |
 | **Worker Threads** | `Prefetch(2, 4)` | `Prefetch(2, 4)` | `Prefetch(2, 4)` |

@@ -49,7 +49,7 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Base Motion Super Clip with Edge Guard
-# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # pel=1: Integer-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes motion vectors near frame borders
 # sharp=0: Subpixel interpolation filter is unused when pel=1
@@ -59,7 +59,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=0
 # 2,040 blocks (32x32 at standard resolutions, 64x64 at 4K)
 # search=2, searchparam=2: Hexagonal search with radius 2
 # badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
-# levels=1: Strictly searches base Level 0
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 

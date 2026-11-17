@@ -62,7 +62,7 @@ MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Motion Super Clip with Boundary Guard
-# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # pel=pel_val: Integer grid on GPU (paired with hardware bilinear texture warp); half-pel on CPU NEON
 # pad_val: Boundary padding (8 px on GPU, 16 px on CPU; 2x at 4K) stabilizes vectors near frame borders
 # sharp=sharp_mode: 6-tap Wiener filter when pel=2 on CPU; 0 when pel=1 on GPU
@@ -72,7 +72,7 @@ super = src.MSuper(levels=levels_val, pel=pel_val, hpad=pad_val, vpad=pad_val, s
 # 2,040 blocks (32x32 at standard resolutions, 64x64 at 4K)
 # search=2, searchparam=2: Diamond/Hexagonal search capturing wide displacement
 # chroma=false: Luma-only search required for D3D12 compute offload, cuts vector compute by 50%
-# levels=1: Strictly searches base Level 0
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
 backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))

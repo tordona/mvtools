@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.101`**.
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.102`**.
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
@@ -67,6 +67,7 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 - **Dual-Pass Search Offload**: Accelerates both coarse motion vector search (`MAnalyse`) and fine block refinement (`MRecalculate`).
 - **Substantial CPU Load Reduction**: Cuts CPU load from **~30% down to under 5%–10%**, freeing CPU cores for OS responsiveness and allowing the Adreno GPU to handle decoding, motion search, and presentation concurrently.
 - **Zero-MV Sampling Fast Path**: In [`flow_warp.hlsl`](Sources/shaders/flow_warp.hlsl), stationary vectors (`rawMv == (0, 0)`) bypass 4-tap bilinear filtering via a 1-tap `Load()` instruction, reducing sampler load on static scenes and letterboxed content.
+- **Thread-Safe 4-Slot LRU Ring-Cache Reuse**: In [`D3D12FlowSynthesis.cpp`](Sources/D3D12FlowSynthesis.cpp), source and reference textures are cached across a 4-slot associative LRU ring keyed by `(cachedFrameIdx, cachedFlowMode, cachedDigest)` using multi-plane `ComputeFrameDigest` and synchronized under `m_ringMutex` / `m_ringCv` for deterministic `Prefetch()` execution.
 - **Early-Exit Cost Bounding**: In [`motion_search_cs.hlsl`](Sources/shaders/motion_search_cs.hlsl), search candidate evaluation applies early-exit SAD cost bounding (`sadLimit`) and distance penalty gating to abort unviable search points before issuing global VRAM fetches.
 - **Explicit Device & Singleton Teardown**: Integrated explicit `Shutdown()` hooks in `Interface.cpp` for `D3D12FlowSynthesis` and `D3D12MotionSearch` to ensure complete GPU resource, queue, and descriptor heap reclamation during script reload cycles.
 - **Automatic Fallback & Runtime Control**: Auto-detects Adreno D3D12 hardware and provides `MIsD3D12Available()` and `MEnableD3D12(bool)` script toggles, gracefully falling back to native NEON SIMD CPU execution if required.
@@ -144,7 +145,7 @@ Custom real-time 60 fps AviSynth motion interpolation scripts and PotPlayer hard
   - Guide: [`Documentation/guides/Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md).
 
 - **Hardware-Tailored x86-64 Profiles & Benchmark Baselines**:
-  - Native 1080p single-level (`levels=1`) profiles tailored for AMD Ryzen AI (Zen 5/5c) and Intel Core architectures (Core i7-11850H, i5-8259U, Core i3-1215U, i5-1135G7, N100).
+  - Native 1080p profiles tailored for AMD Ryzen AI (Zen 5/5c) and Intel Core architectures (Core i7-11850H, i5-8259U, Core i3-1215U, i5-1135G7, N100).
   - Guides & Baselines: [`Documentation/guides/AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) and [`Benchmarks/Baseline/`](Benchmarks/Baseline/).
 
 ---

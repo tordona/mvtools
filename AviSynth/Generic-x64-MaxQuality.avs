@@ -5,7 +5,7 @@
 # Target: High-Fidelity 16x16 Vectors (8,160 Blocks), Subpixel Edge Contrast, 0 Drops
 # Revision: 3.1.4 (2026-11-17)
 # Changelog: Updated pyramid levels to is_4k ? 2 : 0 with plevel=0 for tear-free panning; Parameterized target_fps (default 60, capped at 60 fps on 4K) with target-relative frame rate bypass; Native 1080p 16x16 blocks with 4 px overlap, dynamic 4K adaptation
-#            (8,160 blocks) and sharp=1 bicubic subpixel interpolation. Single-level levels=levels_val.
+#            (8,160 blocks) and sharp=1 bicubic subpixel interpolation. Tiered pyramid levels=levels_val.
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
@@ -40,7 +40,7 @@ LoadPlugin("mvtools2.dll")
 
 # 1. Native 1080p Super Clip with Bicubic Subpixel Interpolation
 # sharp=1: Bicubic subpixel interpolation enhances fine detail edge contrast
-# levels=levels_val: Single-level eliminates redundant pyramid levels
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 # hpad=0, vpad=0: Native pitch alignment
 super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=1)
 
@@ -49,7 +49,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=1)
 # 4x vector density compared to 32x32 without proxy scaling quantization
 # search=2, searchparam=1: Radius-1 hexagonal search stays cache-resident in L2/L3
 # chroma=false: Luma-only search cuts vector computation by 50%
-# levels=levels_val: Single-level search matching super's levels=levels_val
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, plevel=0, chroma=false, levels=levels_val)
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, plevel=0, chroma=false, levels=levels_val)
 

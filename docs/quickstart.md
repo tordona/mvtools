@@ -98,14 +98,23 @@ USE_D3D12 = false
 
 threads     = USE_D3D12 ? 4 : 6
 mem_limit   = USE_D3D12 ? 1536 : 2048
+target_fps  = 60
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
-# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+# Dynamic 4K resolution adaptation and 60 fps cap on 4K
 is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
+levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -114,15 +123,15 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
 # Hardware thread affinity isolation (pins worker threads to P-cores on hybrid CPUs)
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -173,16 +182,25 @@ Follow these steps for standard x86-64 PCs and laptops.
 # ==============================================================================
 # MVTools2 60 fps Balanced Script (x86-64)
 # ==============================================================================
-threads   = 4
-mem_limit = 1024
+threads    = 4
+mem_limit  = 1024
+target_fps = 60
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
-# Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
+# Dynamic 4K resolution adaptation and 60 fps cap on 4K
 is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
+levels_val = is_4k ? 2 : 0
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -190,15 +208,15 @@ pad_val    = is_4k ? 16 : 8
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
 # Hardware thread affinity isolation (pins worker threads to P-cores on hybrid CPUs)
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -228,4 +246,4 @@ Prefetch(threads)
 | **"LoadPlugin: unable to find mvtools2.dll"** | `mvtools2.dll` is not in PotPlayer's working directory. | Verify `mvtools2.dll` is placed in `C:\Program Files\DAUM\PotPlayer\`, or specify the absolute path: `LoadPlugin("C:\Program Files\DAUM\PotPlayer\mvtools2.dll")`. |
 | **Audio out of sync or stuttering** | Video decoder is set to software decode, saturating CPU. | Verify that **DXVA2 Copy-Back (D3D11)** is active in Video Decoder settings. |
 | **Occasional micro-stutters** | System thermal throttle or high resolution load. | Switch from `MaxQuality` to `Balanced` or `Eco` profile in the [Profile Library](profiles/README.md). |
-| **Direct3D 12 GPU offload testing (ARM64)** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_D3D12 = true` at the top of the ARM64 script and ensure `mvtools2.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |
+| **Direct3D 12 GPU offload testing** | Wanting to benchmark experimental DirectCompute GPU mode. | Set `USE_D3D12 = true` at the top of an eligible profile script and ensure `mvtools2.dll` is in `C:\Program Files\DAUM\PotPlayer\`. |

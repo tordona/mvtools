@@ -53,8 +53,8 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Base Motion Super Clip (Single-Level, Integer Pixel Precision)
-# levels=levels_val: Single-level base clip eliminates redundant downscaled pyramid computations
+# 1. Base Motion Super Clip (Tiered Pyramid, Integer Pixel Precision)
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 # pel=1: Full-pixel precision only (skips subpixel math; D3D12 FlowWarpCS performs subpixel sampling in hardware)
 # pad_val: 8 px boundary padding on GPU (16 px at 4K); 0 px on CPU
 # sharp=0: Fast bilinear interpolation for minimal ALU load

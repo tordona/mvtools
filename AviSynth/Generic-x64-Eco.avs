@@ -5,7 +5,7 @@
 # Target: Ultra-Low Compute Load, Fanless & Battery Safety, Guaranteed Real-Time 60 fps
 # Revision: 3.1.4 (2026-11-17)
 # Changelog: Updated pyramid levels to is_4k ? 2 : 0 with plevel=0 for tear-free panning; Parameterized target_fps (default 60, capped at 60 fps on 4K) with target-relative frame rate bypass; Native 1080p 64x32 blocks (~1,020 blocks) with search=0, dynamic 4K adaptation
-#            Eliminated 0.5x proxy downscaling blur. Single-level geometry (levels=levels_val).
+#            Eliminated 0.5x proxy downscaling blur. Tiered pyramid geometry (levels=levels_val).
 # ==============================================================================
 
 # Core Allocation & Threading Strategy:
@@ -38,7 +38,7 @@ blk_sz= is_4k ? 64 : 64
 # Load Native x64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 
-# 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
+# 1. Native 1080p Super Clip (Tiered Pyramid, Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
 # levels=levels_val: Eliminates redundant multi-level spatial pyramid calculation
 # hpad=0, vpad=0: Zero padding overhead, preserving native pitch alignment
@@ -49,7 +49,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=0)
 # blksize=64, blksizev=32: 64x32 blocks at native 1080p (~1,020 blocks total)
 # search=0: OneTime predictor search tests temporal/spatial predictors directly, bypassing iterative hexagonal search
 # chroma=false: Luma-only search cuts vector computation by 50%
-# levels=levels_val: Single-level search matching super's levels=levels_val
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 backward_vec = MAnalyse(super, isb=true,  blksize=64, blksizev=32, search=0, plevel=0, chroma=false, levels=levels_val)
 forward_vec  = MAnalyse(super, isb=false, blksize=64, blksizev=32, search=0, plevel=0, chroma=false, levels=levels_val)
 

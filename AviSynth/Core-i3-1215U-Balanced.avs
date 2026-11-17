@@ -42,7 +42,7 @@ blk_sz= is_4k ? 32 : 16
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Native 1080p Super Clip (Single-Level, Integer Pixel Precision)
+# 1. Native 1080p Super Clip (Tiered Pyramid, Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
 # levels=levels_val: Eliminates redundant multi-level pyramid generation
 # hpad=0, vpad=0: Zero padding overhead, preserving native pitch alignment
@@ -54,7 +54,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=0, vpad=0, sharp=0)
 # 4x vector density compared to 32x32 without proxy scaling quantization
 # search=2, searchparam=2: Radius-2 hexagonal search captures faster motion pans
 # chroma=false: Luma-only search cuts vector computation by 50%
-# levels=levels_val: Single-level search matching super's levels=levels_val
+# levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)
 backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val)
 forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=2, plevel=0, chroma=false, levels=levels_val)
 

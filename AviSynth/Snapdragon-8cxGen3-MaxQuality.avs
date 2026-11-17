@@ -52,7 +52,7 @@ try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip with Boundary Guard
-# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # pel=1: Whole-pixel estimation paired with MRecalculate; D3D12 FlowWarpCS performs subpixel bilinear sampling in hardware
 # pad_val boundary padding stabilizes edge vector calculation on wide camera pans
 # sharp=0: Subpixel interpolation filter is unused when pel=1
@@ -62,7 +62,7 @@ super = src.MSuper(levels=levels_val, pel=1, hpad=pad_val, vpad=pad_val, sharp=0
 # 2,040 blocks (32x32 at 1080p, 64x64 at 4K)
 # search=search_alg, searchparam=2: Diamond search (~12 points) on both GPU and CPU
 # chroma=false: Luma-focused motion estimation keeps computation inside thermal budget
-# levels=1: Strictly searches base Level 0
+# levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
 # badrange=(-24): Outlier vector suppression for CPU NEON search path
 backward_dense = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))
 forward_dense  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=search_alg, searchparam=2, chroma=false, plevel=0, levels=levels_val, badrange=(-24))

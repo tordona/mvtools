@@ -99,7 +99,7 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
 
 ## Profile Comparison: Snapdragon 8cx Gen 3 / SQ3
 
-All Snapdragon 8cx Gen 3 profiles utilize direct-resolution motion estimation with `levels=1` single-level base clip processing and `Prefetch(threads)` lookahead buffering:
+Snapdragon 8cx Gen 3 `Eco`, `Balanced`, and `MaxQuality` all use `levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)` (`levels=0` on 1080p CPU for pan tracking, `levels=2` on 4K CPU, `levels=1` on D3D12) with `plevel=0` and `Prefetch(threads)` lookahead buffering:
 
 | Profile | Target & Use Case | Motion Search Grid | Synthesis Mode | Thread Pinning & Queue |
 | :--- | :--- | :--- | :--- | :--- |

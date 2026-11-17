@@ -17,7 +17,7 @@
 
 **MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
-This repository provides **51 hardware-tailored real-time profiles** across **x86-64** (AVX2 / AVX-512) and **ARM64** (NEON) platforms, an **experimental Direct3D 12 GPU offload engine**, and an automated **PresentMon sub-millisecond benchmark test harness** to verify zero dropped frames and evaluate true 1% Low frame pacing.
+This repository provides **54 hardware-tailored real-time profiles** across **x86-64** (AVX2 / AVX-512) and **ARM64** (NEON) platforms, an **experimental Direct3D 12 GPU offload engine**, and an automated **PresentMon sub-millisecond benchmark test harness** to verify zero dropped frames and evaluate true 1% Low frame pacing.
 
 > 📖 **Documentation Hub:** Visit [**tordona.github.io/mvtools**](https://tordona.github.io/mvtools/) for browsable profiles, step-by-step setup guides, and benchmark analysis.
 
@@ -29,7 +29,7 @@ This repository provides **51 hardware-tailored real-time profiles** across **x8
 |:----------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
 | **Dual Architecture (x86-64 & ARM64)**    | Native AVX2/AVX-512 and ARM64 NEON SIMD vector implementations running without emulation overhead.                              | Delivers deterministic real-time 60 fps motion interpolation across 64-bit x86 and Windows on ARM devices.            |
 | **Experimental Direct3D 12 GPU Offload**  | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                               |
-| **51 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 8 x86-64 platforms and 9 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and single-level geometry (`levels=1`) preserving memory bus bandwidth. |
+| **54 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 9 x86-64 platforms and 9 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU). |
 | **Sub-Millisecond Benchmark Harness**     | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                      |
 | **Custom AviSynth+ Profile Generation**   | 1-click quickstart ([`GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)) & technical spec ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)). | Instant tailored AviSynth+ profile generation for PotPlayer (zero clone needed) and autonomous closed-loop PresentMon tuning. |
 
@@ -46,22 +46,9 @@ This repository provides **51 hardware-tailored real-time profiles** across **x8
 >
 > For production stability, reference image quality, and deterministic stutter-free playback, the native **CPU SIMD reference engine (`mvtools2.dll`)** remains the recommended default.
 
-## Real-Time 60 fps Hardware Profiles (x86-64 & ARM64)
+## Real-Time 60 fps Hardware Profiles (ARM64 & x86-64)
 
-This repository provides **51 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and configuration guides under [`Documentation/guides/`](Documentation/guides/) across 8 x86-64 and 9 ARM64 platforms:
-
-### x86-64 Platforms (AVX2 / AVX-512)
-
-| Platform Token | Topology / GPU | Verified Profiles | Hardware Spec |
-|:--- |:--- |:--- |:---: |
-| **`Generic-x64`** | Universal fallback for all 64-bit x86 systems | [Eco](AviSynth/Generic-x64-Eco.avs), [Balanced](AviSynth/Generic-x64-Balanced.avs), [MaxQuality](AviSynth/Generic-x64-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`RyzenAI-5-340`** | 3x Zen 5 + 3x Zen 5c (12T) / Radeon 840M (RDNA 3.5) | [Eco](AviSynth/RyzenAI-5-340-Eco.avs), [Balanced](AviSynth/RyzenAI-5-340-Balanced.avs), [MaxQuality](AviSynth/RyzenAI-5-340-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Core-i7-11850H`** | 8C/16T Tiger Lake-H @ 45 W / Intel UHD 32EU | [Eco](AviSynth/Core-i7-11850H-Eco.avs), [Balanced](AviSynth/Core-i7-11850H-Balanced.avs), [MaxQuality](AviSynth/Core-i7-11850H-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Core-i5-1135G7`** | 4C/8T Tiger Lake-U @ 12–28 W / Iris Xe 80EU | [Eco](AviSynth/Core-i5-1135G7-Eco.avs), [Balanced](AviSynth/Core-i5-1135G7-Balanced.avs), [MaxQuality](AviSynth/Core-i5-1135G7-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Core-i5-8259U`** | 4C/8T Coffee Lake @ 28 W / Iris Plus 655 (128 MB eDRAM) | [Eco](AviSynth/Core-i5-8259U-Eco.avs), [Balanced](AviSynth/Core-i5-8259U-Balanced.avs), [MaxQuality](AviSynth/Core-i5-8259U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Core-i3-1215U`** | 2P+4E/8T Alder Lake-U @ 15 W / Intel UHD 64EU (`AvsAffinity`) | [Eco](AviSynth/Core-i3-1215U-Eco.avs), [Balanced](AviSynth/Core-i3-1215U-Balanced.avs), [MaxQuality](AviSynth/Core-i3-1215U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Intel-N100`** | 4C/4T Gracemont @ 6 W Fanless / Intel UHD 24EU | [Eco](AviSynth/Intel-N100-Eco.avs), [Balanced](AviSynth/Intel-N100-Balanced.avs), [MaxQuality](AviSynth/Intel-N100-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
-| **`Core-i5-7Y54`** | 2C/4T Amber Lake @ 4.5 W Fanless / Intel HD 615 | [Eco](AviSynth/Core-i5-7Y54-Eco.avs), [Balanced](AviSynth/Core-i5-7Y54-Balanced.avs), [MaxQuality](AviSynth/Core-i5-7Y54-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+This repository provides **54 tuned real-time 60 fps AviSynth+ motion interpolation profiles** under [`AviSynth/`](AviSynth/) and configuration guides under [`Documentation/guides/`](Documentation/guides/) across 9 ARM64 and 9 x86-64 platforms:
 
 ### ARM64 Platforms (NEON SIMD & Direct3D 12 GPU Offload)
 
@@ -76,6 +63,19 @@ This repository provides **51 tuned real-time 60 fps AviSynth+ motion interpolat
 | **Snapdragon 8cx Gen 1 / SQ1** | 4x Gold + 4x Silver / Adreno 680 (~1.1 TFLOPS)  | [Eco](AviSynth/Snapdragon-8cxGen1-Eco.avs), [Balanced](AviSynth/Snapdragon-8cxGen1-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) | [`Snapdragon8cxGen1.md`](Documentation/guides/Snapdragon8cxGen1.md) |
 | **Snapdragon 850**             | 4x Gold + 4x Silver / Adreno 630 (~5 W Fanless) | [Eco](AviSynth/Snapdragon-850-Eco.avs), [Balanced](AviSynth/Snapdragon-850-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-850-MaxQuality.avs)             | [`Snapdragon850.md`](Documentation/guides/Snapdragon850.md)         |
 | **Snapdragon 7c Gen 2**        | 2x Gold + 6x Silver / Adreno 618 (~5 W Fanless) | [Eco](AviSynth/Snapdragon-7cGen2-Eco.avs), [Balanced](AviSynth/Snapdragon-7cGen2-Balanced.avs), [MaxQuality](AviSynth/Snapdragon-7cGen2-MaxQuality.avs)    | [`Snapdragon7cGen2.md`](Documentation/guides/Snapdragon7cGen2.md)   |
+
+### x86-64 Platforms (AVX2 / AVX-512)
+
+| Platform Token | Topology / GPU | Verified Profiles | Hardware Spec |
+|:--- |:--- |:--- |:---: |
+| **`Generic-x64`** | Universal fallback for all 64-bit x86 systems | [Eco](AviSynth/Generic-x64-Eco.avs), [Balanced](AviSynth/Generic-x64-Balanced.avs), [MaxQuality](AviSynth/Generic-x64-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`RyzenAI-5-340`** | 3x Zen 5 + 3x Zen 5c (12T) / Radeon 840M (RDNA 3.5) | [Eco](AviSynth/RyzenAI-5-340-Eco.avs), [Balanced](AviSynth/RyzenAI-5-340-Balanced.avs), [MaxQuality](AviSynth/RyzenAI-5-340-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i7-11850H`** | 8C/16T Tiger Lake-H @ 45 W / Intel UHD 32EU | [Eco](AviSynth/Core-i7-11850H-Eco.avs), [Balanced](AviSynth/Core-i7-11850H-Balanced.avs), [MaxQuality](AviSynth/Core-i7-11850H-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-1135G7`** | 4C/8T Tiger Lake-U @ 12–28 W / Iris Xe 80EU | [Eco](AviSynth/Core-i5-1135G7-Eco.avs), [Balanced](AviSynth/Core-i5-1135G7-Balanced.avs), [MaxQuality](AviSynth/Core-i5-1135G7-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-8259U`** | 4C/8T Coffee Lake @ 28 W / Iris Plus 655 (128 MB eDRAM) | [Eco](AviSynth/Core-i5-8259U-Eco.avs), [Balanced](AviSynth/Core-i5-8259U-Balanced.avs), [MaxQuality](AviSynth/Core-i5-8259U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i3-1215U`** | 2P+4E/8T Alder Lake-U @ 15 W / Intel UHD 64EU (`AvsAffinity`) | [Eco](AviSynth/Core-i3-1215U-Eco.avs), [Balanced](AviSynth/Core-i3-1215U-Balanced.avs), [MaxQuality](AviSynth/Core-i3-1215U-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Intel-N100`** | 4C/4T Gracemont @ 6 W Fanless / Intel UHD 24EU | [Eco](AviSynth/Intel-N100-Eco.avs), [Balanced](AviSynth/Intel-N100-Balanced.avs), [MaxQuality](AviSynth/Intel-N100-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
+| **`Core-i5-7Y54`** | 2C/4T Amber Lake @ 4.5 W Fanless / Intel HD 615 | [Eco](AviSynth/Core-i5-7Y54-Eco.avs), [Balanced](AviSynth/Core-i5-7Y54-Balanced.avs), [MaxQuality](AviSynth/Core-i5-7Y54-MaxQuality.avs) | [`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md) |
 
 For comprehensive technical architecture and cross-compiler ABI mechanics (MSVC ARM64 $\leftrightarrow$ MinGW GCC), see [**`AI_PORT_NOTICE.md`**](AI_PORT_NOTICE.md) and [**`CHANGELOG.md`**](CHANGELOG.md).
 

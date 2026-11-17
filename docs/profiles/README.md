@@ -2,19 +2,18 @@
 
 > **Curated, hardware-tailored AviSynth+ profiles for real-time 24 fps → 60 fps video motion interpolation in Daum PotPlayer on Windows on ARM64 and x86-64.**
 
-All profiles are engineered around **Rev 3.0.0 Single-Level Geometry (`levels=1`)**, eliminating memory thrashing on unified memory architectures while sustaining consistent 60 fps frame delivery without frame drops.
+All profiles use **Tiered Pyramid Geometry**: single-level (`levels=1`) when `USE_D3D12 = true`, and multi-level (`levels=0` or `is_4k ? 2 : 0`) with `plevel=0` on CPU (`USE_D3D12 = false`) across `Eco`, `Balanced`, and `MaxQuality`.
 
 ---
 
 ## Architectural Principles (Rev 3.0.0)
 
-### 1. Single-Level Geometry (`levels=1`) vs. Legacy Hierarchical Pyramids
-In traditional AviSynth MVTools implementations (`levels=0`, default 7–8 levels), the engine generates a deep hierarchical Gaussian image pyramid for each frame. On unified memory architectures (Qualcomm Snapdragon LPDDR4x/LPDDR5x and modern thin-and-light x86 SoCs), continuously copying, downsampling, and filtering 8 pyramid levels across 4–8 concurrent worker threads saturates the system memory bus and triggers aggressive thermal throttling.
+### 1. Tiered Pyramid Geometry (`levels=0` vs. `levels_val`)
+When `USE_D3D12 = true`, `D3D12MotionSearch` offloads Level 0 to the GPU while `MSuper` pyramid downsampling stays on CPU, so D3D12 runs use `levels=1` to avoid CPU staging overhead. On CPU (`USE_D3D12 = false`), full coarse-to-fine pyramids (`levels=0`, or `is_4k ? 2 : 0` on 4K) with `plevel=0` eliminate panning tearing without exceeding real-time budgets.
 
-**The Rev 3.0.0 Solution:**
-* Setting `levels=1` (or `plevel=0`) restricts motion estimation to single-level evaluation without downscaled pyramid levels.
-* Eliminates over 60% of unnecessary memory read/write traffic.
-* Prevents cache pollution and stabilizes CPU/GPU temperatures under 15 W/5 W envelopes.
+**The Tiered Solution:**
+* **`levels=1` (Single-Level):** Used on `USE_D3D12 = true` GPU offload runs so all vector search stays on GPU Level 0.
+* **`levels_val = USE_D3D12 ? 1 : (is_4k ? 2 : 0)` (or `levels=0` / `is_4k ? 2 : 0`) + `plevel=0`:** Used on CPU (`USE_D3D12 = false`) across `Eco`, `Balanced`, and `MaxQuality`—providing full coarse-to-fine pan tracking (`levels=0`) at 1080p and bounded 2-level tracking (`levels=2`) at 4K without deep 4K pyramid memory bloat.
 
 ### 2. Two-Pass Coarse-to-Fine Block Refinement
 Instead of relying on deep pyramid levels for macro-motion tracking, Rev 3.0.0 uses a two-pass block refinement strategy:
@@ -43,12 +42,12 @@ Prefetch(threads)
   * **Intel Hybrid (P+E Cores):** Pinned strictly to Performance cores (e.g. Golden Cove) to eliminate Gracemont stalls.
   * **AMD Hybrid (Zen 5 + Zen 5c):** Pinned strictly to high-frequency Zen 5 cores, leaving 3.4 GHz Zen 5c cores for host playback.
 
-### 4. Direct3D 12 DirectCompute GPU Offload Toggle (ARM64)
-ARM64 profiles for eligible hardware include an inline toggle:
+### 4. Direct3D 12 DirectCompute GPU Offload Toggle
+Profiles for eligible hardware (ARM64 and supported x86-64 iGPUs/dGPUs) include an inline toggle:
 ```avisynth
 USE_D3D12 = false  # Set to true for Direct3D 12 GPU offload (mvtools2.dll)
 ```
-When enabled, motion vector estimation executes on the GPU command queue (NVIDIA Blackwell RTX or Qualcomm Adreno) while keeping CPU utilization minimal.
+When enabled, motion vector estimation executes on the GPU command queue (NVIDIA Blackwell RTX, Qualcomm Adreno, or AMD RDNA) while keeping CPU utilization minimal.
 
 ### 5. Dynamic Resolution Adaptation & 4K Block Density Invariant
 A 4K (3840×2160) video stream contains 4× the pixel area of 1080p (1920×1080). Evaluating fixed 1080p block sizes (`16x16`) across a 4K frame generates 240 × 135 = 32,400 blocks per pass (4× more than 1080p's 8,160 blocks). Across a two-pass coarse-to-fine pipeline, this quadruples motion vector search operations and saturates memory bandwidth, resulting in severe GPU compute stalls and CPU worker thread starvation.
@@ -56,7 +55,6 @@ A 4K (3840×2160) video stream contains 4× the pixel area of 1080p (1920×1080)
 **The Dynamic Resolution Scaling Rule:**
 All Rev 3.0.0 profiles incorporate real-time resolution detection:
 ```avisynth
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -72,31 +70,31 @@ pad_val    = is_4k ? 16 : 8
 
 | Platform / SoC | Profile Tier | Architecture | Block Size<br><span style="white-space:nowrap">(Base / 4K)</span> | 4K <span style="white-space:nowrap">60 fps</span> | `pel` | Threads | Direct3D 12 | Download |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **RTX Spark N1X** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 2 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Eco.avs) |
-| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Balanced.avs) |
+| **RTX Spark N1X** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 2 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Eco.avs) |
+| | `Balanced` | Multi-level Native Fine | 16×16 / 32×32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 (GPU) / 2 (CPU) | 4 / 8 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/RTX-Spark-N1X-MaxQuality.avs) |
-| **Snapdragon X2 Series** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 2 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Eco.avs) |
-| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Balanced.avs) |
+| **Snapdragon X2 Series** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 2 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Eco.avs) |
+| | `Balanced` | Multi-level Native Fine | 16×16 / 32×32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 (GPU) / 2 (CPU) | 4 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X2-MaxQuality.avs) |
-| **Snapdragon X Series** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Eco.avs) |
+| **Snapdragon X Series** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 4 / 6 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-Balanced.avs) |
 | | `MaxQuality` | Subpixel Coarse-to-Fine | 32 → 16 / 64 → 32 (GPU)<br>16 → 8 / 32 → 16 (CPU) | <span title="Verified 4K 60 fps Playback">✅</span> | 1 (GPU) / 2 (CPU) | 4 / 8 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-X-MaxQuality.avs) |
-| **Snapdragon C** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Unverified Playback (Theoretical 4K block adaptation implemented; pending empirical validation)">⏳</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Eco.avs) |
-| | `Balanced` | Single-level Native Fine | 16×16 / 32×32 | <span title="Unverified Playback (Theoretical 4K block adaptation implemented; pending empirical validation)">⏳</span> | 1 | 3 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Balanced.avs) |
+| **Snapdragon C** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Unverified Playback (Theoretical 4K block adaptation implemented; pending empirical validation)">⏳</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Eco.avs) |
+| | `Balanced` | Multi-level Native Fine | 16×16 / 32×32 | <span title="Unverified Playback (Theoretical 4K block adaptation implemented; pending empirical validation)">⏳</span> | 1 | 3 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-Balanced.avs) |
 | | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Unverified Playback (Theoretical 4K block adaptation implemented; pending empirical validation)">⏳</span> | 1 | 4 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-C-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 3** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
+| **Snapdragon 8cx Gen 3** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-Balanced.avs) |
 | | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen3-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 2** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
+| **Snapdragon 8cx Gen 2** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-Balanced.avs) |
 | | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen2-MaxQuality.avs) |
-| **Snapdragon 8cx Gen 1** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
+| **Snapdragon 8cx Gen 1** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-Balanced.avs) |
 | | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | <span title="Verified 4K 60 fps Playback">✅</span> | 1 | 3 / 4 | <span title="Opt-in (Preview): Direct3D 12 GPU offload available via USE_D3D12 = true">☑️</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-8cxGen1-MaxQuality.avs) |
-| **Snapdragon 850** | `Eco` | Single-level Coarse | 64×32 / 128×64 | <span title="Unsupported: Hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 3 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
+| **Snapdragon 850** | `Eco` | Multi-level Coarse | 64×32 / 128×64 | <span title="Unsupported: Hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 3 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Unsupported: Hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 3 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-Balanced.avs) |
 | | `MaxQuality` | Fine Refinement | 32 → 16 / 64 → 32 | <span title="Unsupported: Hardware limited to 4K 30 fps by 14.9 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 4 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-850-MaxQuality.avs) |
-| **Snapdragon 7c Gen 2** | `Eco` | Single-level Coarse | 32×32 / 64×64 | <span title="Unsupported: Hardware limited to 4K 30 fps by 17 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
+| **Snapdragon 7c Gen 2** | `Eco` | Multi-level Coarse | 32×32 / 64×64 | <span title="Unsupported: Hardware limited to 4K 30 fps by 17 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Eco.avs) |
 | | `Balanced` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Unsupported: Hardware limited to 4K 30 fps by 17 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-Balanced.avs) |
 | | `MaxQuality` | Coarse-to-Fine Refinement | 32 → 16 / 64 → 32 | <span title="Unsupported: Hardware limited to 4K 30 fps by 17 GB/s memory bus and VPU decoder cap; profile preserves native playback">❌</span> | 1 | 2 | <span title="Unsupported: Pure ARM64 CPU NEON execution only">❌</span> | [`Raw`](https://raw.githubusercontent.com/tordona/mvtools/mvtools-d3d12/AviSynth/Snapdragon-7cGen2-MaxQuality.avs) |
 
@@ -132,23 +130,31 @@ pad_val    = is_4k ? 16 : 8
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Balanced tradeoff between motion fluidity, edge definition, and power consumption
 # Revision: 2.2.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation
+# Changelog: Oryon architecture, levels=0, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=4/6, Prefetch(threads), mem_limit=1536/2048, D3D12 toggle, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
 # Dynamic parameters adapted to USE_D3D12
 threads     = USE_D3D12 ? 4 : 6     # GPU offload executes on command queue (4 threads optimal); CPU uses 6 Oryon cores
 mem_limit   = USE_D3D12 ? 1536 : 2048
+target_fps = 60
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # PotPlayer video source stream
-potplayer_source()
+src = potplayer_source()
+
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -158,18 +164,18 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip with Edge Guard
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (MRecalculate)
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Pixel-Level Motion Interpolation with Occlusion Handling
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=true, thSCD1=350, thSCD2=120)
 
 # 5. Thread Pool (adapted dynamically to USE_D3D12)
 Prefetch(threads)
@@ -182,7 +188,7 @@ Prefetch(threads)
 # Hardware: Qualcomm Snapdragon X Plus (8x Oryon Cores @ ARM64 NEON)
 # Target: Highest visual fidelity, diamond motion search, sustained 60 fps
 # Revision: 2.4.0 (2026-11-03)
-# Changelog: Oryon architecture, levels=1, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
+# Changelog: Oryon architecture, levels=0, search=2 (Diamond search coarse / fine refinement), threads=4/8, Prefetch(threads), mem_limit=2048/4096, D3D12 toggle, dynamic 4K adaptation, standardized src source clip and src.Width() 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
@@ -190,6 +196,7 @@ USE_D3D12 = false
 use_chroma  = USE_D3D12 ? false : true
 threads     = USE_D3D12 ? 4 : 8
 mem_limit   = USE_D3D12 ? 2048 : 4096
+target_fps = 60
 
 # Subpixel, Block & Search Parameters:
 fine_rad    = USE_D3D12 ? 2 : 1
@@ -199,8 +206,15 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k       = (src.Width() > 2048)
 blk_scale   = is_4k ? 2 : 1
 pel_val     = USE_D3D12 ? 1 : 2
 sharp_mode  = USE_D3D12 ? 0 : 2
@@ -213,18 +227,18 @@ LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
 # 1. Motion Super Clip
-super = src.MSuper(levels=1, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
+super = src.MSuper(levels=0, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
 
 # 2. Diamond Coarse Motion Vector Field Analysis
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=use_chroma, levels=0, badrange=(-24))
 
 # 3. Micro-Block Refinement (MRecalculate)
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=use_chroma, divide=0)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=fine_rad, chroma=use_chroma, divide=0)
 
 # 4. Dynamic Median Pixel-Flow Motion Interpolation
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=true, thSCD1=320, thSCD2=115)
 
 Prefetch(threads)
 ```
@@ -248,14 +262,22 @@ USE_D3D12 = false
 
 threads     = USE_D3D12 ? 3 : 4
 mem_limit   = USE_D3D12 ? 1024 : 1024
+target_fps = 60
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-potplayer_source()
+src = potplayer_source()
+
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -264,15 +286,15 @@ pad_val    = is_4k ? 16 : 8
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
 Prefetch(threads)
 ```
@@ -290,21 +312,29 @@ Prefetch(threads)
 # PotPlayer AviSynth 60 fps Interpolation: Snapdragon 8cx Gen 2 (Profile 2: Balanced)
 # Pinned to 4x Kryo 495 Gold cores (threads=4)
 # Revision: 2.2.0 (2026-11-03)
-# Changelog: Native 1080p, levels=1, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
+# Changelog: Native 1080p, levels=0, coarse 32x32 -> fine 16x16, sharp=0 (pel=1), threads=3/4, Prefetch(threads), mem_limit=1024/1536, D3D12 toggle, AvsAffinity pinning, dynamic 4K adaptation
 # ==============================================================================
 USE_D3D12 = false
 
 # Dynamic parameters adapted to USE_D3D12
 threads     = USE_D3D12 ? 3 : 4
 mem_limit   = USE_D3D12 ? 1024 : 1536
+target_fps = 60
 
 SetMemoryMax(mem_limit)
 SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
-potplayer_source()
+src = potplayer_source()
+
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
 
 # Dynamic 4K resolution adaptation (doubles block sizes at 4K to preserve block density invariant)
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 16 : 8
@@ -313,15 +343,15 @@ pad_val    = is_4k ? 16 : 8
 LoadPlugin("mvtools2.dll")
 MEnableD3D12(USE_D3D12)
 
-super = MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=2, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
-MBlockFps(super, backward_fine, forward_fine, num=60, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
+MBlockFps(super, backward_fine, forward_fine, num=target_fps, den=1, mode=2, blend=false, thSCD1=350, thSCD2=120)
 
 Prefetch(threads)
 ```
@@ -346,6 +376,7 @@ Prefetch(threads)
 
 threads     = 3                   # 3 Kryo 385 Gold cores
 mem_limit   = 768
+target_fps = 60
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -353,6 +384,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 630)
 src = potplayer_source()
+
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
 
 # Dynamic 4K Fallback: Snapdragon 850 memory bus (14.9 GB/s) and VPU are capped at 4K 30 fps.
 # Bypass motion interpolation on 4K streams to maintain smooth native playback.
@@ -362,7 +401,6 @@ if (src.Width() > 2048) {
 
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p (fallback safeguard if 4K bypass is disabled).
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 8 : 0
@@ -372,18 +410,18 @@ LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Base Motion Super Clip (Single Level, Shared across Pipeline)
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search (2,040 blocks: 32x32 at 1080p, 64x64 at 4K)
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 # 3. Fine Refinement Pass (8,160 blocks: 16x16 at 1080p, 32x32 at 4K)
 backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Direct Frame Synthesis with Refined Vectors
-MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
+MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
 # 5. Core Pinning: Strictly 3 Threads with Lookahead Queue
 last = FunctionExists("PinWorkerThreads") ? last.PinWorkerThreads() : last
@@ -413,6 +451,7 @@ Prefetch(threads, 4)
 # Prevents thermal runaway and avoids slow Cortex-A55 Silver core stalls.
 threads     = 2
 mem_limit   = 512
+target_fps = 60
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -420,6 +459,14 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 
 # Full 1080p PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno 618)
 src = potplayer_source()
+
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
 
 # Dynamic 4K Fallback: 7c Gen 2 memory bus (17 GB/s) and VPU are capped at 4K 30 fps.
 # Bypass motion interpolation on 4K streams to maintain smooth native playback.
@@ -429,7 +476,6 @@ if (src.Width() > 2048) {
 
 # Dynamic Resolution Adaptation:
 # Detect 4K vs 1080p/720p (fallback safeguard if 4K bypass is disabled).
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 8 : 0
@@ -439,18 +485,18 @@ LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Base Motion Super Clip (Single Level, Shared across Pipeline)
-# levels=1: Avoids calculating redundant downscaled pyramid images
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
 # pel=1: Whole-pixel base clip paired with MRecalculate keeps CPU low while tracking details
 # pad_val boundary padding stabilizes edge vector calculation
 # sharp=0: Fast bilinear interpolation
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Global Motion Vector Search (2,040 blocks: 32x32 at 1080p, 64x64 at 4K)
 # search=2, searchparam=1: Hexagonal search with radius 1 keeps search light on Cortex-A76
 # badrange=(-24): Early rejection of outlier vectors to prevent haloing
-# levels=1: Strictly searches Level 0 (single level)
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 # 3. Fine Refinement Pass (8,160 blocks: 16x16 at 1080p, 32x32 at 4K)
 # Resolves small moving objects and eliminates blocky edge artifacts
@@ -461,7 +507,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=0: Fast 2-stream block projection using refined 16x16 vector grid (crisp, zero block tearing)
 # blend=false: Skips transparency alpha blending calculations to conserve ALU cycles
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
-MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
+MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
 # 5. Core Pinning: Strictly 2 threads prevents thermal throttling
 # 4 lookahead frames absorb thread scheduling jitter
@@ -494,6 +540,7 @@ Prefetch(threads, 4)
 # Direct3D 11 swapchain presentation, and Windows background tasks.
 threads     = 3
 mem_limit   = 768                 # Bounded cache footprint protects budget LPDDR4x/LPDDR5 memory bus
+target_fps = 60
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -502,12 +549,19 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # PotPlayer video source stream (DXVA2/D3D11 hardware decoded via Adreno VPU)
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
 # Detect 4K (3840x2160 / 4096x2160) vs 1080p/720p.
 # At 4K, 64x64 coarse -> 32x32 fine maintains the exact 120x68 (8,160 blocks) spatial grid
 # density of 1080p 16x16, cutting 4K block evaluations by 75% and preventing memory bus saturation.
 # mode=0 and blend=false on 4K cuts ALU and DRAM traffic by >60%, preventing fanless throttling.
-is_4k      = (src.Width() > 2048)
 blk_coarse = is_4k ? 64 : 32
 blk_fine   = is_4k ? 32 : 16
 pad_val    = is_4k ? 0 : 4
@@ -519,18 +573,18 @@ LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Base Motion Super Clip with Lightweight Edge Guard
-# levels=1: Single-level base clip eliminates redundant downscaled pyramid computations
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
 # pel=1: Whole-pixel estimation paired with MRecalculate
 # pad_val boundary padding stabilizes edge vector calculation without memory thrashing
 # sharp=0: Subpixel interpolation filter is unused when pel=1
-super = src.MSuper(levels=1, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
+super = src.MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
 # 2. Coarse Motion Vector Search (2,040 blocks: 32x32 at standard resolutions, 64x64 at 4K)
 # search=2, searchparam=1: 3x3 local grid search across 2,040 blocks
 # badrange=(-24): Outlier vector rejection threshold for CPU NEON search path
-# levels=1: Strictly searches base Level 0
-backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
-forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, chroma=false, levels=1, badrange=(-24))
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
+backward_coarse = MAnalyse(super, isb=true,  blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
+forward_coarse  = MAnalyse(super, isb=false, blksize=blk_coarse, blksizev=blk_coarse, search=2, searchparam=1, plevel=0, chroma=false, levels=0, badrange=(-24))
 
 # 3. Fine Motion Refinement Pass (8,160 blocks: 16x16 at standard resolutions, 32x32 at 4K)
 # Refines vectors down to fine blocks at object boundaries using 2x2 bilinear coarse predictors
@@ -541,7 +595,7 @@ forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=
 # mode=0 on 4K sustains 60 fps without CPU pipeline stalls; mode=2 on 1080p delivers crisp dynamic median edges
 # blend=false on 4K avoids memory bus saturation; blend=true on 1080p blends occlusion boundaries
 # thSCD1=380, thSCD2=125: Balanced scene-change sensitivity cleanly cuts camera transitions
-last = MBlockFps(src, super, backward_fine, forward_fine, num=60, den=1, mode=synth_mode, blend=blend_val, thSCD1=380, thSCD2=125)
+last = MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=synth_mode, blend=blend_val, thSCD1=380, thSCD2=125)
 
 # 5. Hardware Thread Affinity Pinning & Concurrency Pool
 # Isolates worker threads to Performance/Prime cores, preventing Efficiency core latency stalls
@@ -607,6 +661,7 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 # Native 32x32 blocks delivers crisp motion tracking across 95% of mainstream x64 PCs.
 threads     = 3
 mem_limit   = 512                 # Bounded cache footprint protects dual-channel DRAM bus
+target_fps = 60
 
 # Memory allocation and multi-threading filter mode
 SetMemoryMax(mem_limit)
@@ -615,36 +670,43 @@ SetFilterMTMode("DEFAULT_MT_MODE", 2)
 # Full PotPlayer video source stream (DXVA2/D3D11 hardware decoded)
 src = potplayer_source()
 
+is_4k      = (src.Width() > 2048)
+target_fps = (is_4k && target_fps > 60) ? 60 : target_fps
+
+# Bypass motion interpolation if source is already at or above target_fps (4% NTSC tolerance)
+if (src.FrameRate() >= (target_fps * 0.96)) {
+    return src
+}
+
 # Dynamic Resolution Adaptation:
 # Detect 4K vs 1080p. At 4K, 64x64 blocks maintain the exact 2,040 block count of 1080p 32x32.
-is_4k  = (src.Width() > 2048)
 blk_sz = is_4k ? 64 : 32
 
 # Load Native x64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
-# 1. Base Motion Super Clip (Single-Level, Integer Pixel Precision)
+# 1. Base Motion Super Clip (Integer Pixel Precision)
 # pel=1: Full-pixel precision only (avoids subpixel interpolation overhead)
-# levels=1: Eliminates redundant multi-level spatial pyramid generation
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
 # hpad=0, vpad=0: Zero padding overhead, preserving native pitch alignment
 # sharp=0: Fast bilinear interpolation for minimal ALU load
-super = src.MSuper(levels=1, pel=1, hpad=0, vpad=0, sharp=0)
+super = src.MSuper(levels=0, pel=1, hpad=0, vpad=0, sharp=0)
 
 # 2. Balanced Motion Vector Search (No Proxy / Zero Downscale)
 # blksize=blk_sz, blksizev=blk_sz: 32x32 blocks (~2,040 blocks total)
 # search=2, searchparam=1: Radius-1 hexagonal search ensures tight vector consistency
 # chroma=false: Luma-only search cuts vector computation by 50%
-# levels=1: Single-level search matching super's levels=1
-backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
-forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, chroma=false, levels=1)
+# levels=0: Full pyramid on CPU (levels=1 on USE_D3D12=true)
+backward_vec = MAnalyse(super, isb=true,  blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, plevel=0, chroma=false, levels=0)
+forward_vec  = MAnalyse(super, isb=false, blksize=blk_sz, blksizev=blk_sz, search=2, searchparam=1, plevel=0, chroma=false, levels=0)
 
 # 3. Direct 60 fps Frame Synthesis
 # Directly warps source frames with 1:1 native pixel coordinate accuracy
 # mode=0: Fast 2-stream block projection (sustains 60 fps without CPU pipeline stalls)
 # blend=false: Clean block projection avoiding blur on fast motion
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
-MBlockFps(src, super, backward_vec, forward_vec, num=60, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
+MBlockFps(src, super, backward_vec, forward_vec, num=target_fps, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
 
 # 4. Core Pinning: 3 Threads with 6-Frame Lookahead Queue
 # Leaves 1 core completely free for OS, audio pipeline, and D3D11 swapchain

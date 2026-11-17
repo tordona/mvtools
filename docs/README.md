@@ -13,7 +13,7 @@
 This documentation hub covers the key architectural additions developed in this fork:
 * **Dual Architecture Support:** Native AVX2/AVX-512 SIMD (x86-64) and NEON SIMD (ARM64) running without emulation overhead.
 * **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`MEnableD3D12(true)`).
-* **51 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 8 x86-64 platforms and 9 ARM64 platforms with single-level geometry (`levels=1`) preserving memory bus bandwidth.
+* **54 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 9 x86-64 platforms and 9 ARM64 platforms with tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU).
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
 * **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth+ worker threads to Performance cores on hybrid architectures.
@@ -22,20 +22,7 @@ This documentation hub covers the key architectural additions developed in this 
 
 ## 🖥️ Verified 60 fps Hardware Profiles
 
-Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selection, and profile configuration across x86-64 and ARM64 platforms:
-
-### x86-64 Platforms (AVX2 / AVX-512)
-
-| Platform Token | Topology / GPU | Verified Profiles | Hardware Spec |
-|:--- |:--- |:--- |:---: |
-| **`Generic-x64`** | Universal fallback for all 64-bit x86 systems | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`RyzenAI-5-340`** | 3x Zen 5 + 3x Zen 5c (12T) / Radeon 840M (RDNA 3.5) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Core-i7-11850H`** | 8C/16T Tiger Lake-H @ 45 W / Intel UHD 32EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Core-i5-1135G7`** | 4C/8T Tiger Lake-U @ 12–28 W / Iris Xe 80EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Core-i5-8259U`** | 4C/8T Coffee Lake @ 28 W / Iris Plus 655 (128 MB eDRAM) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Core-i3-1215U`** | 2P+4E/8T Alder Lake-U @ 15 W / Intel UHD 64EU (`AvsAffinity`) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Intel-N100`** | 4C/4T Gracemont @ 6 W Fanless / Intel UHD 24EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
-| **`Core-i5-7Y54`** | 2C/4T Amber Lake @ 4.5 W Fanless / Intel HD 615 | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selection, and profile configuration across ARM64 and x86-64 platforms:
 
 ### ARM64 Platforms (NEON SIMD & Direct3D 12 GPU Offload)
 
@@ -51,6 +38,19 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
 | **Snapdragon 850** | Samsung Galaxy Book2, Lenovo Yoga C630 | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon850.md) |
 | **Snapdragon 7c Gen 2** | Samsung Galaxy Book Go (Fanless 4 GB) | `Eco`, `Balanced`, `MaxQuality` | [View Guide ➔](guides/Snapdragon7cGen2.md) |
 
+### x86-64 Platforms (AVX2 / AVX-512)
+
+| Platform Token | Topology / GPU | Verified Profiles | Hardware Spec |
+|:--- |:--- |:--- |:---: |
+| **`Generic-x64`** | Universal fallback for all 64-bit x86 systems | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`RyzenAI-5-340`** | 3x Zen 5 + 3x Zen 5c (12T) / Radeon 840M (RDNA 3.5) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Core-i7-11850H`** | 8C/16T Tiger Lake-H @ 45 W / Intel UHD 32EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Core-i5-1135G7`** | 4C/8T Tiger Lake-U @ 12–28 W / Iris Xe 80EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Core-i5-8259U`** | 4C/8T Coffee Lake @ 28 W / Iris Plus 655 (128 MB eDRAM) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Core-i3-1215U`** | 2P+4E/8T Alder Lake-U @ 15 W / Intel UHD 64EU (`AvsAffinity`) | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Intel-N100`** | 4C/4T Gracemont @ 6 W Fanless / Intel UHD 24EU | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+| **`Core-i5-7Y54`** | 2C/4T Amber Lake @ 4.5 W Fanless / Intel HD 615 | `Eco`, `Balanced`, `MaxQuality` | [View Spec ➔](profiles/README.md#part-ii-x86-64-hardware-profiles-amd-intel) |
+
 ---
 
 ## ⚡ Core Sections
@@ -59,7 +59,7 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
   Get up and running with 60 fps video interpolation in PotPlayer in under 3 minutes.
 
 * [**AviSynth+ Profile Library**](profiles/README.md)  
-  Explore all 51 profiles across x86-64 and ARM64, inspect parameter settings, and copy `.avs` scripts directly.
+  Explore all 54 profiles across x86-64 and ARM64, inspect parameter settings, and copy `.avs` scripts directly.
 
 * [**Benchmark & Telemetry Suite**](benchmarks/README.md)  
   Learn how to run `MvToolsBenchmark-Start.ps1`, measure PresentMon ETW 1% Low frame pacing, detect swapchain frame duplication, and compare baseline results.

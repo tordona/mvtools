@@ -17,7 +17,7 @@ When performing real-time 60 fps AviSynth motion interpolation (`mvtools2`), the
 To achieve sustained, smooth 60 fps playback without thermal throttling:
 1. **Adreno 680 Hardware Decoding:** Offload H.264/HEVC/VP9 decoding entirely to the Adreno 680 Video Processing Unit (VPU) via D3D11 / DXVA2 Copy-Back, keeping CPU decode load at **0%**.
 2. **Direct3D 11 Video Renderer:** Present video using the Direct3D 11 pipeline so scaling and color conversion execute on the GPU shaders without CPU intervention.
-3. **Coarse-to-Fine Block Refinement:** Single-level base clip processing (`levels=1`) paired with dual-pass 32×32 → 16×16 refinement provides artifact-free motion vector fields while avoiding DRAM memory bus thrashing.
+3. **Coarse-to-Fine Block Refinement:** Full-pyramid CPU search (`levels=0`, `plevel=0`; or `levels=1` when `USE_D3D12 = true`) paired with dual-pass 32×32 → 16×16 refinement provides tear-free panning and artifact-free motion vector fields while avoiding DRAM memory bus thrashing.
 4. **Strict Core Pinning (`Prefetch <= 4`):** Constraining worker threads to 3 or 4 and chaining `PinWorkerThreads()` confines all vector computation to the high-IPC Kryo 495 Gold cluster (`0xF0`), avoiding stalls from the in-order Silver cores.
 5. **Direct3D 12 Compute Offload Toggle:** Setting `USE_D3D12 = true` offloads block SAD search to the Adreno 680 GPU compute shaders, reducing CPU load from 15.3% down to **8.2%** and maximizing passive thermal margin.
 
