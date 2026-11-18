@@ -26,7 +26,7 @@
 #include "MVGroupOfFrames.h"
 #include "MVPlane.h"
 #include "profile.h"
-#include "SuperParams64Bits.h"
+#include "SuperParams.h"
 
 
 MVFinest::MVFinest(PClip _super, bool _isse, IScriptEnvironment* env) :
@@ -39,8 +39,7 @@ GenericVideoFilter(_super)
   cpuFlags = _isse ? get_simd_cpu_flags(env->GetCPUFlags()) : 0;
 
   // get parameters of prepared super clip - v2.0
-  SuperParams64Bits params;
-  memcpy(&params, &child->GetVideoInfo().num_audio_samples, 8);
+  const SuperParams params = GetSuperParams(child->GetVideoInfo());
   int nHeightS = params.nHeight;
   nSuperHPad = params.nHPad;
   nSuperVPad = params.nVPad;
@@ -50,8 +49,9 @@ GenericVideoFilter(_super)
   nPel = nSuperPel;
   nSuperWidth = _super->GetVideoInfo().width;
   nSuperHeight = _super->GetVideoInfo().height;
-  int nWidth = nSuperWidth - 2*nSuperHPad;
-  int nHeight = nHeightS;
+  // the super planes are built for (the finest frame is made of them) the layout size: the frame plus the MSuper edgepad extension (SuperParams.h)
+  int nWidth = params.LayoutWidth();
+  int nHeight = params.LayoutHeight();
     int xRatioUV;
     int yRatioUV;
     if(!ClipFnc::is_grey(vi) && !vi.IsRGB()) {
