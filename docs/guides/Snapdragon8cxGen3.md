@@ -42,7 +42,7 @@ The Qualcomm Snapdragon 8cx Gen 3 (and Microsoft SQ3) operates across a configur
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
    - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
-   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for crisp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
+   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for sharp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
    *(GPU shader units execute scaling operations without touching the CPU).*
 4. Click **Apply**.
 

@@ -44,7 +44,7 @@ blk_sz= is_4k ? 64 : 32
 
 # Load Native ARM64 MVTools2 plugin & configure Direct3D 12 engine
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 # 1. Base Motion Super Clip (Integer Pixel Precision)
 # levels=levels_val: Full pyramid at 1080p (levels=0), 2 levels at 4K (levels=2)

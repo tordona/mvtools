@@ -2,7 +2,7 @@
 
 Comprehensive automated benchmarking, telemetry collection, and performance analysis suite for **MVTools** on Windows across ARM64 and x86-64 architectures.
 
-This test suite rigorously measures, validates, and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2.dll`).
+This test suite measures and compares motion estimation and 60 fps frame interpolation across performance tiers (**Eco**, **Balanced**, **MaxQuality**) and compute engines (**ARM64 CPU NEON** or **x64 CPU SIMD** via `mvtools2.dll` vs. **Direct3D 12 GPU** via `mvtools2.dll`).
 
 > [!WARNING]
 > **Experimental Feature Notice (Direct3D 12 GPU Offload):**  
@@ -290,6 +290,29 @@ When analyzing the comparison matrix, focus on the following key performance ind
   - **Eco Tier:** 315 MB (540p proxy clip reduces cache lines and DRAM pressure).
   - **Balanced Tier:** 384 MB (Full-resolution motion search).
   - **MaxQuality Tier:** 507 MB (Sub-pixel `pel=2` multi-level pyramid).
+
+### 3. Fast-Panning Visual Quality (*Tears of Steel* & *Big Buck Bunny*)
+
+During fast camera pans or quick action, standard block-based CPU interpolation can split moving objects into visible `16x16` square patches ("blocking"). When Direct3D 12 GPU offload is enabled (`USE_D3D12 = true`), frame synthesis stays smooth without those square edges.
+
+| Engine Mode | Live-Action Fast Pan (*Tears of Steel*, `03:29`) | Detailed Foliage Pan (*Big Buck Bunny*, `07:20`) |
+| :--- | :--- | :--- |
+| **Official MVTools (CPU)\*** | Visible `16x16` square blocks around moving beams and backgrounds | Leaves and branches break apart into a blocky square grid |
+| **This Fork (CPU)** | Same blocking behavior as official MVTools CPU | Same blocking behavior as official MVTools CPU |
+| **This Fork (D3D12 GPU)** | Smooth motion with continuous edges and no visible square blocks | Clean leaves and branches with no square grid tearing |
+
+\* *Official MVTools refers to the [pinterf/mvtools](https://github.com/pinterf/mvtools) release (`v2.7.48`).*
+
+#### Live-Action Fast Pan (*Tears of Steel*, `1080p` `24 fps` → `60 fps` at `03:29`)
+![Official MVTools (CPU) vs This Fork (D3D12 GPU) at 03:29.65 (2x center crop)](assets/tos_03m29s_f69_crop.png)
+*Figure 1 (2× zoomed crop): Official MVTools CPU (left) shows visible square patches across the diagonal blue beams and dark background, while This Fork D3D12 GPU (right) keeps the beams smooth.*
+
+![Official MVTools (CPU) vs This Fork (D3D12 GPU) edge outline view at 03:29.65](assets/tos_03m29s_f69_sobel.png)
+*Figure 2 (edge-outline view of the same frame): Highlighting object edges reveals the square grid lines left behind by CPU interpolation (left), which disappear with D3D12 GPU (right).*
+
+#### Detailed Foliage Pan (*Big Buck Bunny*, `1080p` at `07:20`)
+![Official MVTools (CPU) vs This Fork (D3D12 GPU) on Big Buck Bunny at 07:20 (2x center crop)](assets/bbb_s2_f7_crop.png)
+*Figure 3 (2× zoomed crop): On sharp, detailed foliage without camera blur, Official MVTools CPU (left) breaks the leaves into `16x16` squares, whereas This Fork D3D12 GPU (right) preserves smooth leaf and branch shapes.*
 
 ---
 

@@ -180,7 +180,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      6. **Pixel Bit Depth:** D3D12 compute shaders currently support 8-bit input (`pixelsize_super == 1`).
      7. **Queue-Depth Thread Budgeting:** When `USE_D3D12 = true`, worker threads simply submit command lists to the Direct3D 12 queue (which is serialized by an internal mutex). Set `threads = 2` (Eco, double-buffered), `threads = 3` (Balanced, triple-buffered), or `threads = 4` (MaxQuality, quad-buffered) to avoid command queue lock contention.
      8. **Dynamic Parameter Coupling:** Always provide ternary declarations (`USE_D3D12 ? <GPU_Val> : <CPU_Val>`) for `threads`, `mem_limit`, and `pad_size`. In MaxQuality, also declare `synth_mode = USE_D3D12 ? 2 : 0` and `overlap_size = USE_D3D12 ? 0 : 4`. (In Eco and Balanced, `synth_mode` must be hardcoded to `0`).
-     9. **Mandatory `MEnableD3D12` Engine Activation:** Whenever `USE_D3D12` is declared in a script, `MEnableD3D12(USE_D3D12)` **MUST ALWAYS** be invoked immediately following `LoadPlugin("mvtools2.dll")`. Never omit this call. If omitted, setting `USE_D3D12 = true` silently fails to engage the Direct3D 12 compute queue, leaving the engine trapped in CPU SIMD mode with GPU-budgeted parameters.
+     9. **Mandatory `MEnableD3D12` Engine Activation:** Whenever `USE_D3D12` is declared in a script, `try { MEnableD3D12(USE_D3D12) } catch(e) {}` **MUST ALWAYS** be invoked immediately following `LoadPlugin("mvtools2.dll")` (the `try/catch` guard ensures compatibility with upstream `mvtools2.dll` builds). Never omit this call. If omitted, setting `USE_D3D12 = true` silently fails to engage the Direct3D 12 compute queue, leaving the engine trapped in CPU SIMD mode with GPU-budgeted parameters.
      10. **Mandatory Conservative Default (`USE_D3D12 = false`):** Generated profiles **MUST ALWAYS** default to `USE_D3D12 = false`. Native CPU SIMD is the production reference baseline that guarantees 0 dropped frames and maximum compatibility across all memory channel configurations and bit depths out-of-the-box. Direct3D 12 GPU offload is an experimental opt-in toggle; the agent must never emit a profile with `USE_D3D12 = true` enabled by default, leaving that as an explicit manual choice for the user.
 
 > [!TIP]
@@ -229,7 +229,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
    # 4. Load Plugin & Configure Direct3D 12 Engine
    LoadPlugin("mvtools2.dll")
-   MEnableD3D12(USE_D3D12)               # MANDATORY: Must ALWAYS be called whenever USE_D3D12 is declared
+   try { MEnableD3D12(USE_D3D12) } catch(e) {} # MANDATORY: Must ALWAYS be called whenever USE_D3D12 is declared
    try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
    # 5. Base Motion Super Clip (Tiered Pyramid Geometry)
@@ -392,7 +392,7 @@ For the requested platform, output:
    - [ ] `potplayer_source()` is invoked before calling `FrameRate()` or `Width()`.
    - [ ] `is_4k = (src.Width() > 2048)` and `target_fps = (is_4k && target_fps > 60) ? 60 : target_fps` precede `if (src.FrameRate() >= (target_fps * 0.96)) { return src }`.
    - [ ] `is_4k = (src.Width() > 2048)` is defined before any `blk_coarse`, `blk_fine`, `blk_sz`, or `pad_val` assignment.
-   - [ ] `MEnableD3D12(USE_D3D12)` is invoked immediately after `LoadPlugin("mvtools2.dll")` whenever `USE_D3D12` is declared.
+   - [ ] `try { MEnableD3D12(USE_D3D12) } catch(e) {}` is invoked immediately after `LoadPlugin("mvtools2.dll")` whenever `USE_D3D12` is declared.
    - [ ] `MBlockFps` is assigned to `last` (e.g. `last = MBlockFps(...)`) or called bare so PotPlayer receives the interpolated clip (never assign to an unused variable like `out =`).
    - [ ] Zero resolution-dependent variable calculations exist in the top hardware configuration block.
    - [ ] Memory limit and thread counts match platform core counts and DRAM bandwidth.

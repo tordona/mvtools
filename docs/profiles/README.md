@@ -161,7 +161,7 @@ pad_val    = is_4k ? 16 : 8
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 # 1. Motion Super Clip with Edge Guard
 super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
@@ -224,7 +224,7 @@ blk_fine    = (USE_D3D12 ? 16 : 8) * blk_scale
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 # 1. Motion Super Clip
 super = src.MSuper(levels=0, pel=pel_val, hpad=pad_size, vpad=pad_size, sharp=sharp_mode)
@@ -284,7 +284,7 @@ pad_val    = is_4k ? 16 : 8
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
@@ -341,7 +341,7 @@ pad_val    = is_4k ? 16 : 8
 
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 super = MSuper(levels=0, pel=1, hpad=pad_val, vpad=pad_val, sharp=0)
 
@@ -504,7 +504,7 @@ backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Direct Native Frame Synthesis
-# mode=0: Fast 2-stream block projection using refined 16x16 vector grid (crisp, zero block tearing)
+# mode=0: Fast 2-stream block projection using refined 16x16 vector grid (clean edges, zero block tearing)
 # blend=false: Skips transparency alpha blending calculations to conserve ALU cycles
 # thSCD1=380, thSCD2=125: Balanced scene-change detection cleanly cuts camera transitions
 MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=0, blend=false, thSCD1=380, thSCD2=125)
@@ -592,7 +592,7 @@ backward_fine = MRecalculate(super, backward_coarse, blksize=blk_fine, blksizev=
 forward_fine  = MRecalculate(super, forward_coarse,  blksize=blk_fine, blksizev=blk_fine, search=2, searchparam=1, chroma=false)
 
 # 4. Direct Frame Synthesis
-# mode=0 on 4K sustains 60 fps without CPU pipeline stalls; mode=2 on 1080p delivers crisp dynamic median edges
+# mode=0 on 4K sustains 60 fps without CPU pipeline stalls; mode=2 on 1080p produces clean dynamic median edges
 # blend=false on 4K avoids memory bus saturation; blend=true on 1080p blends occlusion boundaries
 # thSCD1=380, thSCD2=125: Balanced scene-change sensitivity cleanly cuts camera transitions
 last = MBlockFps(src, super, backward_fine, forward_fine, num=target_fps, den=1, mode=synth_mode, blend=blend_val, thSCD1=380, thSCD2=125)
@@ -658,7 +658,7 @@ Curated Rev 3.0.0 profiles tailored for x86-64 desktop and mobile processors, pr
 
 # Core Allocation & Threading Strategy:
 # 3 worker threads across 4+ cores leaves ample headroom for GPU video decode and presentation.
-# Native 32x32 blocks delivers crisp motion tracking across 95% of mainstream x64 PCs.
+# Native 32x32 blocks provides accurate motion tracking across 95% of mainstream x64 PCs.
 threads     = 3
 mem_limit   = 512                 # Bounded cache footprint protects dual-channel DRAM bus
 target_fps = 60

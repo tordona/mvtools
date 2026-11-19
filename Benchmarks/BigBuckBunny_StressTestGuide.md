@@ -17,9 +17,9 @@
 
 | Property | Tears of Steel (`tears_of_steel_1080p.mov`) | Big Buck Bunny (`bbb_sunflower_1080p_30fps_normal.mp4`) |
 | :--- | :--- | :--- |
-| **Motion Blur Profile** | Heavy `180°` cinematic optical shutter blur. Fast-moving objects are blurred before capture. | **Zero optical shutter blur.** 3D CGI engine renders razor-sharp boundaries at all speeds. |
+| **Motion Blur Profile** | Heavy `180°` cinematic optical shutter blur. Fast-moving objects are blurred before capture. | **Zero optical shutter blur.** The 3D CGI renderer produces sharp, unblurred object edges at all speeds. |
 | **Edge Frequencies** | Soft textures, low-contrast grading, and shallow depth-of-field background bokeh. | **High spatial frequencies.** Sharp fur outlines, high-contrast tree bark, and thin grass blades. |
-| **Tearing Visibility** | Masked by optical blur and soft gradient matching in `MAnalyse`. | **Instantly visible.** Vector mismatches produce sharp, jagged block tears and stepped shears. |
+| **Tearing Visibility** | Masked by optical blur and soft gradient matching in `MAnalyse`. | **Clearly visible.** Vector mismatches produce jagged block tears and stepped edge shifts. |
 | **Primary Stress Target** | Low-contrast SAD matching, continuous camera drift, real-world noise. | **Block shearing, boundary occlusion, subpixel phase jitter, and search radius limits.** |
 
 ---
@@ -45,7 +45,7 @@
 
 ### Scene 2: Flying Squirrel Aerial Glide (`07:20 – 07:26`, Frames `13,200 – 13,380`)
 * **Motion Characteristics:** Large foreground character (Rinky the flying squirrel) gliding across a stationary and drifting background forest canopy.
-* **Failure Mechanism:** Massive occlusion regions on the leading and trailing edges of the body.
+* **Failure Mechanism:** Large occlusion regions along the leading and trailing edges of the body.
 * **Artifact Manifestation:** Without accurate occlusion masks (`maskmode=2`) and bi-directional vector weighting, the synthesized intermediate frame creates dark, warping ghost halos around the perimeter of the squirrel.
 
 ### Scene 3: Bow & Pinecone Launch (`08:22 – 08:28`, Frames `15,060 – 15,240`)

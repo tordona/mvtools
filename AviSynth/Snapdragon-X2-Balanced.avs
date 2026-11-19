@@ -51,7 +51,7 @@ pad_val = is_4k ? (pad_size * 2) : pad_size
 
 # Load Native ARM64 MVTools2 plugin & configure Direct3D 12 engine
 LoadPlugin("mvtools2.dll")
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
 
 # 1. Base Motion Super Clip (Tiered Pyramid, Integer Pixel Precision)

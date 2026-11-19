@@ -52,7 +52,7 @@ To ensure continuous, deterministic 60 fps playback without dropped frames:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
    - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
-   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for crisp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
+   - Select **`Shader Bicubic(A = -0.6)`** *(Recommended for sharp 1080p presentation)* or **`Shader Bilinear`** *(lowest GPU power)*.  
    *(Scaling and color presentation shaders are executed directly on the Adreno 680 shader cores without consuming CPU cycles).*
 4. Click **Apply**.
 

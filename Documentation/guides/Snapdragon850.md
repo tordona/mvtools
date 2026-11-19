@@ -51,7 +51,7 @@ To achieve sustained, smooth 60 fps playback without thermal throttling:
    - **`Built-in Direct3D 11 Video Renderer`** *(Recommended)*
 3. **GPU Scaling Algorithm:**
    - Under **Video Output Settings**, directly below **Direct3D Presentation**, locate the **`Resizer:`** dropdown.
-   - Select **`Shader Bilinear`** *(lowest GPU power / battery saver)* or **`Shader Bicubic(A = -0.6)`** *(crisp 1080p presentation)*.  
+   - Select **`Shader Bilinear`** *(lowest GPU power / battery saver)* or **`Shader Bicubic(A = -0.6)`** *(sharp 1080p presentation)*.  
    *(GPU shader units execute scaling operations without touching the CPU).*
 4. Click **Apply**.
 

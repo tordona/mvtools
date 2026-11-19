@@ -47,7 +47,7 @@ pad_val    = is_4k ? 8 : 4
 # Load Native ARM64 MVTools2 plugin
 LoadPlugin("mvtools2.dll")
 try { LoadPlugin("AvsAffinity.dll") } catch(e) {}
-MEnableD3D12(USE_D3D12)
+try { MEnableD3D12(USE_D3D12) } catch(e) {}
 
 # 1. Motion Super Clip with Lightweight Edge Guard
 # levels_val: 1 on USE_D3D12=true; is_4k ? 2 : 0 on CPU (full pyramid at 1080p, 2 levels at 4K)
