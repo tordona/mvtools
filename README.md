@@ -1,14 +1,14 @@
-# MVTools2 — Real-Time 60 fps Video Motion Interpolation
+# MVTools2-D3D12 — Real-Time 60 fps Video Motion Interpolation
 
-### Native x86-64 & ARM64 Motion Estimation for Daum PotPlayer & AviSynth+
+### Native ARM64 & x86-64 Motion Estimation for Daum PotPlayer & AviSynth+
 
 <p align="center">
   <a href="https://github.com/tordona/mvtools/releases/latest"><img src="https://img.shields.io/github/v/release/tordona/mvtools?color=blue&logo=github" height="20" alt="GitHub Release"></a>
   <a href="https://tordona.github.io/mvtools/"><img src="https://img.shields.io/badge/Docs-GitHub%20Pages-blue?logo=github" height="20" alt="Documentation Hub"></a>
-  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Platform-Windows%20(x86--64%20%26%20ARM64)-0078D4?logo=windows" height="20" alt="Platform"></a>
-  <a href="AI_PORT_NOTICE.md"><img src="https://img.shields.io/badge/SIMD-AVX2%20%2F%20AVX--512%20%2B%20NEON-410099" height="20" alt="SIMD"></a>
+  <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Platform-Windows%20(ARM64%20%26%20x86--64)-0078D4?logo=windows" height="20" alt="Platform"></a>
+  <a href="AI_PORT_NOTICE.md"><img src="https://img.shields.io/badge/SIMD-NEON%20%2B%20AVX2%20%2F%20AVX--512-410099" height="20" alt="SIMD"></a>
   <a href="#experimental-feature-notice-direct3d-12-gpu-offload"><img src="https://img.shields.io/badge/GPU%20Engine-Direct3D%2012%20(Experimental)-107C41?logo=directx" height="20" alt="GPU Engine"></a>
-  <a href="#real-time-60-fps-hardware-profiles-x86-64--arm64"><img src="https://img.shields.io/badge/Framerate-24%20fps%20%E2%86%92%2060%20fps%20Real--Time-brightgreen" height="20" alt="Framerate"></a>
+  <a href="#real-time-60-fps-hardware-profiles-arm64--x86-64"><img src="https://img.shields.io/badge/Framerate-24%20fps%20%E2%86%92%2060%20fps%20Real--Time-brightgreen" height="20" alt="Framerate"></a>
   <a href="Documentation/guides/"><img src="https://img.shields.io/badge/Tested%20On-Daum%20PotPlayer%20(D3D11)-E5A00D" height="20" alt="Tested On"></a>
   <a href="Documentation/gpl.txt"><img src="https://img.shields.io/badge/License-GPL--2.0-blue.svg" height="20" alt="License"></a>
 </p>
@@ -27,9 +27,9 @@ This repository provides **54 hardware-tailored real-time profiles** across **x8
 
 | Feature                                   | Implementation                                                                                                                   | Hardware & Compatibility Notes                                                                                         |
 |:----------------------------------------- |:-------------------------------------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------------------------------------------------------- |
-| **Dual Architecture (x86-64 & ARM64)**    | Native AVX2/AVX-512 and ARM64 NEON SIMD vector implementations running without emulation overhead.                              | Provides real-time 60 fps motion interpolation across 64-bit x86 and Windows on ARM devices.            |
+| **Dual Architecture (ARM64 & x86-64)**    | Native ARM64 NEON and x86-64 AVX2/AVX-512 SIMD vector implementations running without emulation overhead.                        | Provides real-time 60 fps motion interpolation across Windows on ARM and 64-bit x86 devices.           |
 | **Experimental Direct3D 12 GPU Offload**  | DirectCompute shaders (`MEnableD3D12(true)`) offloading vector evaluation and frame synthesis to the GPU.                        | Brings D3D12 GPU compute to AviSynth+ motion estimation.                                                               |
-| **54 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 9 x86-64 platforms and 9 ARM64 platforms.                                                         | Zero dropped frames, tailored core allocation, and tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU). |
+| **54 Tuned Real-Time Profiles**           | Curated `.avs` scripts across 9 ARM64 platforms and 9 x86-64 platforms.                                                         | Zero dropped frames, tailored core allocation, and tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU). |
 | **Sub-Millisecond Benchmark Harness**     | Automated PowerShell suite ([`Benchmarks/`](Benchmarks/)) measuring PresentMon ETW pacing and swapchain duplicates.              | Catches fake 60 fps swapchain repeat bugs and evaluates true 1% Low frame pacing.                                      |
 | **Custom AviSynth+ Profile Generation**   | 1-click quickstart ([`GenerateCustomProfiles.md`](Documentation/guides/GenerateCustomProfiles.md)) & technical spec ([`AIAgentProfileGuide.md`](Documentation/guides/AIAgentProfileGuide.md)). | Instant tailored AviSynth+ profile generation for PotPlayer (zero clone needed) and autonomous closed-loop PresentMon tuning. |
 
@@ -37,7 +37,7 @@ This repository provides **54 hardware-tailored real-time profiles** across **x8
 
 ### Plugin Binaries & Architecture
 
-* **`mvtools2.dll`**: Unified canonical binary containing the production native CPU SIMD vector engine (AVX2/AVX-512 on x86-64, NEON on ARM64) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
+* **`mvtools2.dll`**: Unified canonical binary containing the production native CPU SIMD vector engine (NEON on ARM64, AVX2/AVX-512 on x86-64) and the experimental Direct3D 12 DirectCompute GPU offload engine (activated via `MEnableD3D12(true)`).
 * **`AvsAffinity.dll`**: Bundled companion AviSynth+ clip filter (`PinWorkerThreads`) that enforces CPU Performance core (P-core) thread affinity for multi-threaded `Prefetch()` pipelines across hybrid topologies (Intel Alder/Raptor Lake/Core Ultra, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, NVIDIA RTX Spark), eliminating micro-stutters and 1% low frame latency caused by thread migration to Efficiency cores. Distributed standalone at [`tordona/AvsAffinity`](https://github.com/tordona/AvsAffinity) and bundled directly within `mvtools` release packages.
 
 > [!WARNING]

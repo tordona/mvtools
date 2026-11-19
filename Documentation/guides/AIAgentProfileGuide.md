@@ -1,6 +1,6 @@
 # AI Agent Profile Tuning & Specification Guide
 
-This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any x86-64 or ARM64 hardware platform.
+This guide provides the complete specification, standardized agent prompt, and architectural decision trees for AI coding assistants and developers to generate and iteratively tune production-grade **Eco**, **Balanced**, and **MaxQuality** AviSynth+ real-time 60 fps interpolation profiles (`.avs`) for any ARM64 or x86-64 hardware platform.
 
 > [!TIP]
 > **Looking for the Quick Setup?**  
@@ -151,8 +151,8 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
 
 1. **Architecture & Compute Engine Targeting:**
    * **Dual-Engine Execution Model (CPU SIMD vs. Direct3D 12 GPU Offload):**
-     Both x86-64 and ARM64 platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
-     * **Native CPU SIMD Engine:** Executes 100% on CPU cores using native vector extensions (x86-64 AVX-512 / AVX2 / SSE4.2; ARM64 NEON). On ARM64, this includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`) guaranteeing deterministic slice scheduling without `avstp.dll`.
+     Both ARM64 and x86-64 platforms support unified execution via `LoadPlugin("mvtools2.dll")`:
+     * **Native CPU SIMD Engine:** Executes 100% on CPU cores using native vector extensions (ARM64 NEON; x86-64 AVX-512 / AVX2 / SSE4.2). On ARM64, this includes an in-process native Windows thread pool fallback (`AvstpFallbackPool`) guaranteeing deterministic slice scheduling without `avstp.dll`.
      * **Direct3D 12 GPU Offload Engine:** Offloads block SAD vector estimation (`motion_search_cs.hlsl`) and frame synthesis / motion compensation warping (`flow_warp.hlsl`) to the graphics processor via `MEnableD3D12(USE_D3D12)`.
    * **Hardware Eligibility Gating (When to Include `USE_D3D12`):**
      Direct3D 12 compute offload requires sufficient shader core density and UMA memory bandwidth to complete within the 16.67 ms presentation deadline:
@@ -334,7 +334,7 @@ Your task is to generate and iteratively tune a complete, production-grade 3-tie
      1. **Core Topology:** `physical_p_cores >= 6` on hybrid CPUs (e.g. 6P+8E `Core i7-13700H`, `Ultra 7 155H`), OR `homogeneous_cores >= 8` with all-core clock $\ge 3.8\text{ GHz}$ (e.g. desktop AMD Ryzen 7/9, 12-core Snapdragon X Elite `X1E-80/84`).
      2. **Thermal / Package Envelope:** `sustained_tdp >= 35 W` (H/HX-series, desktop socket, or active workstation cooling).
      3. **Memory Bandwidth:** Dual-channel DDR5 or 128-bit LPDDR5x ($\ge 100\text{ GB/s}$ UMA memory bandwidth).
-     *Sharpening Filter:* Set `sharp_mode = 2` (Wiener 6-tap filter, vectorized via native AVX2 / ARM64 NEON).
+     *Sharpening Filter:* Set `sharp_mode = 2` (Wiener 6-tap filter, vectorized via native ARM64 NEON / AVX2).
 
 ---
 
@@ -380,7 +380,7 @@ For the requested platform, output:
    * `# PotPlayer AviSynth 60 fps Interpolation: <Platform> (Profile N: <Tier>)`
    * `# Hardware: <Detailed CPU & iGPU String>`
    * `# Memory: <RAM size, channel configuration, and bandwidth>`
-   * `# Architecture: <x86-64 AVX-512 / AVX2 or ARM64 NEON / Direct3D 12 GPU Offload>`
+   * `# Architecture: <ARM64 NEON or x86-64 AVX-512 / AVX2 / Direct3D 12 GPU Offload>`
    * `# Generator: <Agent Name & Model, e.g. Claude 3.5 Sonnet, ChatGPT-4o, Google Antigravity, or Manual> (AIAgentProfileGuide Rev 2.3.16)`
    * `# Target: <Core Design Goal>`
    * `# Revision: 2.3.16 (2026-11-17)`

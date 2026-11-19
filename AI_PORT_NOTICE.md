@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.102`**.
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for **MVTools2-D3D12** (fork of the MVTools2 AviSynth plugin suite: `mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.49.100`**.
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
@@ -87,7 +87,7 @@ To eliminate CPU resource load on Qualcomm Snapdragon SoCs, Block SAD (Sum of Ab
 ### G. Companion Plugin Integration: CPU Core Affinity Isolation (`AvsAffinity.dll` v1.1.0)
 - **Architectural Motivation**: On hybrid CPU topologies (Intel Alder/Raptor Lake/Core Ultra P+E, AMD Zen 4c/5c, Qualcomm Snapdragon X2/C/8cx, and NVIDIA RTX Spark N1X), the Windows thread scheduler can migrate compute-intensive video worker threads across clock domains or onto low-IPC Efficiency cores. In real-time 60 fps interpolation, this introduces frame presentation jitter, high 1% low frame latency, and pipeline starvation.
 - **Clip Filter Architecture**: Rather than applying whole-process affinity masks (which restrict host audio decoding, UI, and D3D11 swapchain presentation), the companion `AvsAffinity.dll` filter (`PinWorkerThreads`) intercepts `GetFrame()` and invokes Win32 `SetThreadAffinityMask` once per worker thread per filter instance (restoring prior masks on teardown), isolating only AviSynth+ worker threads to Performance cores.
-- **Submodule & Solution Mapping**: Attached as a Git submodule (`AvsAffinity/`) and mapped into `mvtools.sln` across x64 and ARM64 platforms, outputting `AvsAffinity.dll` directly alongside `mvtools2.dll`.
+- **Submodule & Solution Mapping**: Attached as a Git submodule (`AvsAffinity/`) and mapped into `mvtools.sln` across ARM64 and x64 platforms, outputting `AvsAffinity.dll` directly alongside `mvtools2.dll`.
 - **Homogeneous Bypass**: Automatically detects uniform CPU architectures (1st-Gen Qualcomm Oryon on Snapdragon X Elite/Plus, Intel N-series N100/N200, standard AMD Ryzen desktop CCDs) via `minClass == maxClass` and evaluates to a safe no-op (`mask = 0x0`).
 
 ---

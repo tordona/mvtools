@@ -1,4 +1,16 @@
 Change log
+- 2.7.49.100 (20261119)
+  - Core Upstream 2.7.49 Synchronization:
+    - Merged upstream MVTools 2.7.49 (`SuperParams` registry, `MSuper` `edgepad`/`edgepadV` right/bottom edge-block support, `MAnalyse temporal=true` caching and per-slice MT determinism, and `MScaleVect`/`MShow`/`MFlowBlur` fixes) into `mvtools-d3d12` while preserving `D3D12MotionSearch`, `D3D12FlowSynthesis`, and `Slicer` parallelization.
+    - Reset fork version suffix to `2.7.49.100` in `Sources/version.h` and added the Upstream Version Suffix Reset rule to `AGENTS.md`.
+    - Verified `Release|x64`, `Release|Win32`, and `Release|ARM64` builds across `mvtools.sln` and confirmed zero CPU/D3D12 headless throughput regression against `2.7.48.102`.
+  - Profile Compatibility & Visual Quality Documentation:
+    - Wrapped `MEnableD3D12(USE_D3D12)` in `try { MEnableD3D12(USE_D3D12) } catch(e) {}` across all 21 `AviSynth/*.avs` profiles, `Install-MvToolsPotPlayer.ps1`, `AIAgentProfileGuide.md`, `docs/profiles/README.md`, and `docs/quickstart.md` so scripts run without errors on official `pinterf/mvtools` builds.
+    - Added consumer-friendly Fast-Panning Visual Quality section and side-by-side comparison screenshots (*Tears of Steel* and *Big Buck Bunny*) to `Benchmarks/README.md` and `docs/benchmarks/README.md`.
+    - Replaced promotional phrasing with neutral, empirical descriptions across `README.md`, `AI_PORT_NOTICE.md`, `Benchmarks/BigBuckBunny_StressTestGuide.md`, `docs/profiles/README.md`, and Snapdragon guides.
+  - Submodule Update:
+    - Updated `AvsAffinity` submodule to `v1.1.0` (`30340e57`).
+
 - 2.7.49 (20261114)
   - Fix: MScaleVect crashed (access violation) on vector clips made with divide>0 (MAnalyse, MRecalculate), modes 0 and 1.
     The length word 0xFFFFFFFF of the divided sub-block level (since 2.7.14.22) made the level walk step backwards

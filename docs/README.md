@@ -1,6 +1,6 @@
-# MVTools2 — Real-Time 60 fps Documentation Hub
+# MVTools2-D3D12 — Real-Time 60 fps Documentation Hub
 
-> **Documentation, verified 60 fps AviSynth+ profiles, and sub-millisecond PresentMon benchmark test suite for x86-64 and ARM64 in Daum PotPlayer.**
+> **Documentation, verified 60 fps AviSynth+ profiles, and sub-millisecond PresentMon benchmark test suite for ARM64 and x86-64 in Daum PotPlayer.**
 
 ![MVTools2 Banner](images/social-preview-flat.jpg)
 
@@ -11,9 +11,9 @@
 **MVTools2** is a motion estimation and compensation plugin for AviSynth+ and the AviSynth v2.6 family, providing **real-time 24 fps → 60 fps motion interpolation** in media players like Daum PotPlayer without dropped frames.
 
 This documentation hub covers the key architectural additions developed in this fork:
-* **Dual Architecture Support:** Native AVX2/AVX-512 SIMD (x86-64) and NEON SIMD (ARM64) running without emulation overhead.
+* **Dual Architecture Support:** Native NEON SIMD (ARM64) and AVX2/AVX-512 SIMD (x86-64) running without emulation overhead.
 * **Experimental Direct3D 12 GPU Offload:** DirectCompute shader acceleration (`MEnableD3D12(true)`).
-* **54 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 9 x86-64 platforms and 9 ARM64 platforms with tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU).
+* **54 Tuned Real-Time Profiles:** Hardware-tailored `.avs` scripts across 9 ARM64 platforms and 9 x86-64 platforms with tiered pyramid geometry (`levels=1` on `USE_D3D12 = true`; multi-level `levels=0` / `is_4k ? 2 : 0` with `plevel=0` on CPU).
 * **PresentMon Benchmark Test Suite:** Sub-millisecond ETW frame pacing capture with automated swapchain duplication detection.
 * **AI Agent Auto-Tuning Guide:** Standardized 1-step prompt and diagnostic decision matrix for autonomous tuning.
 * **CPU Core Affinity Isolation:** Companion `AvsAffinity.dll` (`PinWorkerThreads`) filter restricting AviSynth+ worker threads to Performance cores on hybrid architectures.
@@ -59,7 +59,7 @@ Step-by-step PotPlayer hardware decoding (D3D11 Copy-Back), video renderer selec
   Get up and running with 60 fps video interpolation in PotPlayer in under 3 minutes.
 
 * [**AviSynth+ Profile Library**](profiles/README.md)  
-  Explore all 54 profiles across x86-64 and ARM64, inspect parameter settings, and copy `.avs` scripts directly.
+  Explore all 54 profiles across ARM64 and x86-64, inspect parameter settings, and copy `.avs` scripts directly.
 
 * [**Benchmark & Telemetry Suite**](benchmarks/README.md)  
   Learn how to run `MvToolsBenchmark-Start.ps1`, measure PresentMon ETW 1% Low frame pacing, detect swapchain frame duplication, and compare baseline results.

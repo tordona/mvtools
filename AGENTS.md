@@ -1,4 +1,4 @@
-# Agent Guidelines & Engineering Rules: MVTools2
+# Agent Guidelines & Engineering Rules: MVTools2-D3D12
 
 ## 1. Technical Writing & Unit Standardization Rules
 
