@@ -45,7 +45,7 @@ rem ============================================================
 rem  DETECTION
 rem ============================================================
 
-rem  Version: the line #define FILEVERSION_BASE_STR "2.7.48.100" of version.h (or FileVersion in mvtools.rc)
+rem  Version: the line #define FILEVERSION_BASE_STR "2.7.49.100" of version.h (or FileVersion in mvtools.rc)
 if not defined VER (
   for /f tokens^=2^ delims^=^" %%A in ('findstr "FILEVERSION_BASE_STR" "%SRC%\Sources\version.h"') do set "VER=%%A"
 )

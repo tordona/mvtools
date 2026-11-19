@@ -29,7 +29,9 @@
 #include "MVPlane.h"
 #include "Padding.h"
 #include "profile.h"
-#include "SuperParams64Bits.h"
+#include "SuperParams.h"
+#include "PlaneExtend.h"
+#include <algorithm>
 #include "Time256ProviderCst.h"
 #include "D3D12FlowSynthesis.h"
 
@@ -43,7 +45,7 @@ MVBlockFps::MVBlockFps(
   IScriptEnvironment* env
 )
   : GenericVideoFilter(_child)
-  , MVFilter(mvbw, "MBlockFps", env, 1, 0)
+  , MVFilter(mvbw, "MBlockFps", env, 1, 0, true) // edge blocks supported
   , mvClipB(mvbw, nSCD1, nSCD2, env, 1, 0)
   , mvClipF(mvfw, nSCD1, nSCD2, env, 1, 0)
   , super(_super)
@@ -97,8 +99,7 @@ MVBlockFps::MVBlockFps(
     env->ThrowError("MBlockFPS: cannot use motion vectors with absolute frame references.");
 
   // get parameters of prepared super clip - v2.0
-  SuperParams64Bits params;
-  memcpy(&params, &super->GetVideoInfo().num_audio_samples, 8);
+  const SuperParams params = GetSuperParams(super->GetVideoInfo());
   int nHeightS = params.nHeight;
   nSuperHPad = params.nHPad;
   nSuperVPad = params.nVPad;
@@ -131,21 +132,46 @@ MVBlockFps::MVBlockFps(
   isRGB = vi.IsPlanarRGB() || vi.IsPlanarRGBA(); // planar only
   //needDistinctChroma = !is444 && !isGrey && !isRGB;
 
-  pRefBGOF = new MVGroupOfFrames(nSuperLevels, nWidth, nHeight, nSuperPel, nSuperHPad, nSuperVPad, nSuperModeYUV, cpuFlags, xRatioUVs[1], yRatioUVs[1], pixelsize_super, bits_per_pixel_super, mt_flag);
-  pRefFGOF = new MVGroupOfFrames(nSuperLevels, nWidth, nHeight, nSuperPel, nSuperHPad, nSuperVPad, nSuperModeYUV, cpuFlags, xRatioUVs[1], yRatioUVs[1], pixelsize_super, bits_per_pixel_super, mt_flag);
-  int nSuperWidth = super->GetVideoInfo().width;
-  int nSuperHeight = super->GetVideoInfo().height;
+  // the super planes are built for the layout size: the frame plus the MSuper edgepad extension (SuperParams.h)
+  pRefBGOF = new MVGroupOfFrames(nSuperLevels, params.LayoutWidth(), params.LayoutHeight(), nSuperPel, nSuperHPad, nSuperVPad, nSuperModeYUV, cpuFlags, xRatioUVs[1], yRatioUVs[1], pixelsize_super, bits_per_pixel_super, mt_flag);
+  pRefFGOF = new MVGroupOfFrames(nSuperLevels, params.LayoutWidth(), params.LayoutHeight(), nSuperPel, nSuperHPad, nSuperVPad, nSuperModeYUV, cpuFlags, xRatioUVs[1], yRatioUVs[1], pixelsize_super, bits_per_pixel_super, mt_flag);
 
   if (!super->GetVideoInfo().IsSameColorspace(child->GetVideoInfo()))
     env->ThrowError("MBlockFPS: input and super clip format is different");
 
+  // params.nWidth / nHeight: the real frame size, without the edgepad extension of the super planes
   if (nHeight != nHeightS
     || nHeight != vi.height
-    || nWidth != nSuperWidth - nSuperHPad * 2
+    || nWidth != params.nWidth
     || nWidth != vi.width
     || nPel != nSuperPel)
   {
     env->ThrowError("MBlockFps : wrong source or super frame size");
+  }
+
+  // Blocks beyond the frame edge (MOTION_EDGE_BLOCKS): their blocks reach into the edge padding of the super clip;
+  // without enough padding only the blocks inside the frame are processed.
+  {
+    const int grid_w = nBlkX * (nBlkSizeX - nOverlapX) + nOverlapX;
+    const int grid_h = nBlkY * (nBlkSizeY - nOverlapY) + nOverlapY;
+    edge_ext = false;
+    nBlkXE = nBlkX;
+    nBlkYE = nBlkY;
+    if (grid_w > nWidth || grid_h > nHeight)
+    {
+      if (params.nEdgePadX >= grid_w - nWidth && params.nEdgePadY >= grid_h - nHeight)
+        edge_ext = true;
+      else
+      {
+        nBlkXE = std::min(nBlkX, (nWidth - nOverlapX) / (nBlkSizeX - nOverlapX));
+        nBlkYE = std::min(nBlkY, (nHeight - nOverlapY) / (nBlkSizeY - nOverlapY));
+      }
+    }
+    nWidthE = edge_ext ? grid_w : nWidth;
+    nHeightE = edge_ext ? grid_h : nHeight;
+    vi_dst_ext = vi;
+    vi_dst_ext.width = nWidthE;
+    vi_dst_ext.height = nHeightE;
   }
 
   // in overlaps.h
@@ -255,12 +281,12 @@ MVBlockFps::MVBlockFps(
   nBlkPitch = AlignNumber(nBlkSizeX, tmpBlkAlign); // padded to 16 , 2.5.11.22
 
   if (nOverlapY > 0)
-    _boundary_cnt_arr.resize(nBlkY);
+    _boundary_cnt_arr.resize(nBlkYE);
 
 
   const int tmpDstAlign = 16;
-  dstShortPitch = AlignNumber(nWidth, tmpDstAlign); // 2.5.11.22
-  dstShortPitchUV = AlignNumber(nWidth / xRatioUVs[1], tmpDstAlign);
+  dstShortPitch = AlignNumber(nWidthE, tmpDstAlign); // 2.5.11.22
+  dstShortPitchUV = AlignNumber(nWidthE / xRatioUVs[1], tmpDstAlign);
 
   DestBufElementSize = 0;
   if (nOverlapX > 0 || nOverlapY > 0)
@@ -272,10 +298,10 @@ MVBlockFps::MVBlockFps(
     // todo: rename to DstTemp and make BYTE *, cast later.
     // DstInt can hold 32 bit floats as well
     DestBufElementSize = pixelsize_super == 1 ? sizeof(short) : pixelsize_super == 2 ? sizeof(int) : sizeof(float);
-    DstShort = (uint16_t *)_aligned_malloc(dstShortPitch*nHeight * DestBufElementSize, tmpDstAlign); // PF aligned
+    DstShort = (uint16_t *)_aligned_malloc(dstShortPitch*nHeightE * DestBufElementSize, tmpDstAlign); // PF aligned
     if (!isGrey) {
-      DstShortU = (uint16_t *)_aligned_malloc(dstShortPitchUV*nHeight * DestBufElementSize, tmpDstAlign);
-      DstShortV = (uint16_t *)_aligned_malloc(dstShortPitchUV*nHeight * DestBufElementSize, tmpDstAlign);
+      DstShortU = (uint16_t *)_aligned_malloc(dstShortPitchUV*nHeightE * DestBufElementSize, tmpDstAlign);
+      DstShortV = (uint16_t *)_aligned_malloc(dstShortPitchUV*nHeightE * DestBufElementSize, tmpDstAlign);
     }
   }
 }
@@ -1338,7 +1364,7 @@ void MVBlockFps::ResultBlock(BYTE *pDst8, int dst_pitch, const BYTE * pMCB8, int
 void MVBlockFps::compensate_overlap_slice(Slicer::TaskData &td)
 {
   if (nOverlapY == 0
-    || (td._y_beg == 0 && td._y_end == nBlkY))
+    || (td._y_beg == 0 && td._y_end == nBlkYE))
   {
     compensate_overlap_slice(td._y_beg, td._y_end);
   }
@@ -1360,7 +1386,7 @@ void MVBlockFps::compensate_overlap_slice(Slicer::TaskData &td)
     }
 
     int cnt_bot = 2;
-    if (td._y_end < nBlkY)
+    if (td._y_end < nBlkYE)
     {
       cnt_bot = conc::AtomicIntOp::exec_new(
         _boundary_cnt_arr[td._y_end],
@@ -1391,11 +1417,11 @@ void MVBlockFps::compensate_overlap_slice(int y_beg, int y_end)
   for (int by = y_beg; by < y_end; by++)
   {
     // indexing overlap windows weighting table: top=0 middle=3 bottom=6
-    const int wby = (by == 0) ? 0 * 3 : (by == nBlkY - 1) ? 2 * 3 : 1 * 3;
+    const int wby = (by == 0) ? 0 * 3 : (by == nBlkYE - 1) ? 2 * 3 : 1 * 3;
 
-    for (int bx = 0; bx < nBlkX; bx++)
+    for (int bx = 0; bx < nBlkXE; bx++)
     {
-      const int wbx = (bx == 0) ? 0 : (bx == nBlkX - 1) ? 2 : 1;
+      const int wbx = (bx == 0) ? 0 : (bx == nBlkXE - 1) ? 2 : 1;
       winOver = OverWins->GetWindow(wby + wbx);
       if (!isGrey)
         winOverUV = OverWinsUV->GetWindow(wby + wbx);
@@ -1533,7 +1559,7 @@ void MVBlockFps::compensate_normal_slice(Slicer::TaskData &td)
       }
     }
 
-    for (int bx = 0; bx < nBlkX; ++bx)
+    for (int bx = 0; bx < nBlkXE; ++bx)
     {
       const int i = by * nBlkX + bx;
       const FakeBlockData &blockB = mvClipB.GetBlock(0, i);
@@ -1613,12 +1639,12 @@ void MVBlockFps::compensate_normal_slice(Slicer::TaskData &td)
     }
 
     // Blend rest right edge for this row
-    const int restRightY = nWidth - nBlkSizeX * nBlkX;
-    const int restRightUV = nWidthUV - nBlkSizeX_UV * nBlkX;
+    const int restRightY = nWidthE - nBlkSizeX * nBlkXE;
+    const int restRightUV = nWidthUV - nBlkSizeX_UV * nBlkXE;
     if (restRightY > 0)
     {
-      const int rightOffset_Y = nBlkSizeX * nBlkX;
-      const int rightOffset_UV = nBlkSizeX_UV * nBlkX;
+      const int rightOffset_Y = nBlkSizeX * nBlkXE;
+      const int rightOffset_UV = nBlkSizeX_UV * nBlkXE;
 
       for (int p = 0; p < 3; ++p)
       {
@@ -1661,10 +1687,10 @@ void MVBlockFps::compensate_normal_slice(Slicer::TaskData &td)
 
 PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
 {
-  int nWidth_B = nBlkX*(nBlkSizeX - nOverlapX) + nOverlapX;
-  int nHeight_B = nBlkY*(nBlkSizeY - nOverlapY) + nOverlapY;
-  int nHeightUV = nHeight / yRatioUVs[1];
-  int nWidthUV = nWidth / xRatioUVs[1];
+  int nWidth_B = nBlkXE*(nBlkSizeX - nOverlapX) + nOverlapX;
+  int nHeight_B = nBlkYE*(nBlkSizeY - nOverlapY) + nOverlapY;
+  int nHeightUV = nHeightE / yRatioUVs[1];
+  int nWidthUV = nWidthE / xRatioUVs[1];
 
 #if defined(INTEL_INTRINSICS) && !defined(_M_X64)
   _mm_empty();  // paranoya
@@ -1719,7 +1745,10 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
 
   if (mvClipB.IsUsable() && mvClipF.IsUsable())
   {
-
+    PVideoFrame dstExt;
+    if (edge_ext)
+      dstExt = env->NewVideoFrame(vi_dst_ext);
+    const PVideoFrame& target = edge_ext ? dstExt : dst;
 
     int planes_y[4] = { PLANAR_Y, PLANAR_U, PLANAR_V, PLANAR_A };
     int planes_r[4] = { PLANAR_G, PLANAR_B, PLANAR_R, PLANAR_A };
@@ -1733,8 +1762,8 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
       pRef[p] = ref->GetReadPtr(plane);
       nRefPitches[p] = ref->GetPitch(plane);
 
-      pDst[p] = dst->GetWritePtr(plane);
-      nDstPitches[p] = dst->GetPitch(plane);
+      pDst[p] = target->GetWritePtr(plane);
+      nDstPitches[p] = target->GetPitch(plane);
     }
 
     // Direct3D 12 GPU Gather-Based Frame Synthesis Offload
@@ -1750,7 +1779,16 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
         pRef[1] + (nSuperHPad >> nLogxRatioUVs[1]) + nRefPitches[1] * (nSuperVPad >> nLogyRatioUVs[1]),
         pRef[2] + (nSuperHPad >> nLogxRatioUVs[1]) + nRefPitches[2] * (nSuperVPad >> nLogyRatioUVs[1])
       };
-      uint8_t* pGpuDst[3] = { pDst[0], pDst[1], pDst[2] };
+      uint8_t* pGpuDst[3] = {
+        dst->GetWritePtr(planes[0]),
+        planecount > 1 ? dst->GetWritePtr(planes[1]) : nullptr,
+        planecount > 2 ? dst->GetWritePtr(planes[2]) : nullptr
+      };
+      int nGpuDstPitches[3] = {
+        dst->GetPitch(planes[0]),
+        planecount > 1 ? dst->GetPitch(planes[1]) : 0,
+        planecount > 2 ? dst->GetPitch(planes[2]) : 0
+      };
 
       int widthUV = nWidth >> nLogxRatioUVs[1];
       int heightUV = nHeight >> nLogyRatioUVs[1];
@@ -1758,7 +1796,7 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
       bool gpuSuccess = D3D12FlowSynthesis::GetInstance().SynthesizeFrame(
         pGpuSrc, nSrcPitches,
         pGpuRef, nRefPitches,
-        pGpuDst, nDstPitches,
+        pGpuDst, nGpuDstPitches,
         nWidth, nHeight,
         widthUV, heightUV,
         planecount,
@@ -1902,23 +1940,23 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
       _cpPMaskOccUV = pMaskOccUV;
 
       Slicer slicer(_mt_flag);
-      slicer.start(nBlkY, *this, &MVBlockFps::compensate_normal_slice, 2);
+      slicer.start(nBlkYE, *this, &MVBlockFps::compensate_normal_slice, 2);
       slicer.wait();
 
       // blend rest bottom with time weight
-      const int restBottomY = nHeight - nBlkSizeY * nBlkY;
-      const int restBottomUV = nHeightUV - nBlkSizeY_UV * nBlkY;
+      const int restBottomY = nHeightE - nBlkSizeY * nBlkYE;
+      const int restBottomUV = nHeightUV - nBlkSizeY_UV * nBlkYE;
       if (restBottomY > 0)
       {
         for (int p = 0; p < 3; p++)
         {
           if (needProcessPlanes[p]) {
-            const int rowOffset = (p == 0) ? nBlkSizeY * nBlkY : nBlkSizeY_UV * nBlkY;
+            const int rowOffset = (p == 0) ? nBlkSizeY * nBlkYE : nBlkSizeY_UV * nBlkYE;
             const int bottomOffset = (int64_t)rowOffset * nDstPitches[p];
             const int bottomSrcOffset = (int64_t)rowOffset * nSrcPitches[p];
             const int bottomRefOffset = (int64_t)rowOffset * nRefPitches[p];
             const int bottomHeight = (p == 0) ? restBottomY : restBottomUV;
-            const int planeWidth = (p == 0) ? nWidth : nWidthUV;
+            const int planeWidth = (p == 0) ? nWidthE : nWidthUV;
 
             if (pixelsize_super == 1)
               Blend<uint8_t>(pDst[p] + bottomOffset, pSrc[p] + bottomSrcOffset, pRef[p] + bottomRefOffset,
@@ -1949,21 +1987,21 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
               pSrc[p] + pixelsize_super *(p == 0 ? nWidth_B : nWidth_B_UV),
               pRef[p] + pixelsize_super *(p == 0 ? nWidth_B : nWidth_B_UV),
               p == 0 ? nHeight_B : nHeight_B_UV,
-              p == 0 ? nWidth - nWidth_B : nWidthUV - nWidth_B_UV,
+              p == 0 ? nWidthE - nWidth_B : nWidthUV - nWidth_B_UV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
           else if (pixelsize_super == 2)
             Blend<uint16_t>(pDst[p] + pixelsize_super *(p == 0 ? nWidth_B : nWidth_B_UV),
               pSrc[p] + pixelsize_super *(p == 0 ? nWidth_B : nWidth_B_UV),
               pRef[p] + pixelsize_super *(p == 0 ? nWidth_B : nWidth_B_UV),
               p == 0 ? nHeight_B : nHeight_B_UV,
-              p == 0 ? nWidth - nWidth_B : nWidthUV - nWidth_B_UV,
+              p == 0 ? nWidthE - nWidth_B : nWidthUV - nWidth_B_UV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
           else if (pixelsize_super == 4)
             Blend<float>(pDst[p] + pixelsize_super * (p == 0 ? nWidth_B : nWidth_B_UV),
               pSrc[p] + pixelsize_super * (p == 0 ? nWidth_B : nWidth_B_UV),
               pRef[p] + pixelsize_super * (p == 0 ? nWidth_B : nWidth_B_UV),
               p == 0 ? nHeight_B : nHeight_B_UV,
-              p == 0 ? nWidth - nWidth_B : nWidthUV - nWidth_B_UV,
+              p == 0 ? nWidthE - nWidth_B : nWidthUV - nWidth_B_UV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
         }
       }
@@ -1975,22 +2013,22 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
             Blend<uint8_t>(pDst[p] + nDstPitches[p] * (p == 0 ? nHeight_B : nHeight_B / yRatioUVs[1]),
               pSrc[p] + nSrcPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
               pRef[p] + nRefPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
-              p == 0 ? nHeight - nHeight_B : nHeightUV - nHeight_B_UV,
-              p == 0 ? nWidth : nWidthUV,
+              p == 0 ? nHeightE - nHeight_B : nHeightUV - nHeight_B_UV,
+              p == 0 ? nWidthE : nWidthUV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
           else if (pixelsize_super == 2)
             Blend<uint16_t>(pDst[p] + nDstPitches[p] * (p == 0 ? nHeight_B : nHeight_B / yRatioUVs[1]),
               pSrc[p] + nSrcPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
               pRef[p] + nRefPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
-              p == 0 ? nHeight - nHeight_B : nHeightUV - nHeight_B_UV,
-              p == 0 ? nWidth : nWidthUV,
+              p == 0 ? nHeightE - nHeight_B : nHeightUV - nHeight_B_UV,
+              p == 0 ? nWidthE : nWidthUV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
           else if (pixelsize_super == 4)
             Blend<float>(pDst[p] + nDstPitches[p] * (p == 0 ? nHeight_B : nHeight_B / yRatioUVs[1]),
               pSrc[p] + nSrcPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
               pRef[p] + nRefPitches[p] * (p == 0 ? nHeight_B : nHeight_B_UV),
-              p == 0 ? nHeight - nHeight_B : nHeightUV - nHeight_B_UV,
-              p == 0 ? nWidth : nWidthUV,
+              p == 0 ? nHeightE - nHeight_B : nHeightUV - nHeight_B_UV,
+              p == 0 ? nWidthE : nWidthUV,
               nDstPitches[p], nSrcPitches[p], nRefPitches[p], time256, cpuFlags);
         }
       }
@@ -2024,14 +2062,14 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
 
       if (nOverlapY > 0)
       {
-        for (int i = 0; i < nBlkY; ++i)
+        for (int i = 0; i < nBlkYE; ++i)
         {
           _boundary_cnt_arr[i] = 0;
         }
       }
 
       Slicer slicer(_mt_flag);
-      slicer.start(nBlkY, *this, &MVBlockFps::compensate_overlap_slice, 2);
+      slicer.start(nBlkYE, *this, &MVBlockFps::compensate_overlap_slice, 2);
       slicer.wait();
 
       if (pixelsize_super == 1) {
@@ -2068,6 +2106,8 @@ PVideoFrame __stdcall MVBlockFps::GetFrame(int n, IScriptEnvironment* env)
     }
     PROFILE_STOP(MOTION_PROFILE_COMPENSATION);
 
+    if (edge_ext)
+      crop_frame_into(dst, dstExt, nWidth, nHeight, isGrey ? 1 : 3, nLogxRatioUVs[1], nLogyRatioUVs[1], pixelsize_super, env);
 
     ClipFnc::copy_alpha_from(dst, child, time256 < 128 ? nleft : nright, vi, env); // alpha of the nearest frame
     return dst;

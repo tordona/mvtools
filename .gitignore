@@ -300,3 +300,9 @@ Benchmarks/BenchmarkResults/
 Benchmarks/tools/
 Benchmarks/pinterf/
 
+# Machine-specific evaluation profiles
+AviSynth/Core-i7-*.avs
+AviSynth/Xeon-*.avs
+
+# Companion projects
+AvsAffinity/
