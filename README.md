@@ -1,4 +1,4 @@
-# MVTools2 — Real-Time 60 fps Video Motion Interpolation
+# MVTools2-D3D12 — Real-Time 60 fps Video Motion Interpolation
 
 ### Native x86-64 & ARM64 Motion Estimation for Daum PotPlayer & AviSynth+
 

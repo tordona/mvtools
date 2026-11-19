@@ -1,5 +1,5 @@
 # ==============================================================================
-# MVTools2 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
+# MVTools2-D3D12 + Daum PotPlayer 60 fps Automated Setup & Profile Deployment
 # Architecture: Windows 11 on ARM64 (Qualcomm Snapdragon) & x86-64 (AMD/Intel)
 # Repository: https://github.com/tordona/mvtools (branch: mvtools-d3d12)
 # Revision: 2.3.27 (2026-11-17)

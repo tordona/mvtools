@@ -1,4 +1,4 @@
-# MVTools2 — Real-Time 60 fps Documentation Hub
+# MVTools2-D3D12 — Real-Time 60 fps Documentation Hub
 
 > **Documentation, verified 60 fps AviSynth+ profiles, and sub-millisecond PresentMon benchmark test suite for x86-64 and ARM64 in Daum PotPlayer.**
 

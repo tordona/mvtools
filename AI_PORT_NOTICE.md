@@ -1,6 +1,6 @@
 # AI Port Notice & Technical Architecture Summary
 
-This repository contains an **ARM64 Windows** port and ABI compatibility bridge for the **MVTools2** AviSynth plugin suite (`mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.48.102`**.
+This repository contains an **ARM64 Windows** port and ABI compatibility bridge for **MVTools2-D3D12** (fork of the MVTools2 AviSynth plugin suite: `mvtools2.dll`, `DePan.dll`, and `DePanEstimate.dll`), version **`v2.7.49.100`**.
 
 This port was developed through collaborative pair programming with **Google Antigravity** (Advanced Agentic AI Coding Assistant).
 
